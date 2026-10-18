@@ -2189,17 +2189,22 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   --bark-hi: #8f6b44;
   --bark-lo: #4f361f;
   --snip: #a3392b;
-  --trunk-w: 30px;
-  --stem-w: 34px;
+  --trunk-w: 28px;
+  --stem-w: 26px;
   --stem-h: 12px;
   --level-h: 62px;
   --tag-fs: 15px;
   --tag-fs-en: 12.5px;
+  /* layoutTree (js/ui.js): 1 = the tree may grow taller for its labels (the page scrolls); 0 = it must
+     fit, and the labels shrink by --tag-fit, never below --tag-min. */
+  --tree-grow: 1;
+  --tag-min: 0px;
+  --tag-fit: 1;
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 16px 12px 12px;
+  padding: 16px 10px 12px;
   border-radius: 10px;
   color: var(--ink);
   background-color: var(--papyrus);
@@ -2320,11 +2325,11 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   clip-path: polygon(calc(50% - var(--w-top) / 2) 0, calc(50% + var(--w-top) / 2) 0, 100% 100%, 0 100%);
 }
 
-/* A choice point: a knot in the bark. */
+/* A choice point: a knot in the bark (layoutTree may move it off the middle of its row). */
 .tree__knot {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(var(--knot, 0.5) * 100%);
   width: calc(var(--w-bottom) * 0.5);
   height: calc(var(--w-bottom) * 0.16);
   transform: translate(-50%, -50%);
@@ -2458,7 +2463,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   border: 1px solid rgba(42, 33, 25, 0.18);
   background: var(--vellum);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 5px rgba(42, 33, 25, 0.24);
-  font: 700 calc(var(--tag-fs) * var(--text-scale)) / 1.3 var(--serif);
+  font: 700 max(var(--tag-min), calc(var(--tag-fs) * var(--text-scale) * var(--tag-fit))) / 1.3 var(--serif);
   word-break: keep-all;
   overflow-wrap: anywhere;
   transform: rotate(-1.5deg);
@@ -2472,7 +2477,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 .branch__tag .en {
   margin-top: 1px;
   font-weight: 400;
-  font-size: calc(var(--tag-fs-en) * var(--text-scale));
+  font-size: max(var(--tag-min), calc(var(--tag-fs-en) * var(--text-scale) * var(--tag-fit)));
   color: var(--ink-soft);
 }
 
@@ -2489,6 +2494,54 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
 .branch--l[data-state="unseen"] .branch__stem {
   clip-path: polygon(0 14%, 100% 0, 100% 100%, 0 86%);
+}
+
+/* Placed layout (layoutTree in js/ui.js): the branches leave their rows; each bough, its scissors and
+   its label are positioned on the card from measured sizes (inline left, top, width and rotation). The
+   bough's element starts at its knot and is rotated toward its label; a left bough is flipped as well,
+   so its light edge stays on top. */
+.tree--placed .branch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The boughs grow from behind the trunk, so their bases never show. */
+.tree--placed .tree__trunk {
+  z-index: 1;
+}
+
+/* Every bough measures the full stem before layoutTree sets its length (an unseen stub included). */
+.tree--placed .branch[data-state] .branch__wood {
+  position: absolute;
+  width: var(--stem-w);
+  margin: 0;
+  transform-origin: 0 50%;
+}
+
+.tree--placed .branch__stem,
+.tree--placed .branch--l .branch__stem {
+  transform: none;
+  clip-path: polygon(0 0, 100% 30%, 100% 70%, 0 100%);
+}
+
+.tree--placed .branch[data-state="unseen"] .branch__stem {
+  clip-path: polygon(0 0, 100% 14%, 100% 86%, 0 100%);
+}
+
+.tree--placed .branch__snip {
+  position: absolute;
+  margin: 0;
+  transform-origin: 50% 50%;
+}
+
+.tree--placed .branch__tag {
+  position: absolute;
+  top: 0;
+  width: max-content;
+  max-width: var(--tag-max, 12em);
 }
 
 /* ------------------------------------------------------------------ settings + modal */
@@ -3346,7 +3399,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     row-gap: 2vh;
     height: 100%;
     min-height: 0;
-    padding: calc(var(--safe-top) + 8.6vh) 4vw calc(var(--safe-bottom) + 3vh);
+    padding: calc(var(--safe-top) + 8.6vh) 2.4vw calc(var(--safe-bottom) + 2.6vh);
   }
 
   .treespage-head {
@@ -3380,10 +3433,11 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     min-height: 7vh;
   }
 
+  /* Wide cards: each tree's labels need about a third of the screen. */
   .treespage-list {
     grid-area: list;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2vw;
+    gap: 1.2vw;
     min-height: 0;
   }
 
@@ -3394,6 +3448,9 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     --level-h: 8vh;
     --tag-fs: 3vh;
     --tag-fs-en: 2.4vh;
+    /* Nothing scrolls on a TV: the labels shrink to fit, never below the smallest TV text. */
+    --tree-grow: 0;
+    --tag-min: 2.2vh;
     padding: 2.4vh 2vw 2vh;
     border-radius: 1.2vh;
   }
@@ -3401,18 +3458,43 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   /* Three trees side by side must fit one screen with every branch seen: tighter wood, smaller tags
      (never below 2.2vh), short lines. */
   .tree--compact {
-    --trunk-w: 3.4vh;
-    --stem-w: 3vh;
-    --stem-h: 1.5vh;
+    --trunk-w: 3vh;
+    --stem-w: 2.4vh;
+    --stem-h: 1.4vh;
     --level-h: 5.6vh;
     --tag-fs: 2.4vh;
     --tag-fs-en: 2.2vh;
-    padding: 1.6vh 0.5vw 1.4vh;
+    padding: 1.6vh 0.6vw 1.4vh;
   }
 
+  /* The ending's title and the name plate take one line each when they fit (the labels need the
+     height); no text below 2.2vh. */
   .tree--compact .tree__goaltitle {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: 0.45em;
     margin-bottom: 1.2vh;
     line-height: 1.2;
+  }
+
+  .tree--compact .tree__goaltitle .en {
+    font-size: max(2.2vh, 0.82em);
+  }
+
+  .tree.tree--compact .tree__plate {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: 0.5em;
+    margin-top: 1vh;
+    font-size: 2.6vh;
+  }
+
+  .tree.tree--compact .plate__en--stack {
+    font-size: max(2.2vh, 0.86em);
   }
 
   .tree--compact .tree__star {
@@ -3426,11 +3508,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .tree--compact .branch__tag {
     padding: 0.2em 0.45em 0.24em;
-    line-height: 1.2;
-  }
-
-  .tree--compact .tree__plate {
-    margin-top: 1vh;
+    line-height: 1.16;
   }
 
   .tree__tip {
@@ -3504,6 +3582,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     --stem-w: 2vh;
     padding-left: 0.2vw;
     padding-right: 0.2vw;
+  }
+
+  /* A smaller fan of leaves, clear of the label columns beside the star. */
+  .tree--compact .tree__crown {
+    width: 280%;
+    height: 195%;
   }
 
   .treespage {
@@ -4233,6 +4317,9 @@ html.is-test .echo mark {
    Schema basics, canon and guardrails: docs/SPEC.md sections 4.5, 6, 7.
    Shape: dawn (c1) -> THE LANE (c2) -> THE CROWD in the fixed order of SPEC 6.4 (c3 after 9:3,
    c4 after 9:5, c5 after 9:8) -> the true ending with the memory verse MT_9_6A.
+   Teacher's note v4.1 (SPEC 3.5): the lane has a comic quarrel with the passerby that ends in an
+   absurd cut branch (wordWar) and a slapstick one (dyeVat); the crowd has an absurd cut branch that
+   is not walking away (permit). Quarrels stay verbal; slapstick never hurts anyone.
    Each option does exactly one thing: continues (default), ends in a cut branch (bad: id), or is
    scolded away by Hanan (scold: { speaker, text }) and the same choice is asked again.
    Jesus speaks only through verse beats. Menahem says nothing aloud at the crowd on the true path.
@@ -4280,7 +4367,8 @@ html.is-test .echo mark {
       // ---------------------------------------------------------------
       // LATE MORNING: THE LANE (SPEC 6.3). The passerby's line is byte-identical to the SPEC.
       // They step aside; Menahem's eyes meet Asher's; neither says a word to the other.
-      // No reactions in c2: the cut branch at c4 must stay within 20 screens.
+      // No reaction on c2's continue option: the cut path at c4 (rebuttal) is at the 20-screen cap.
+      // The reactions of the cutting options only lengthen their own cut paths.
       // ---------------------------------------------------------------
       { id: "lane", type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
       { type: "line", text: { ko: "므나헴과 하난이 골목을 내려간다. 뒤에서 사람들이 누군가를 침상째 들고 온다.", en: "Menahem and Hanan head down the lane. Behind them, some men are carrying someone on a bed." } },
@@ -4306,7 +4394,21 @@ html.is-test .echo mark {
           },
           {
             id: "c",
-            text: { ko: "“하난, 서둘러라. 앞자리 다 찬다.”", en: "“Hurry, Hanan. The front row's filling up.”" }
+            // The quarrel: pedantry about words, not about the man. The passerby talks back (made-up lines).
+            bad: "wordWar",
+            text: { ko: "“잠깐, 용어 정의부터 합시다.”", en: "“Hold on. Let's define our terms.”" },
+            reaction: [
+              { type: "line", speaker: "passerby", text: { ko: "정의는 무슨 정의요? 잘못이면 잘못이지.", en: "Define what? Wrong is wrong." } }
+            ]
+          },
+          {
+            id: "d",
+            // He backs away from the passerby's talk (not from the man on the bed).
+            bad: "dyeVat",
+            text: { ko: "괜히 엮이지 말자. 슬금슬금 물러난다.", en: "Stay out of it. Back away slowly." },
+            reaction: [
+              { type: "line", speaker: "hanan", text: { ko: "선생님? 선생님, 뒤에…!", en: "Teacher? Teacher, behind you—!" } }
+            ]
           }
         ]
       },
@@ -4316,9 +4418,8 @@ html.is-test .echo mark {
       // ---------------------------------------------------------------
       { id: "crowd", type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가", en: "Around noon · By the shore" } },
       { type: "fx", fx: "light", level: "soft" },
-      // One screen either way: a small callback to c2.
-      { when: { choice: "c2", is: "a" }, type: "line", text: { ko: "므나헴은 맨 앞, 서기관 몇 사람 틈에 선다. 골목에서 기도해 준 그 사람이 침상째 실려 들어온다.", en: "Menahem stands at the very front with a few other scribes. The man he prayed for in the lane is carried in on his bed." } },
-      { when: { not: { choice: "c2", is: "a" } }, type: "line", text: { ko: "서두른 보람이 있다. 므나헴은 맨 앞줄, 서기관 몇 사람 틈에 선다. 곧 골목의 그 침상이 들어온다.", en: "Hurrying paid off. Menahem gets the front row, with a few other scribes. Soon the bed from the lane comes through." } },
+      // A small callback to c2 (praying is the one way through the lane that keeps the story going).
+      { type: "line", text: { ko: "므나헴은 맨 앞, 서기관 몇 사람 틈에 선다. 골목에서 기도해 준 그 사람이 침상째 실려 들어온다.", en: "Menahem stands at the very front with a few other scribes. The man he prayed for in the lane is carried in on his bed." } },
       { type: "verse", key: "MT_9_2A" },
 
       // The first words: bright light, the world goes quiet, the morning's psalm comes back.
@@ -4357,9 +4458,13 @@ html.is-test .echo mark {
           },
           {
             id: "c",
-            // A sincere reason, not a quit button: staying would feel like taking part in blasphemy.
-            bad: "leftEarly",
-            text: { ko: "신성모독은 못 들어 준다. 자리를 뜬다.", en: "I won't stand for blasphemy. Walk out." }
+            // Not a walk-out: he goes to check the man's authority (Matt 9:6 answers it) and the crowd
+            // swallows him before he can ask. He never says it aloud.
+            bad: "permit",
+            text: { ko: "죄 사함 허가증이 있나? 확인하러 간다.", en: "Go check if he has a permit to forgive sins." },
+            reaction: [
+              { type: "line", text: { ko: "므나헴이 앞줄에서 한 발 나서자, 무리가 확 밀려든다. 뒤로, 뒤로, 또 뒤로…", en: "Menahem steps out of the front row, and the crowd surges in. He's swept back, and back, and back…" } }
+            ]
           },
           {
             id: "d",
@@ -4467,6 +4572,30 @@ html.is-test .echo mark {
           last: { ko: "그날 므나헴은 ‘고치시며’라는 단어를 백 번은 확인했다. 정작 병이 나은 건 바닷가에서였다.", en: "That day, Menahem checked the word ‘heals’ a hundred times. The actual healing happened down at the shore." }
         },
 
+        // c2 c: a word war with the passerby over the words for "sin" (Ps 32:5 uses all three) lasts
+        // all day. The man walks home through the same lane, and they step aside without noticing.
+        wordWar: {
+          title: { ko: "말꼬리 대전", en: "The Great Nitpick" },
+          beats: [
+            { type: "line", speaker: "menahem", text: { ko: "잘못이면 잘못이라니! 죄, 죄악, 허물은 히브리어로 다 다른 말이오!", en: "Wrong is wrong? Sin, iniquity, transgression—in Hebrew, those are three different words!" } },
+            { type: "line", text: { ko: "“다 같은 말이지!” “같은 말이라니!” 창문마다 구경꾼이 고개를 내민다. 하난은 벽에 기대 한숨만 쉰다.", en: "“It's all the same!” “The same?!” Heads pop out of every window. Hanan leans on the wall and sighs." } },
+            { type: "line", text: { ko: "얼마 뒤, 아침에 침상에 실려 가던 그 사람이 자기 침상을 들고 집으로 간다. 두 사람은 말싸움을 멈추지도 않고 나란히 비켜선다.", en: "Later, the man who was carried down on that bed walks by on his way home, carrying it. Without missing a word, the two step aside for him." } }
+          ],
+          last: { ko: "해 질 녘, 므나헴은 ‘죄’를 완벽하게 정의해 냈다. 바닷가에서는 벌써 죄가 사해진 뒤였다.", en: "By sunset, Menahem had defined ‘sin’ perfectly. Down at the shore, sins had already been forgiven." }
+        },
+
+        // c2 d: backing away from the passerby's talk, he sits down in a dyer's vat. Wet and blue, not hurt.
+        dyeVat: {
+          title: { ko: "파란 서기관", en: "The Blue Scribe" },
+          beats: [
+            { type: "line", text: { ko: "첨벙! 므나헴이 염색집 항아리에 엉덩이부터 빠진다.", en: "Splash! Menahem lands bottom-first in a dyer's vat." } },
+            { type: "line", text: { ko: "항아리에서 기어 나온 므나헴은 수염까지 새파랗다. 이 꼴로는 아무 데도 못 간다. 뒷골목으로 집에 숨어든다.", en: "He climbs out blue, beard and all. He can't go anywhere like this. He sneaks home through the back alleys." } },
+            { type: "scene", bg: "lamp_night", caption: { ko: "저녁 · 므나헴의 방", en: "Evening · Menahem's room" } },
+            { type: "line", speaker: "hanan", text: { ko: "선생님! 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 걸어서 집에 갔어요! …그리고 선생님, 아직 파래요.", en: "Teacher! The man on the bed got up, picked up his bed, and walked home! …Also, you're still blue." } }
+          ],
+          last: { ko: "며칠 뒤에야 므나헴은 집 밖에 나왔다. 동네는 아직도 한 사람 얘기뿐이었다. 다행히 파란 사람은 아니었다.", en: "Menahem didn't go out again for days. When he did, the whole town was still talking about one man. Luckily, not the blue one." }
+        },
+
         // c3 a: he shouts; a soldier keeps the peace (the centurion of Matt 8:5-13 lives here). Not called
         // "Roman": Galilee was Herod Antipas's territory, and a Roman garrison there is doubtful.
         guardhouse: {
@@ -4483,18 +4612,17 @@ html.is-test .echo mark {
           last: { ko: "그 백부장은 자기 하인 일로 벌써 알고 있었다. 예수라는 그 사람은 말 한마디면 된다는 걸.", en: "That centurion already knew, from what happened to his own servant: one word from this Jesus is enough." }
         },
 
-        // c3 c: he leaves after the first words and sees only the result.
-        leftEarly: {
-          title: { ko: "중간 퇴장", en: "Walked Out Early" },
+        // c3 c: he goes to check the permit and spends the event behind a fisherman. He hears it all and
+        // sees nothing; the light stays off (the engine turns it off when the branch starts).
+        permit: {
+          title: { ko: "제일 넓은 등", en: "The Broadest Back" },
           beats: [
-            { type: "fx", fx: "unpinThought" },
-            { type: "fx", fx: "light", level: "off" },
-            { type: "scene", bg: "lane", caption: { ko: "정오 무렵 · 골목", en: "Around noon · The lane" } },
-            { type: "line", text: { ko: "므나헴은 혼자 골목을 올라간다. 얼마 뒤, 바닷가에서 함성이 터진다.", en: "Menahem walks back up the lane alone. A little later, a shout goes up from the shore." } },
-            { type: "line", text: { ko: "곧 누군가 침상을 들고 골목을 올라온다. 므나헴은 아침처럼 벽 쪽으로 비켜선다.", en: "Soon someone comes up the lane carrying a bed. Menahem steps back against the wall, just like this morning." } },
-            { type: "line", text: { ko: "아침에 그 침상에 누워 있던 사람이다. 이번엔 자기가 침상을 들고 간다.", en: "It's the man who was lying on that bed this morning. This time, he's the one carrying it." } }
+            { type: "line", text: { ko: "정신을 차려 보니, 가버나움에서 등이 제일 넓은 어부 뒤다. 왼쪽, 오른쪽, 까치발. 말소리는 다 들리는데, 보이는 건 등뿐이다.", en: "Now he's stuck behind the fisherman with the broadest back in Capernaum. Left. Right. Tiptoe. He can hear every word. All he can see is back." } },
+            { type: "line", text: { ko: "함성이 터진다. 어부가 활짝 웃으며 돌아본다. “보셨어요? 그 사람이 침상 들고 걸어서 집에 갔어요!”", en: "A roar goes up. The fisherman turns around, grinning. “Did you see that? He picked up his bed and walked home!”" } },
+            { type: "line", speaker: "menahem", text: { ko: "…등은 아주 잘 봤소.", en: "…I saw your back. Very clearly." } }
           ],
-          last: { ko: "므나헴은 하루에 두 번, 같은 침상에 길을 비켜 주었다. 그 사이에 무슨 일이 있었는지는 하난이 밤새 들려줬다. 아주 자세히.", en: "Menahem stepped aside for the same bed twice in one day. Hanan spent all night telling him what happened in between. In great detail." }
+          // The healing is the proof of the authority to forgive sins (Matt 9:6), not a document.
+          last: { ko: "허가증은 끝내 못 봤다. 증거는 그 등 너머로 걸어서 집에 갔다.", en: "Menahem never saw the permit. The proof walked home, right on the other side of that back." }
         },
 
         // c4 b: he leaves before the answer (9:6) to write. Exactly two beats: this path is at the 20-screen cap.
@@ -4503,10 +4631,10 @@ html.is-test .echo mark {
           beats: [
             { type: "fx", fx: "light", level: "off" },
             { type: "scene", bg: "lamp_night", caption: { ko: "밤 · 므나헴의 방", en: "Night · Menahem's room" } },
-            { type: "line", text: { ko: "므나헴은 밤새 반박문을 쓴다. 열 장, 스무 장, 마흔 장.", en: "Menahem writes all night. Ten pages. Twenty. Forty." } },
-            { type: "line", speaker: "hanan", text: { ko: "선생님, 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 집에 갔어요!", en: "Teacher, the man on the bed—he got up, picked up his bed, and walked home!" } }
+            { type: "line", text: { ko: "므나헴은 밤새 반박문을 쓴다. 열 장, 스무 장, 마흔 장. 그래도 모자라 벽에다 쓴다.", en: "Menahem writes all night. Ten pages. Twenty. Forty. Still not enough—he starts on the wall." } },
+            { type: "line", speaker: "hanan", text: { ko: "선생님, 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 집에 갔어요! …그런데 벽은 왜 그래요?", en: "Teacher, the man on the bed—he got up, picked up his bed, and walked home! …What happened to your wall?" } }
           ],
-          last: { ko: "반박문은 마흔 장이나 됐다. 그 사람이 어떻게 일어났는지는 한 줄도 없었다.", en: "The rebuttal ran forty pages. Not one line on how the man on the bed got up." }
+          last: { ko: "반박문은 마흔 장에 벽 한 면이었다. 그 사람이 어떻게 일어났는지는 한 줄도 없었다.", en: "The rebuttal ran forty pages and one wall. Not one line on how the man on the bed got up." }
         }
       }
     }
@@ -4528,9 +4656,14 @@ html.is-test .echo mark {
  * Choice map:
  * - c1 shore (3 options): a continue | b bad bigCatch | c scold (partners)
  * - c2 Asher's house (4): a, b, c continue | d scold (Asher)
- * - c3 THE LANE (4): a, b continue | c bad debate | d bad stayedInLane
- * - c4 right after MT_9_2B (4): a, b continue | c scold (Asher) | d bad halfNews
+ * - c3 THE LANE (4): a, b continue | c bad armWrestle (the quarrel) | d bad stayedInLane
+ * - c4 right after MT_9_2B (4): a, b continue | c scold (Asher) | d bad fainted
  * - c5 right after MT_9_8 (2): a, b continue (the ending's beat answers the pick)
+ *
+ * Teacher's note v4.1 (SPEC 3.5): the lane quarrel ends in an absurd contest (an arm-wrestling match on
+ * a fish barrel), and the crowd cut is a faint, not a walk-out.
+ * Asher's portrait is drawn lying until MT_9_6B has been shown, so in a cut branch that shows him
+ * standing (fainted, stayedInLane) his words stay inside narration, never as an "asher" line.
  *
  * Canon kept: Yonah's arrival words are identical to the Asher route; the passerby line is
  * byte-identical to SPEC 6.3; the crowd sequence follows SPEC 6.4 on every true path; the
@@ -4665,8 +4798,8 @@ html.is-test .echo mark {
           },
           {
             id: "c",
-            text: t("“거기, 잠깐 서 보세요!”", "“Hey! Hold it right there!”"),
-            bad: "debate",
+            text: t("“아저씨, 방금 그 말 취소하세요!”", "“Hey, mister! Take that back!”"),
+            bad: "armWrestle",
             // The bed goes on without him, so Asher still reaches Jesus.
             reaction: [
               say(
@@ -4737,9 +4870,16 @@ html.is-test .echo mark {
           },
           {
             id: "d",
-            text: t("“이건 온 동네가 알아야 해!”", "“The whole town needs to hear this!”"),
-            bad: "halfNews",
-            reaction: [say(null, "요나가 무리를 헤치고 동네로 달려간다.", "Yonah squeezes out of the crowd and races into town.")]
+            text: t("“꿈 아니지? 누가 나 좀 꼬집어 봐!”", "“Is this a dream? Somebody pinch me!”"),
+            bad: "fainted",
+            // Not a walk-out (teacher's note v4.1): he faints from sheer excitement; a partner catches him.
+            reaction: [
+              say(
+                null,
+                "동료가 요나의 볼을 살짝 꼬집는다. “꿈 아니야.” 요나는 눈을 끔뻑이더니 동료 품에 스르르 쓰러진다.",
+                "A partner gives Yonah's cheek a little pinch. “Not a dream.” Yonah blinks, then faints right into his partner's arms."
+              )
+            ]
           }
         ]
       },
@@ -4824,17 +4964,24 @@ html.is-test .echo mark {
           last: t("평생 제일 많이 잡은 날. 하필 아무도 고기 얘기를 안 하는 날이었다.", "The biggest catch of his life—on the one day nobody cared about fish.")
         },
 
-        // c3 c: he wins the argument in the lane while the event happens at the shore.
-        debate: {
-          title: t("완벽한 승리", "A Flawless Victory"),
+        // c3 c: the quarrel with the passerby turns into an arm-wrestling match on a fish barrel (a playful
+        // contest, SPEC 4.6). Yonah keeps winning rounds; the passerby takes his words back only when the
+        // news of the healing comes up from the shore. The canon passerby line stays in the lane beat above.
+        armWrestle: {
+          title: t("세기의 팔씨름", "Arm-Wrestle of the Century"),
           beats: [
-            say(null, "말싸움이 길어진다. 구경꾼이 모이고, 요나는 한 발도 안 물러선다.", "The argument drags on. Onlookers gather. Yonah won't give an inch."),
-            say("passerby", "알았어, 알았다고! 내가 졌어. 이제 점심 먹으러 가도 되지?", "Okay, okay! You win! Can I go eat lunch now?"),
-            say(null, "요나가 뿌듯하게 돌아본다. 침상은 벌써 보이지 않고, 바닷가 쪽에서 함성이 올라온다.", "Yonah turns around, beaming. The bed is long gone, and cheering drifts up from the shore.")
+            say("passerby", "싫은데? 팔씨름에서 이기면 취소해 주지.", "Nope. Beat me at arm-wrestling, and I'll take it back."),
+            say(
+              null,
+              "곧 생선 통 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
+              "Soon they're arm-wrestling on a fish barrel, and the whole lane is betting figs. Yonah takes the first round!"
+            ),
+            say("passerby", "방금 건 연습이야! 삼세판! …아니, 다섯 판!", "That one was just practice! Best of three! …No, best of five!")
           ],
+          // Not Asher walking up the lane: that picture belongs to stayedInLane, at the same choice.
           last: t(
-            "요나가 말싸움에서 이긴 날, 아셀이 일어났다. 동네가 뭘 기억할지는 뻔하다.",
-            "The day Yonah won an argument, Asher stood up. Guess which one the town remembers."
+            "행인은 결국 그 말을 취소했다. 바닷가에서 “침상에 누워 있던 사람이 일어났대!” 소리가 들려온 뒤에야.",
+            "In the end, the passerby did take it back—but only after a shout came up from the shore: “The man on the bed got up!”"
           )
         },
 
@@ -4853,18 +5000,24 @@ html.is-test .echo mark {
           last: t("결국 다들 쳐다보긴 했다. 걸어 올라오는 아셀을.", "Everyone stared after all—at Asher, walking up the lane.")
         },
 
-        // c4 d: he runs off to tell the town after the first words and misses the rest.
-        halfNews: {
-          title: t("반쪽 특종", "Half a Scoop"),
+        // c4 d: he faints from excitement right after the first words, misses everything after them, and
+        // wakes up on the very bed he brought, with Asher (walking) on one of its corners. The event holds:
+        // Asher rose, picked up his bed and went home (MT 9:7); it just had Yonah on it.
+        // The scene keeps the normal pov: the sky_carried art already shows the view from the bed, and a
+        // lying pov here would replay Asher's rise animation on Try again.
+        fainted: {
+          title: t("자리 바꾸기", "Switching Places"),
           beats: [
-            light("off"),
-            { type: "scene", bg: "lane", caption: t("가버나움 골목", "The lanes of Capernaum") },
-            say(null, "요나가 집집마다 문을 두드린다. “들어 보세요! 그분이 아셀한테…!”", "Yonah pounds on door after door. “Listen to this! Jesus just told Asher—!”"),
-            { type: "scene", bg: "crowd" },
-            say(null, "동네 사람들을 잔뜩 데리고 돌아오니, 공터가 텅 비어 간다.", "He comes back with a crowd of neighbors. The field is almost empty."),
-            say("partners", "어디 갔었어? 아셀 벌써 자기 침상 들고 걸어서 집에 갔어.", "Where were you? Asher already picked up his bed and walked home.")
+            { type: "scene", bg: "sky_carried", caption: t("오후 · 집으로 가는 길", "Afternoon · The road home") },
+            say(null, "요나가 눈을 뜬다. 하늘이 흔들거린다. 누가 요나를 침상째 들고 가고 있다.", "Yonah opens his eyes. The sky is swaying. Someone is carrying him on a bed."),
+            say(
+              null,
+              "침상 귀퉁이를 잡은 손 하나를 따라 올려다본다. 아셀이다. 걸으면서 침상을 들고 있다.",
+              "He follows one of the hands on the corners up to a face. It's Asher—walking, and carrying the bed."
+            ),
+            say(null, "아셀이 요나를 내려다보며 웃는다. “깼어? 이번엔 내가 들 차례야.”", "Asher looks down at him and grins. “You're up? My turn to carry.”")
           ],
-          last: t("소식은 제일 먼저 전했다. 반만 들고 뛰어서 그렇지.", "He was first with the news. He just ran off with half of it.")
+          last: t("그날 아셀은 자기 침상을 들고 집에 갔다. 생각보다 좀 무거웠다.", "That day, Asher picked up his bed and went home. It was a little heavier than he expected.")
         }
       }
     }
@@ -4874,19 +5027,29 @@ html.is-test .echo mark {
 </script>
 <script>/* data/routes/asher.js */
 /* Asher route, version 4 (story mode): "What Did He Call Me?" Owner: asher writer.
- * Rules: docs/SPEC.md, version 4 (route shape, choices and endings: sections 3.5, 4.5, 4.6, 8).
+ * Rules: docs/SPEC.md, version 4.1 (route shape, choices and endings: sections 3.5, 4.5, 4.6, 8).
  * Schema basics, canon and guardrails: docs/SPEC.md §4.5, §6, §7.
  *
- * Shape: five choices c1-c5. Every option has exactly one outcome:
+ * Shape: six choices c1-c6. Every option has exactly one outcome:
  * - continue (no `bad`, no `scold`), with an optional one-beat reaction;
  * - `bad: "<id>"`: its reaction plays, then endings.bad[<id>] (a cut branch, closed by the snip card);
  * - `scold: { speaker, text }`: the line plays, the option is removed, the same choice is asked again.
  *   Asher's "can't" options (Get up / Go outside / Try to get up) use the scold mechanic with
  *   speaker "thought"; every other scold comes from Yonah.
+ * Choice map (continue / cut branch / scold):
+ * - c1 dawn:                    a, d continue | c cut nap        | b "can't" thought
+ * - c2 Yonah at the door:       a continue    | b cut hotSprings, d cut stayedHome | c "can't" thought
+ * - c3 THE LANE:                a continue    | b cut fishChase (the quarrel), d cut longWay | c Yonah
+ * - c4 THE CROWD, at its edge:  a continue    | b cut bedSurf    | c Yonah (the bargain)
+ * - c5 after MT_9_2B2:          b, d continue | a "can't" thought, c Yonah
+ * - c6 after MT_9_8:            b continue    | a Yonah
+ * Teacher's v4.1 note: the lane has a comic quarrel that ends in an absurd cut (fishChase), and the
+ * crowd has an absurd cut that is not just leaving (bedSurf). Asher's cuts all happen before he
+ * reaches Jesus: in his own branches he is simply not there, so Matt 9:2-8 itself never changes.
  * No persistent action buttons (teacher's third note): the old gray buttons are ordinary options,
  * and the "Get up" press after MT_9_6B is a one-off label press that finally works.
  * Conditions on a choice refer to the pick that moved the story on (a scolded pick is not a pick).
- * True path: 28 screens on every combination of continue options (choice, line, verse and press
+ * True path: 29 screens on every combination of continue options (choice, line, verse and press
  * beats, plus the memory verse card, the ending beat and the last line).
  */
 (function () {
@@ -5002,12 +5165,18 @@ html.is-test .echo mark {
         "lane-passerby"
       ),
       // c3: the comeback answers the passerby; Menahem's silent moment closes the lane after it.
+      // Top row talks back to the passerby, bottom row asks Yonah to get away from him.
       choice("c3", "저 사람, 내가 못 듣는 줄 아나?", "Does he think I can't hear him?", [
         go("a", "“다 들리거든요?”", "“I can hear you, you know.”"),
-        snip("b", "“요나, 사람 없는 뒷길로 가자.”", "“Yonah, take the back way. Away from people.”", "longWay", [
-          say("yonah", "…알았어. 좀 돌아가도 괜찮겠지.", "…Okay. A little detour can't hurt.")
+        // The quarrel (teacher's v4.1 note). It stays a war of words; the passerby speaks after the
+        // fixed SPEC §6.3 line only inside this branch.
+        snip("b", "“아저씨 사연부터 들어 볼까요?”", "“Why don't we start with *your* story?”", "fishChase", [
+          say("passerby", "사연은 무슨! 나는 그런 거 없어!", "My story? I don't have a story!")
         ]),
-        nope("c", "“요나, 내려 줘. 집에 갈래.”", "“Yonah, put me down. I'm going home.”", "yonah", "안 돼! 다 왔는데 어딜 가.", "Nope! We're almost there!")
+        nope("c", "“요나, 내려 줘. 집에 갈래.”", "“Yonah, put me down. I'm going home.”", "yonah", "안 돼! 다 왔는데 어딜 가.", "Nope! We're almost there!"),
+        snip("d", "“요나, 사람 없는 뒷길로 가자.”", "“Yonah, take the back way. Away from people.”", "longWay", [
+          say("yonah", "…알았어. 좀 돌아가도 괜찮겠지.", "…Okay. A little detour can't hurt.")
+        ])
       ]),
       line(
         "회당에서 보던 서기관 므나헴이 제자와 함께 비켜선다. 잠깐 서로 눈이 마주친다. 둘 다 아무 말이 없다.",
@@ -5015,8 +5184,22 @@ html.is-test .echo mark {
         "lane-menahem"
       ),
 
-      // ---------- THE CROWD (SPEC §6.4), lying POV before Jesus ----------
-      // The scene sets the bed down before him (faces above, light); MT_9_2A narrates it.
+      // ---------- THE CROWD (SPEC §6.4) ----------
+      // c4: the edge of the crowd, still carried. He can't see Jesus yet, so the light stays off.
+      // The crowd cut sits here, before MT_9_2A, on purpose: Asher never leaves once Jesus has
+      // spoken to him, so in his own branches he simply never gets there and the event stays whole.
+      scene("sky_carried", "lying", "정오 무렵 · 바닷가 공터", "Around noon · Open ground by the shore"),
+      choice("c4", "바닷가 공터가 사람들로 꽉 찼다. 보이는 건 하늘이랑 팔꿈치뿐이다.", "The open ground by the shore is packed. All I can see is sky and elbows.", [
+        // No reaction: the scene change and MT_9_2A ("some people brought to him...") carry him in.
+        go("a", "“요나, 손 놓지 마.”", "“Yonah, don't let go.”"),
+        snip("b", "“저 좀 앞으로 보내 주세요!”", "“Could you pass me to the front?”", "bedSurf", [
+          line("“앞으로!” 사방에서 손이 뻗어 와 침상을 번쩍 든다. 침상이 머리 위로, 손에서 손으로 넘어간다.", "“To the front!” Hands reach in from every side and lift the bed high. Over everyone's heads it goes, hand to hand.")
+        ]),
+        // The haggling is what gets scolded, not the wish to be healed: his friends brought him for that.
+        nope("c", "“고쳐 주시면 요나네 생선 평생 공짜!”", "“Heal me, and Yonah's fish are free for life!”", "yonah", "흥정하는 거 아니야! …그리고 그거 내 생선이거든?", "We're not here to haggle! …And those are my fish, by the way.")
+      ]),
+
+      // The bed is set down before him (faces above, light); MT_9_2A narrates it.
       scene("crowd_lying", "lying", "정오 무렵 · 그분 앞", "Around noon · In front of Jesus"),
       fx("light", { level: "soft" }),
       verse("MT_9_2A"),
@@ -5028,9 +5211,9 @@ html.is-test .echo mark {
       verse("MT_9_2B2", "first-words-2"),
       fx("light", { level: "soft" }),
 
-      // c4: no option carries a "right answer" feel. Trying to stand still answers that nothing has
+      // c5: no option carries a "right answer" feel. Trying to stand still answers that nothing has
       // changed (no "sin removed, body released"; SPEC §7.2).
-      choice("c4", "죄를 용서받았다고 하셨다. 이제 어쩌지?", "He said my sins are forgiven. Now what?", [
+      choice("c5", "죄를 용서받았다고 하셨다. 이제 어쩌지?", "He said my sins are forgiven. Now what?", [
         nope("a", "일어나 본다.", "Try to get up.", "thought", "다리는 그대로다.", "My legs haven't changed."),
         go("b", "정말 나한테 하시는 말씀인가?", "Is he really saying this to me?", [
           // Calls back his only way out of the house: "I want to go. But I'm scared."
@@ -5071,8 +5254,8 @@ html.is-test .echo mark {
       verse("MT_9_7"),
       verse("MT_9_8"),
 
-      // c5: his first words standing. The question leads straight into the memory verse card.
-      choice("c5", "집으로 가는 길. 네 해 만에 사람들과 눈높이가 같다. 요나한테 뭐라고 하지?", "On the way home, eye to eye with people for the first time in four years. What do I tell Yonah?", [
+      // c6: his first words standing. The question leads straight into the memory verse card.
+      choice("c6", "집으로 가는 길. 네 해 만에 사람들과 눈높이가 같다. 요나한테 뭐라고 하지?", "On the way home, eye to eye with people for the first time in four years. What do I tell Yonah?", [
         nope("a", "“요나, 침상은 네가 들어.”", "“Yonah, you carry the bed.”", "yonah", "그건 아니지! 네 침상은 네가 들어!", "No way! Your bed—you carry it!"),
         go("b", "“요나, 들었어? 나를 뭐라고 부르셨는지.”", "“Yonah, did you hear what he called me?”")
       ]),
@@ -5133,15 +5316,44 @@ html.is-test .echo mark {
           last: t("그분은 배를 타고 오셨다. 우리는 반대로 갔다.", "He came by boat. We went the other way.")
         },
 
-        // c3 b: the back way, where nobody stares.
+        // c3 b: the quarrel in the lane escalates; Yonah turns to join in and the bed turns with him.
+        // Words only, and the slapstick hurts no one: a basket tips over and the fish all get caught.
+        // The joke is the chaos and his deadpan, never his body.
+        fishChase: {
+          title: t("생선 대소동", "The Great Fish Chase"),
+          beats: [
+            say("asher", "네. 딱 그래 보여요.", "Yeah. It shows.", "fish-comeback"),
+            line("요나도 거들겠다고 홱 돌아선다. 침상도 같이 홱 돈다. 쿵! 생선 장수의 바구니가 엎어진다.", "Yonah spins around to join in. So does the bed. Thump! Over goes a fish seller's basket.", "fish-basket"),
+            thought("온 골목이 펄떡이는 생선을 쫓는다. 한 마리가 내 가슴에 툭 떨어진다. 생선도 나도, 이럴 줄은 몰랐다.", "The whole lane is chasing flopping fish. One lands smack on my chest. Neither of us saw that coming.", "fish-chest")
+          ],
+          // The Korean verb means both "let a fish slip away" and "miss someone"; English uses caught / missed.
+          last: t("생선은 한 마리도 안 놓쳤다. 그분만 놓쳤다.", "We caught every last fish. We just missed him.")
+        },
+
+        // c3 d: the back way, where no person stares. The goats do.
         longWay: {
-          title: t("뒷길", "The Back Way"),
+          title: t("염소 관객", "An Audience of Goats"),
           beats: [
             scene("sky_carried", "lying", "오후 · 언덕 뒷길", "Afternoon · The back way"),
-            line("침상이 언덕을 빙 돌아간다. 쳐다보는 사람이 아무도 없다.", "The bed goes the long way around the hill. Nobody stares.", "back-hill"),
+            thought("언덕을 빙 도는 길이다. 사람은 없고 염소만 잔뜩 있다. 다들 나만 쳐다본다.", "It's the long way around the hill. No people, just a lot of goats. Every one of them is staring at me.", "back-goats"),
             line("바닷가 공터에 닿았을 때, 사람들은 벌써 집으로 돌아가고 있다.", "By the time they reach the shore, people are already heading home.", "back-late")
           ],
-          last: t("아무도 나를 쳐다보지 않았다. 쳐다볼 사람이 남아 있지 않았으니까.", "Nobody stared at me. There was nobody left to stare.")
+          last: t("사람은 아무도 나를 쳐다보지 않았다. 쳐다볼 사람이 남아 있지 않았으니까.", "Not one person stared at me. There was nobody left to stare.")
+        },
+
+        // c4 b: "Could you pass me to the front?" The crowd passes the bed over their heads the wrong way,
+        // into a fishing boat (never Jesus' boat). The sea is calm and Yonah is right there: no danger.
+        bedSurf: {
+          title: t("침상 파도타기", "Bed Surfing"),
+          beats: [
+            scene("sky_carried", "lying", "정오 무렵 · 사람들 머리 위", "Around noon · Over everyone's heads"),
+            thought("잠깐, 이쪽이 앞이야? 바다 냄새가 점점 진해지는데.", "Wait—is this the front? It smells more and more like the sea.", "surf-smell"),
+            line("마지막 손이 물가의 고깃배에 침상을 살며시 내려놓는다. 밧줄이 스르르 풀린다.", "The last pair of hands sets the bed gently into a fishing boat at the water's edge. The rope slips loose.", "surf-boat"),
+            line("바다는 오늘따라 아주 잔잔하다. 배가 둥실둥실 떠간다. 물가에서 요나가 외친다. “아셀! 그쪽 아니야!”", "The sea is very calm today. The boat bobs gently away. On the shore, Yonah is yelling, “Asher! Not that way!”", "surf-drift")
+          ],
+          // The pun works in both languages: the Korean word for "front" also starts the word for the sea
+          // just off the shore; in English, front -> waterfront.
+          last: t("앞으로 보내 달랬더니, 앞바다로 보내 줬다.", "I asked them to pass me to the front. They passed me to the waterfront.")
         }
       }
     }
@@ -10302,8 +10514,9 @@ html.is-test .echo mark {
   }
 
   // A cut branch: a short bough with the scissors and the branch title when seen; a faint, unlabeled
-  // stub when not.
-  function branchNode(rid, b, seen, side) {
+  // stub when not. `at` is its choice point (0 = the lowest) and `nth` its place among that point's
+  // branches (layoutTree staggers them).
+  function branchNode(rid, b, seen, side, at, nth) {
     var isSeen = seen.indexOf(b.id) >= 0;
     var kids = [h("span", { class: "branch__wood", "aria-hidden": "true" }, h("span", { class: "branch__stem" }))];
     if (isSeen) {
@@ -10312,12 +10525,42 @@ html.is-test .echo mark {
     } else {
       kids.push(h("span", { class: "vh" }, flat(u("treeBranchUnseen"))));
     }
-    return h("div", { class: "branch branch--" + side, "data-state": isSeen ? "seen" : "unseen", "data-testid": "tree-branch-" + rid + "-" + b.badId }, kids);
+    return h("div", { class: "branch branch--" + side, "data-state": isSeen ? "seen" : "unseen", "data-side": side, "data-at": at, "data-nth": nth, "data-testid": "tree-branch-" + rid + "-" + b.badId }, kids);
+  }
+
+  // Sides of the cut branches (SPEC 5.8: they grow sideways, alternating). Bottom to top, the branches
+  // of one choice point alternate sides; each choice point starts on the side that keeps the labeled
+  // (seen) branches most even between the two sides, else on the side the previous branch did not take.
+  // So the labels split evenly (seven labels: four and three) and one choice point never piles its
+  // labels on one side.
+  function branchSides(tree, seen) {
+    var load = { l: 0, r: 0 };
+    var last = "l";
+    var other = function (s) {
+      return s === "l" ? "r" : "l";
+    };
+    return tree.levels.map(function (lv) {
+      var best = null;
+      [other(last), last].forEach(function (start) {
+        var ld = { l: load.l, r: load.r };
+        var sides = lv.branches.map(function (b, j) {
+          var side = j % 2 === 0 ? start : other(start);
+          if (seen.indexOf(b.id) >= 0) ld[side]++;
+          return side;
+        });
+        var gap = Math.abs(ld.l - ld.r);
+        if (!best || gap < best.gap) best = { gap: gap, sides: sides, load: ld };
+      });
+      load = best.load;
+      if (best.sides.length) last = best.sides[best.sides.length - 1];
+      return best.sides;
+    });
   }
 
   // One route's story tree, bottom to top: the root with the character's name, a knot at every choice
   // point (cut branches grow sideways there, alternating sides), the star of the true ending at the top.
-  // Before the true ending was seen the trunk and the star stay faint.
+  // Before the true ending was seen the trunk and the star stay faint. layoutTree places the branches
+  // once the tree is on the page.
   function treeNode(rid, seen, opts) {
     opts = opts || {};
     var eng = E();
@@ -10340,7 +10583,7 @@ html.is-test .echo mark {
     ]);
     var levels = h("ol", { class: "tree__levels" });
     var n = tree ? tree.levels.length : 0;
-    var turn = 0;
+    var sides = tree ? branchSides(tree, seen) : [];
     (tree ? tree.levels : []).forEach(function (lv, k) {
       // Trunk width tapers from the root (k = 0) to the star; each level's segment is a trapezoid.
       var tb = n ? k / n : 0;
@@ -10348,10 +10591,9 @@ html.is-test .echo mark {
       var row = h("li", { class: "tree__level", "data-choice": lv.id, style: "--tb:" + tb.toFixed(3) + ";--tt:" + tt.toFixed(3) });
       var L = h("div", { class: "tree__side tree__side--l" });
       var R = h("div", { class: "tree__side tree__side--r" });
-      lv.branches.forEach(function (b) {
-        var right = turn % 2 === 0;
-        turn++;
-        (right ? R : L).appendChild(branchNode(rid, b, seen, right ? "r" : "l"));
+      lv.branches.forEach(function (b, j) {
+        var side = sides[k][j];
+        (side === "r" ? R : L).appendChild(branchNode(rid, b, seen, side, k, j));
       });
       row.appendChild(L);
       row.appendChild(h("div", { class: "tree__trunk", "aria-hidden": "true" }, [h("span", { class: "tree__bark" }), h("span", { class: "tree__knot" })]));
@@ -10361,6 +10603,322 @@ html.is-test .echo mark {
     var rootRow = h("div", { class: "tree__root" }, [h("span", { class: "tree__base", "aria-hidden": "true" }, h("span", { class: "tree__bark" })), h("span", { class: "tree__ground", "aria-hidden": "true" }), plateNode(rid, "tree__plate")]);
     append(sec, [goal, levels, rootRow]);
     return sec;
+  }
+
+  // ---- story tree layout
+  //
+  // A route may have six or seven cut branches, three of them at one choice point, with titles of eight
+  // Korean syllables or thirty English letters: more than the row of a choice point can hold. Once a
+  // tree is on the page, layoutTree places its branches from measured sizes:
+  // - the labels stand in two columns beside the trunk, from under the ending's title down to the ground
+  //   (beside the star too), each as close to its choice point as the others allow, never overlapping;
+  //   the labels of one choice point fan out (each later one a little higher, the sides alternating);
+  // - the knots then move toward their labels, so the boughs stay short and mostly rise;
+  // - each bough runs from its knot to its label with the scissors at its tip; an unseen branch stays a
+  //   short, faint stub at its knot;
+  // - on a TV nothing may scroll: labels that do not fit shrink a little (CSS keeps them at 2.2vh or
+  //   more); on a phone the tree grows taller instead (the page scrolls).
+  // It runs again on resize and when web fonts arrive. Without it the CSS rows still show every branch.
+  var TREE_ITER = 8;
+  // How strongly a knot keeps its even place against the pull of its labels.
+  var TREE_PULL = 0.5;
+  var TREE_FIT_MIN = 0.6;
+
+  function num(v) {
+    var x = parseFloat(v);
+    return isFinite(x) ? x : 0;
+  }
+
+  // Places items (in order, each { d: desired top, h: height }) between lo and hi with `gap` between
+  // neighbors, each as close to its desired top as the others allow: neighbors that would overlap form
+  // a block that sits at its members' mean. Returns the tops, in order.
+  function spread(items, lo, hi, gap) {
+    var blocks = [];
+    items.forEach(function (it, i) {
+      var b = { first: i, n: 1, h: it.h, sum: it.d, top: 0 };
+      for (;;) {
+        b.top = Math.max(lo, Math.min(b.sum / b.n, hi - b.h));
+        var p = blocks[blocks.length - 1];
+        if (!p || p.top + p.h + gap <= b.top + 0.01) break;
+        blocks.pop();
+        b = { first: p.first, n: p.n + b.n, h: p.h + gap + b.h, sum: p.sum + b.sum - b.n * (p.h + gap), top: 0 };
+      }
+      blocks.push(b);
+    });
+    var tops = [];
+    blocks.forEach(function (b) {
+      var y = b.top;
+      for (var k = 0; k < b.n; k++) {
+        tops.push(y);
+        y += items[b.first + k].h + gap;
+      }
+    });
+    return tops;
+  }
+
+  // A label's box hugs its longest line (text-wrap: balance shortens the lines, not the box). Only the
+  // text's own line boxes count (a range over the whole label would also return the English block).
+  function hugLabel(tag) {
+    var rg = doc.createRange();
+    var walk = doc.createTreeWalker(tag, 4, null);
+    var l = Infinity;
+    var r = -Infinity;
+    for (var node = walk.nextNode(); node; node = walk.nextNode()) {
+      rg.selectNodeContents(node);
+      var rs = rg.getClientRects();
+      for (var i = 0; i < rs.length; i++) {
+        if (rs[i].width < 0.5) continue;
+        l = Math.min(l, rs[i].left);
+        r = Math.max(r, rs[i].right);
+      }
+    }
+    if (!(r > l)) return;
+    var cs = window.getComputedStyle(tag);
+    var w = Math.ceil(r - l + num(cs.paddingLeft) + num(cs.paddingRight) + num(cs.borderLeftWidth) + num(cs.borderRightWidth) + 2);
+    if (w < tag.offsetWidth) tag.style.width = w + "px";
+  }
+
+  // Back to the even rows, the branches out of the rows (placed mode) but not yet placed. Every tree on
+  // the page is reset before any is measured: the three trees share one grid row, so a tree still in
+  // the CSS rows would stretch its neighbors.
+  function resetTree(sec) {
+    var levels = sec.querySelector(".tree__levels");
+    var rows = levels ? Array.prototype.slice.call(levels.children) : [];
+    var branches = sec.querySelectorAll(".branch");
+    var n = rows.length;
+    sec.style.removeProperty("--tag-fit");
+    sec.style.removeProperty("--tag-max");
+    rows.forEach(function (li, k) {
+      li.style.removeProperty("flex");
+      li.style.removeProperty("min-height");
+      li.style.removeProperty("--knot");
+      li.style.setProperty("--tb", (k / n).toFixed(3));
+      li.style.setProperty("--tt", ((k + 1) / n).toFixed(3));
+    });
+    Array.prototype.forEach.call(branches, function (b) {
+      Array.prototype.forEach.call(b.children, function (el) {
+        el.removeAttribute("style");
+      });
+    });
+    sec.classList.toggle("tree--placed", !!(n && branches.length));
+  }
+
+  function layoutTree(sec) {
+    if (!sec || !sec.isConnected || !sec.classList.contains("tree--placed") || !sec.offsetWidth) return;
+    var levels = sec.querySelector(".tree__levels");
+    var rows = Array.prototype.slice.call(levels.children);
+    var branches = Array.prototype.slice.call(sec.querySelectorAll(".branch"));
+    var n = rows.length;
+
+    var sr = sec.getBoundingClientRect();
+    var ox = sr.left + sec.clientLeft;
+    var oy = sr.top + sec.clientTop;
+    var box = function (el) {
+      var r = el.getBoundingClientRect();
+      return { left: r.left - ox, top: r.top - oy, right: r.right - ox, bottom: r.bottom - oy, width: r.width, height: r.height };
+    };
+    var cs = window.getComputedStyle(sec);
+    var innerL = num(cs.paddingLeft);
+    var innerR = sec.clientWidth - num(cs.paddingRight);
+    var lv = box(levels);
+    var trunk = box(rows[0].querySelector(".tree__trunk"));
+    var cx = trunk.left + trunk.width / 2;
+    var trunkW = trunk.width;
+    var star = box(sec.querySelector(".tree__star"));
+    var goalTitle = sec.querySelector(".tree__goaltitle");
+    var ground = box(sec.querySelector(".tree__ground"));
+    var wood0 = branches[0].querySelector(".branch__wood");
+    var stemW = wood0.offsetWidth;
+    var stemH = wood0.offsetHeight;
+    var snip0 = sec.querySelector(".branch__snip");
+    var snipW = snip0 ? snip0.getBoundingClientRect().width : 0;
+    var grow = num(cs.getPropertyValue("--tree-grow")) > 0;
+
+    // The label columns: from beside the bough's tip (clear of the star) to the card's inner edge.
+    var off = Math.max(trunkW / 2 + stemW + snipW * 0.6, star.width / 2 + stemH);
+    // The leaves around a lit star: how far they reach from the trunk, and how low.
+    var crown = null;
+    Array.prototype.forEach.call(sec.querySelectorAll(".tree__crown path"), function (leaf) {
+      var r = box(leaf);
+      if (!r.width) return;
+      crown = crown || { half: 0, bottom: 0 };
+      crown.half = Math.max(crown.half, Math.abs(r.left - cx), Math.abs(r.right - cx));
+      crown.bottom = Math.max(crown.bottom, r.bottom);
+    });
+    var colW = Math.max(40, Math.min(cx - off - innerL, innerR - cx - off));
+    sec.style.setProperty("--tag-max", Math.max(36, colW - 2).toFixed(1) + "px");
+
+    var tags = [];
+    branches.forEach(function (b) {
+      var tag = b.querySelector(".branch__tag");
+      if (tag) tags.push({ b: b, tag: tag, side: b.getAttribute("data-side") === "l" ? "l" : "r", at: num(b.getAttribute("data-at")), nth: num(b.getAttribute("data-nth")) });
+    });
+    var gap = 0;
+    var zoneTop = 0;
+    var zoneBot = 0;
+    var measure = function () {
+      tags.forEach(function (t) {
+        t.tag.style.removeProperty("width");
+      });
+      tags.forEach(function (t) {
+        hugLabel(t.tag);
+      });
+      tags.forEach(function (t) {
+        var r = t.tag.getBoundingClientRect();
+        t.bw = r.width;
+        t.bh = r.height;
+        t.w = t.tag.offsetWidth;
+        t.h = t.tag.offsetHeight;
+      });
+      gap = tags.length ? Math.max(4, num(window.getComputedStyle(tags[0].tag).fontSize) * 0.34) : 0;
+      zoneTop = (goalTitle ? box(goalTitle).bottom : num(cs.paddingTop)) + gap;
+      // The labels pass beside the star; were its leaves to reach into the columns, they start below.
+      if (crown && crown.half > off - 1) zoneTop = Math.max(zoneTop, crown.bottom + gap);
+      zoneBot = ground.top - gap * 0.5;
+      var need = 0;
+      ["l", "r"].forEach(function (s) {
+        var sum = 0;
+        var cnt = 0;
+        tags.forEach(function (t) {
+          if (t.side !== s) return;
+          sum += t.bh;
+          cnt++;
+        });
+        need = Math.max(need, sum + gap * Math.max(0, cnt - 1));
+      });
+      return need;
+    };
+    var need = measure();
+    // A TV shrinks the labels until they fit (down to the CSS floor); a phone grows the tree instead.
+    var fit = 1;
+    for (var pass = 0; pass < 5 && !grow && need > zoneBot - zoneTop; pass++) {
+      var f = Math.max(TREE_FIT_MIN, fit * Math.min(0.97, ((zoneBot - zoneTop) / need) * 0.99));
+      if (f >= fit - 0.004) break;
+      fit = f;
+      sec.style.setProperty("--tag-fit", fit.toFixed(3));
+      var before = need;
+      need = measure();
+      if (need > before - 0.5) break;
+    }
+    var extra = Math.max(0, need - (zoneBot - zoneTop));
+    var Lt = lv.top;
+    var Lb = lv.bottom + extra;
+    zoneBot += extra;
+
+    // Knots and labels, a few rounds: labels spread around their knots, knots move toward their labels.
+    var sp = (Lb - Lt) / n;
+    var lift = sp * 0.3;
+    var stag = sp * 0.3;
+    var minSp = Math.min(sp, Math.max(sp * 0.42, stemH * 1.6));
+    var even = rows.map(function (li, k) {
+      return Lb - (k + 0.5) * sp;
+    });
+    var y = even.slice();
+    var placeLabels = function () {
+      ["l", "r"].forEach(function (s) {
+        var list = tags
+          .filter(function (t) {
+            return t.side === s;
+          })
+          .map(function (t) {
+            return { t: t, d: y[t.at] - lift - t.nth * stag - t.bh / 2, h: t.bh };
+          });
+        list.sort(function (a, b) {
+          return a.d - b.d || b.t.nth - a.t.nth;
+        });
+        var tops = spread(list, zoneTop, zoneBot, gap);
+        list.forEach(function (x, i) {
+          x.t.top = tops[i];
+          x.t.c = tops[i] + x.t.bh / 2;
+        });
+      });
+    };
+    for (var it = 0; it < TREE_ITER; it++) {
+      placeLabels();
+      var items = [];
+      for (var k = n - 1; k >= 0; k--) {
+        var sum = TREE_PULL * even[k];
+        var wsum = TREE_PULL;
+        tags.forEach(function (t) {
+          if (t.at !== k) return;
+          sum += t.c + lift + t.nth * stag;
+          wsum += 1;
+        });
+        items.push({ d: sum / wsum - minSp / 2, h: minSp });
+      }
+      var tops = spread(items, Lt, Lb, 0);
+      for (var i = 0; i < n; i++) y[n - 1 - i] = tops[i] + minSp / 2;
+    }
+    placeLabels();
+
+    // The rows follow the knots: borders halfway between neighboring knots; the trunk tapers with height.
+    var bnd = [Lb];
+    for (var j = 0; j < n - 1; j++) bnd.push((y[j] + y[j + 1]) / 2);
+    bnd.push(Lt);
+    var span = Lb - Lt;
+    rows.forEach(function (li, k) {
+      var bottom = bnd[k];
+      var top = bnd[k + 1];
+      var hh = Math.max(1, bottom - top);
+      li.style.flex = "0 0 " + hh.toFixed(2) + "px";
+      li.style.minHeight = "0px";
+      li.style.setProperty("--knot", ((y[k] - top) / hh).toFixed(4));
+      li.style.setProperty("--tb", ((Lb - bottom) / span).toFixed(4));
+      li.style.setProperty("--tt", ((Lb - top) / span).toFixed(4));
+    });
+    var halfAt = function (yy) {
+      return (trunkW * (1 - (0.6 * (Lb - yy)) / span)) / 2;
+    };
+
+    branches.forEach(function (b) {
+      var dir = b.getAttribute("data-side") === "l" ? -1 : 1;
+      var at = num(b.getAttribute("data-at"));
+      var nth = num(b.getAttribute("data-nth"));
+      var wood = b.querySelector(".branch__wood");
+      var sy = y[at] - nth * stemH * 0.5;
+      // The bough starts inside the trunk (which is drawn over it), so its base never shows.
+      var sx = cx + dir * halfAt(sy) * 0.55;
+      var t = null;
+      tags.forEach(function (x) {
+        if (x.b === b) t = x;
+      });
+      var ang;
+      var len;
+      if (t) {
+        var ax = cx + dir * off;
+        var dx = ax - sx;
+        var dy = t.c - sy;
+        var full = Math.sqrt(dx * dx + dy * dy);
+        ang = Math.atan2(dy, dx);
+        len = Math.max(stemH, full - snipW * 0.4);
+        // The scissors sit on the bough's tip, right before the label.
+        var snip = b.querySelector(".branch__snip");
+        if (snip) {
+          var sd = full - snipW * 0.55;
+          snip.style.left = (sx + Math.cos(ang) * sd - snipW / 2).toFixed(2) + "px";
+          snip.style.top = (sy + Math.sin(ang) * sd - snipW / 2).toFixed(2) + "px";
+          snip.style.transform = "rotate(" + ((ang * 180) / Math.PI).toFixed(2) + "deg)";
+        }
+        // A label's tilt makes it a few pixels wider than its column: it moves in over the bough's tip.
+        var bl = dir > 0 ? Math.min(ax, innerR - t.bw) : Math.max(ax - t.bw, innerL);
+        t.tag.style.left = (bl + (t.bw - t.w) / 2).toFixed(2) + "px";
+        t.tag.style.top = (t.top + (t.bh - t.h) / 2).toFixed(2) + "px";
+      } else {
+        // An unseen branch: a short stub that rises a little.
+        ang = dir > 0 ? (-14 * Math.PI) / 180 : Math.PI + (14 * Math.PI) / 180;
+        len = Math.max(stemW * 0.5, stemH * 1.5);
+      }
+      wood.style.left = sx.toFixed(2) + "px";
+      wood.style.top = (sy - stemH / 2).toFixed(2) + "px";
+      wood.style.width = len.toFixed(2) + "px";
+      wood.style.transform = "rotate(" + ((ang * 180) / Math.PI).toFixed(2) + "deg)" + (dir < 0 ? " scaleY(-1)" : "");
+    });
+  }
+
+  function layoutTrees() {
+    var all = doc.querySelectorAll("#screen section.tree");
+    Array.prototype.forEach.call(all, resetTree);
+    Array.prototype.forEach.call(all, layoutTree);
   }
 
   function pageButton(cls, t, testid, onClick, isDefault) {
@@ -10391,6 +10949,7 @@ html.is-test .echo mark {
       h("div", { class: "treepage-tree" }, treeNode(rid, seen, { current: true })),
       h("div", { class: "treepage-actions" }, [next, home])
     ]);
+    layoutTrees();
     focusDefault(next);
   }
 
@@ -10411,6 +10970,7 @@ html.is-test .echo mark {
       ),
       h("div", { class: "treespage-actions" }, [home])
     ]);
+    layoutTrees();
     focusDefault(home);
   }
 
@@ -10601,6 +11161,7 @@ html.is-test .echo mark {
         anchorCast();
         placeLight();
         fitMemory();
+        layoutTrees();
       }, 120);
     });
     try {
@@ -10608,10 +11169,16 @@ html.is-test .echo mark {
         doc.fonts.ready.then(function () {
           anchorCast();
           fitMemory();
+          layoutTrees();
         });
       }
-      // Web fonts that arrive later change the memory card's size too.
-      if (doc.fonts && doc.fonts.addEventListener) doc.fonts.addEventListener("loadingdone", fitMemory);
+      // Web fonts that arrive later change the memory card's and the tree labels' sizes too.
+      if (doc.fonts && doc.fonts.addEventListener) {
+        doc.fonts.addEventListener("loadingdone", function () {
+          fitMemory();
+          layoutTrees();
+        });
+      }
     } catch (err) {
       /* font loading API unavailable */
     }
@@ -10634,6 +11201,7 @@ html.is-test .echo mark {
     renderTree: renderTree,
     renderTrees: renderTrees,
     treeNode: treeNode,
+    layoutTrees: layoutTrees,
     renderHeader: renderHeader,
     openSettings: openSettings,
     closeSettings: closeSettings,

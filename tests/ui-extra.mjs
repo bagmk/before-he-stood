@@ -69,6 +69,85 @@ const allSeenIds = (page) =>
     return out;
   }, ALL_SEEN);
 
+// The story trees on the page as drawn: every label's box (tilt included) against the other labels,
+// the trunk, the star, the ending's title, the ground, the name plate and the unseen stubs; labels
+// outside their card or on the wrong side; the scissors between the trunk and their label; the smallest
+// label text; at a choice point with three branches, the sides alternate and the third grows above the
+// first. Returns { scrollY, overX, problems, labels, minFont, fans }.
+const treeLayout = (page) =>
+  page.evaluate(() => {
+    const scr = document.getElementById("screen");
+    const R = (el) => el.getBoundingClientRect();
+    const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+    const out = { scrollY: scr.scrollHeight - scr.clientHeight, overX: document.documentElement.scrollWidth - innerWidth, problems: [], labels: 0, minFont: Infinity, fans: [] };
+    document.querySelectorAll("section.tree").forEach((t) => {
+      const rid = t.getAttribute("data-route");
+      const card = R(t);
+      const tags = Array.from(t.querySelectorAll(".branch__tag")).map((el) => ({ el, b: el.closest(".branch"), r: R(el) }));
+      const name = (x) => rid + "/" + x.b.getAttribute("data-testid").replace("tree-branch-" + rid + "-", "");
+      const fixed = [];
+      t.querySelectorAll(".tree__trunk").forEach((el, i) => fixed.push(["trunk" + i, R(el)]));
+      [".tree__star", ".tree__goaltitle", ".tree__base", ".tree__ground", ".tree__plate"].forEach((sel) => {
+        const el = t.querySelector(sel);
+        if (el) fixed.push([sel.slice(7), R(el)]);
+      });
+      t.querySelectorAll(".tree__crown path").forEach((el, i) => {
+        const r = R(el);
+        if (r.width > 0) fixed.push(["leaf" + i + " by the star", r]);
+      });
+      const stubs = Array.from(t.querySelectorAll('.branch[data-state="unseen"] .branch__wood')).map(R);
+      const trunk = R(t.querySelector(".tree__trunk"));
+      const cx = trunk.left + trunk.width / 2;
+      out.labels += tags.length;
+      tags.forEach((a, i) => {
+        tags.forEach((b, j) => {
+          if (j > i && hit(a.r, b.r)) out.problems.push(`${name(a)} overlaps ${name(b)}`);
+        });
+        fixed.forEach(([k, r]) => {
+          if (hit(a.r, r)) out.problems.push(`${name(a)} overlaps the ${k}`);
+        });
+        stubs.forEach((r) => {
+          if (hit(a.r, r)) out.problems.push(`${name(a)} covers an unseen stub`);
+        });
+        if (a.r.left < card.left - 0.5 || a.r.right > card.right + 0.5 || a.r.top < card.top - 0.5 || a.r.bottom > card.bottom + 0.5) out.problems.push(`${name(a)} leaves its card`);
+        const right = a.b.getAttribute("data-side") === "r";
+        if (right !== a.r.left > cx) out.problems.push(`${name(a)} sits on the wrong side of the trunk`);
+        const snip = a.b.querySelector(".branch__snip");
+        if (!snip) out.problems.push(`${name(a)} has no scissors`);
+        else {
+          const s = R(snip);
+          const sx = s.left + s.width / 2;
+          const between = right ? sx > cx && sx < a.r.left + s.width * 0.5 : sx < cx && sx > a.r.right - s.width * 0.5;
+          if (!between) out.problems.push(`${name(a)}: the scissors are not between the trunk and the label`);
+          tags.forEach((b) => {
+            if (b !== a && hit(s, b.r)) out.problems.push(`${name(a)}: its scissors lie on ${name(b)}`);
+          });
+        }
+        a.el.querySelectorAll("*").forEach((x) => (out.minFont = Math.min(out.minFont, parseFloat(getComputedStyle(x).fontSize))));
+        out.minFont = Math.min(out.minFont, parseFloat(getComputedStyle(a.el).fontSize));
+      });
+      // A choice point with three branches: sides alternating, the later one on a side higher.
+      const byAt = {};
+      t.querySelectorAll(".branch").forEach((b) => (byAt[b.getAttribute("data-at")] = (byAt[b.getAttribute("data-at")] || []).concat([b])));
+      Object.keys(byAt).forEach((at) => {
+        const bs = byAt[at].sort((x, y) => x.getAttribute("data-nth") - y.getAttribute("data-nth"));
+        if (bs.length < 3) return;
+        const sides = bs.map((b) => b.getAttribute("data-side")).join("");
+        out.fans.push(`${rid}@${at}:${sides}`);
+        if (sides !== "rlr" && sides !== "lrl") out.problems.push(`${rid}: the branches of one choice point do not alternate sides (${sides})`);
+        const tagOf = (b) => b.querySelector(".branch__tag");
+        if (tagOf(bs[0]) && tagOf(bs[2])) {
+          const y = (b) => {
+            const r = R(tagOf(b));
+            return r.top + r.height / 2;
+          };
+          if (!(y(bs[2]) < y(bs[0]) - 1)) out.problems.push(`${rid}: the third branch of a choice point does not grow above the first on its side`);
+        }
+      });
+    });
+    return out;
+  });
+
 // Clicks through the story until `pred` holds. At a choice it picks `picks[id]` when shown, else the
 // first continue option; on a snip card it tries again.
 async function toStep(page, pred, max = 400, picks = {}) {
@@ -619,14 +698,84 @@ try {
     let m = await measure();
     check(m.overX <= 1 && (w < 900 || (m.scrollY <= 1 && !m.out.length)), `${tag} story trees: fit the screen (overflow ${m.overX}px, scroll ${m.scrollY}px, outside ${m.out.join("; ")})`);
     check(m.labels === ids.length - 3 && m.done === "true,true,true", `${tag} story trees: every branch labeled, every trunk finished (${m.labels} labels, ${m.done})`);
+    let lay = await treeLayout(page);
+    check(!lay.problems.length && (w < 900 || lay.minFont >= h * 0.022 - 0.5), `${tag} story trees: labels clear of each other and of the tree (${lay.problems.slice(0, 3).join("; ")}; smallest ${lay.minFont}px)`);
     if (w === 1920 && lang === "both") await shot(page, "tv-trees-all-seen");
     for (const rid of ["scribe", "friend", "asher"]) {
       await page.evaluate((r) => window.BHS_DEBUG.showTree(r), rid);
       m = await measure();
       check(m.overX <= 1 && (w < 900 || (m.scrollY <= 1 && !m.out.length)), `${tag} ${rid} tree: fits the screen (overflow ${m.overX}px, scroll ${m.scrollY}px, outside ${m.out.join("; ")})`);
+      lay = await treeLayout(page);
+      check(!lay.problems.length, `${tag} ${rid} tree: labels clear of each other and of the tree (${lay.problems.slice(0, 3).join("; ")})`);
     }
     check(errors.length === 0, `${tag} trees: console errors ${errors.join(" | ")}`);
     await ctx.close();
+  }
+
+  // 8c2. Story trees at their widest (tests/fixtures/trees-wide.js: seven cut branches per route, three
+  //      at one choice point, long titles), every branch seen, in ko / en / both: on a TV (1920x1080,
+  //      1280x720) the three trees and each route's tree fit without scrolling; on a phone the page
+  //      scrolls only vertically. No label overlaps another label, the trunk, the star, the ending's
+  //      title, the ground or the name plate; every label stays inside its card; the scissors sit
+  //      between the trunk and their label; unseen stubs stay clear of the labels; on a TV no label
+  //      text is below 2.2vh. The branches of the crowded choice point alternate sides, and the later
+  //      one on a side grows higher. Resizing the window lays the trees out again.
+  {
+    const wideFixture = path.join(root, "tests/fixtures/trees-wide.js");
+    const install = async (page) => {
+      await page.addScriptTag({ path: wideFixture });
+      await page.evaluate(() => window.BHS_WIDE_TREES.install().forEach((id) => window.BHS_DEBUG.markSeen(id)));
+    };
+    const layoutOf = () => treeLayout(page);
+    let page = null;
+    for (const [w, h, dpr] of [
+      [1920, 1080, 1],
+      [1280, 720, 1],
+      [390, 844, 2]
+    ]) {
+      for (const lang of ["both", "ko", "en"]) {
+        const o = await open(browser, index + "?test=1", { viewport: { width: w, height: h }, dpr });
+        page = o.page;
+        await page.evaluate((l) => localStorage.setItem("bhs.v1.settings", JSON.stringify({ lang: l, speed: "normal", size: 1 })), lang);
+        await page.reload();
+        await page.waitForFunction(() => window.BHS_DEBUG && document.body.dataset.screen === "title");
+        await install(page);
+        const tag = `wide trees ${w}x${h} ${lang}`;
+        const tv = w > 900;
+        for (const what of ["trees", "scribe", "friend", "asher"]) {
+          await page.evaluate((x) => (x === "trees" ? window.BHS_DEBUG.showTrees() : window.BHS_DEBUG.showTree(x)), what);
+          const m = await layoutOf();
+          const where = `${tag} ${what === "trees" ? "(three trees)" : what + " tree"}`;
+          check(m.labels === (what === "trees" ? 21 : 7), `${where}: every branch labeled (${m.labels})`);
+          check(!m.problems.length, `${where}: ${m.problems.slice(0, 4).join("; ")}`);
+          check(m.overX <= 1 && (!tv || m.scrollY <= 1), `${where}: fits the screen (sideways ${m.overX}px, scroll ${m.scrollY}px)`);
+          if (tv) check(m.minFont >= h * 0.022 - 0.5, `${where}: label text at least 2.2vh (${m.minFont.toFixed(1)}px)`);
+          if (what === "trees" && lang === "both") check(m.fans.length === 3, `${where}: one crowded choice point per route (${m.fans.join(", ")})`);
+          if (w === 1920 && lang === "both" && (what === "trees" || what === "scribe")) await shot(page, `tv-wide-${what}`);
+        }
+        check(o.errors.length === 0, `${tag}: console errors ${o.errors.join(" | ")}`);
+        await o.ctx.close();
+      }
+    }
+    // A window resized from 1080p to 720p (and a larger text size) lays the trees out again.
+    {
+      const o = await open(browser, index + "?test=1");
+      page = o.page;
+      await install(page);
+      await page.evaluate(() => window.BHS_DEBUG.showTrees());
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.waitForTimeout(400);
+      let m = await layoutOf();
+      check(!m.problems.length && m.scrollY <= 1 && m.overX <= 1, `wide trees resized to 1280x720: ${m.problems.slice(0, 3).join("; ")} (scroll ${m.scrollY}px)`);
+      await page.click('[data-testid="settings-open"]');
+      await page.click('[data-testid="size-up"]');
+      await page.click('[data-testid="size-up"]');
+      await page.click('[data-testid="settings-close"]');
+      m = await layoutOf();
+      check(!m.problems.length && m.scrollY <= 1 && m.minFont >= 720 * 0.022 - 0.5, `wide trees at a larger text size: ${m.problems.slice(0, 3).join("; ")} (scroll ${m.scrollY}px, smallest ${m.minFont.toFixed(1)}px)`);
+      check(o.errors.length === 0, `wide trees resize: console errors ${o.errors.join(" | ")}`);
+      await o.ctx.close();
+    }
   }
 
   // 8d. Verse display rule (SPEC 4.3): an English excerpt that starts with a lowercase letter is shown

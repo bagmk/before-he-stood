@@ -1544,7 +1544,13 @@ async function titleSmoke(browser, R, base, args, data) {
     if (scribe) seen.push('scribe-good', ...badIdsOf(scribe).slice(0, 2).map((id) => `scribe-bad-${id}`));
     if (friend) seen.push(`friend-bad-${badIdsOf(friend)[0]}`);
     if (await seedStorage(page, url, { 'bhs.v1.gallery': seen })) {
-      await treesPageCheck(page, out, data, routes, seen, 'one true ending and three cut branches seen', args.shots ? path.join(args.shotDir, 'tv-trees-all.png') : null, R);
+      const nCut = seen.filter((id) => /-bad-/.test(id)).length;
+      await treesPageCheck(page, out, data, routes, seen, `one true ending and ${nCut} cut branch${nCut === 1 ? '' : 'es'} seen`, args.shots ? path.join(args.shotDir, 'tv-trees-all.png') : null, R);
+    }
+    // Every true ending and every cut branch seen: the trees still fit one TV screen (SPEC 5.6).
+    const everything = routes.flatMap((rid) => [`${rid}-good`, ...badIdsOf(data.routes[rid]).map((id) => `${rid}-bad-${id}`)]);
+    if (await seedStorage(page, url, { 'bhs.v1.gallery': everything })) {
+      await treesPageCheck(page, out, data, routes, everything, `every true ending and all ${everything.length - routes.length} cut branches seen`, null, R);
     }
     for (const rid of routes) {
       await page.goto(base + `index.html?test=1#${rid}`, { waitUntil: 'load', timeout: 20000 });

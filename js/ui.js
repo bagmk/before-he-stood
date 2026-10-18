@@ -1740,6 +1740,15 @@
 
     // The label columns: from beside the bough's tip (clear of the star) to the card's inner edge.
     var off = Math.max(trunkW / 2 + stemW + snipW * 0.6, star.width / 2 + stemH);
+    // The leaves around a lit star: how far they reach from the trunk, and how low.
+    var crown = null;
+    Array.prototype.forEach.call(sec.querySelectorAll(".tree__crown path"), function (leaf) {
+      var r = box(leaf);
+      if (!r.width) return;
+      crown = crown || { half: 0, bottom: 0 };
+      crown.half = Math.max(crown.half, Math.abs(r.left - cx), Math.abs(r.right - cx));
+      crown.bottom = Math.max(crown.bottom, r.bottom);
+    });
     var colW = Math.max(40, Math.min(cx - off - innerL, innerR - cx - off));
     sec.style.setProperty("--tag-max", Math.max(36, colW - 2).toFixed(1) + "px");
 
@@ -1767,6 +1776,8 @@
       });
       gap = tags.length ? Math.max(4, num(window.getComputedStyle(tags[0].tag).fontSize) * 0.34) : 0;
       zoneTop = (goalTitle ? box(goalTitle).bottom : num(cs.paddingTop)) + gap;
+      // The labels pass beside the star; were its leaves to reach into the columns, they start below.
+      if (crown && crown.half > off - 1) zoneTop = Math.max(zoneTop, crown.bottom + gap);
       zoneBot = ground.top - gap * 0.5;
       var need = 0;
       ["l", "r"].forEach(function (s) {
@@ -1869,7 +1880,8 @@
       var nth = num(b.getAttribute("data-nth"));
       var wood = b.querySelector(".branch__wood");
       var sy = y[at] - nth * stemH * 0.5;
-      var sx = cx + dir * (halfAt(sy) - 1);
+      // The bough starts inside the trunk (which is drawn over it), so its base never shows.
+      var sx = cx + dir * halfAt(sy) * 0.55;
       var t = null;
       tags.forEach(function (x) {
         if (x.b === b) t = x;

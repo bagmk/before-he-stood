@@ -7,10 +7,10 @@
  * order); exactly one outcome per option (continue, `bad: "<id>"` or `scold: { speaker?, text }`);
  * every choice keeps a continue option, so the scolds never leave a dead end; bad ids exist and every
  * cut branch is reachable; one true ending (endings.good: title, memory verse, beats, last) and the
- * cut branches (endings.bad); the counts the story shape asks for (5-6 choices, 3-4 cut branches,
- * 2-3 scolds, at least one 2-option and two 4-option choices; WARN outside). Every true path (each
+ * cut branches (endings.bad); the counts the story shape asks for (5-6 choices, 4-6 cut branches,
+ * 2-4 scolds, at least one 2-option and two 4-option choices; WARN outside). Every true path (each
  * combination of continue options, `when` variants included) and every cut path (each cutting option
- * after every continue prefix) is simulated: screens (true path WARN > 28, ERROR > 30; cut path ERROR
+ * after every continue prefix) is simulated: screens (true path WARN > 29, ERROR > 30; cut path ERROR
  * > 20), the crowd order of SPEC 6.4 on every true path, the passerby line (SPEC 6.3), reading time per
  * route and per cut branch. Story strings carry no ASCII digits (no numbers on screen). The engine
  * (js/engine.js) is cross-checked step by step on every path, with and without the scolds, including
@@ -46,8 +46,9 @@ export const OPTION_IDS = ['a', 'b', 'c', 'd'];
 // Story shape (SPEC 4.5 / 8, version 4). Outside these counts: WARN (writer guidance), except options.
 const SHAPE = { choices: [5, 6], options: [2, 4], bad: [4, 6], scolds: [2, 4], twoOption: 1, fourOption: 2 };
 // Screens = line + verse + choice + press + the memory-verse card (the true ending's title card and
-// the snip card are not screens). True path: WARN above 28, ERROR above 30; cut path: ERROR above 20.
-const SCREENS = { trueWarn: 28, trueMax: 30, trueTarget: [24, 28], cutMax: 20 };
+// the snip card are not screens). True path: WARN above 29 (that is, at 30), ERROR above 30; cut path:
+// ERROR above 20.
+const SCREENS = { trueWarn: 29, trueMax: 30, trueTarget: [24, 29], cutMax: 20 };
 // Ending lengths in screens before the last line: the true ending 1-3 beats, a cut branch 2-3.
 const ENDING_BEATS = { good: [1, 3], bad: [2, 3] };
 // The memory verse of each route (SPEC 4.6).
@@ -1905,7 +1906,8 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
   const over = trueRes.filter((r) => r.st.screens > SCREENS.trueMax);
   const warnRes = trueRes.filter((r) => r.st.screens > SCREENS.trueWarn && r.st.screens <= SCREENS.trueMax);
   if (over.length) rep.error('screens', rid, `${over.length}/${trueRes.length} true paths exceed ${SCREENS.trueMax} screens (SPEC 4.5); worst ${Math.max(...over.map((r) => r.st.screens))} on ${over[0].label}`);
-  if (warnRes.length) rep.warn('screens', rid, `${warnRes.length}/${trueRes.length} true paths have ${SCREENS.trueWarn + 1}-${SCREENS.trueMax} screens (SPEC 4.5 target ${SCREENS.trueTarget[0]}-${SCREENS.trueTarget[1]}); worst ${Math.max(...warnRes.map((r) => r.st.screens))} on ${warnRes[0].label}`);
+  const warnSpan = SCREENS.trueWarn + 1 === SCREENS.trueMax ? `${SCREENS.trueMax}` : `${SCREENS.trueWarn + 1}-${SCREENS.trueMax}`;
+  if (warnRes.length) rep.warn('screens', rid, `${warnRes.length}/${trueRes.length} true paths have ${warnSpan} screens (SPEC 4.5 target ${SCREENS.trueTarget[0]}-${SCREENS.trueTarget[1]}); worst ${Math.max(...warnRes.map((r) => r.st.screens))} on ${warnRes[0].label}`);
   if (trueRes.length && Math.max(...trueRes.map((r) => r.st.screens)) < SCREENS.trueTarget[0]) rep.info('screens', rid, `true paths have at most ${Math.max(...trueRes.map((r) => r.st.screens))} screens (SPEC 4.5 target ${SCREENS.trueTarget[0]}-${SCREENS.trueTarget[1]})`);
   const g = endLen.good;
   if (trueRes.length && (g.max > ENDING_BEATS.good[1] || g.min < ENDING_BEATS.good[0])) {
@@ -2413,12 +2415,55 @@ async function main() {
 function T(ko, en) { return { ko, en }; }
 
 const FIX_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+// Extra cut branches for the fixture routes: [choice, option slot, id, ko title, en title]. The first ones
+// fill up to the story shape's minimum; the selftest adds the rest to go past its maximum. c3 first, so
+// c2 stays the two-option choice; a cut at c5 runs past the cut-path cap (fine for the shape test).
+const FIX_EXTRA_BAD = [
+  ['c3', 'd', 'detour', '딴길로 새기', 'A Detour'],
+  ['c2', 'c', 'figBet', '무화과 내기', 'The Fig Bet'],
+  ['c2', 'd', 'byBoat', '배 타고 가기', 'Off by Boat'],
+  ['c5', 'd', 'lastWord', '마지막 한마디', 'The Last Word']
+];
+
+// Adds the i-th extra cut branch to a fixture route (an option in a free slot, and its ending).
+function addFixtureBad(route, i) {
+  const [cid, oid, bad, ko, en] = FIX_EXTRA_BAD[i];
+  const b = route.beats.find((x) => x.type === 'choice' && x.id === cid);
+  if (!b || b.options.some((o) => o.id === oid)) return false;
+  b.options.push({ id: oid, text: T('가나다 보기 ' + bad, 'Option ' + bad + '.'), bad });
+  b.options.sort((x, y) => OPTION_IDS.indexOf(x.id) - OPTION_IDS.indexOf(y.id));
+  route.endings.bad[bad] = {
+    title: T(ko, en),
+    beats: [{ type: 'line', text: T('가나다 ' + bad + 'one', 'Line ' + bad + 'one.') }, { type: 'line', text: T('가나다 ' + bad + 'two', 'Line ' + bad + 'two.') }],
+    last: T('가나다 ' + bad + ' 끝', 'So ' + bad + '.')
+  };
+  return true;
+}
+
+// Expected path counts of a route, from its options alone (cross-checks truePaths/cutPaths): true
+// paths multiply the continue options of every choice; each cutting option at choice k counts once per
+// combination of continue options before k.
+function fixturePathCounts(route, badId) {
+  const cont = choicesOf(route).map((b) => optionsOf(b).filter((o) => optionOutcome(o) === 'continue').length);
+  const before = (k) => cont.slice(0, k).reduce((a, x) => a * x, 1);
+  let cut = 0;
+  let cutTo = 0;
+  choicesOf(route).forEach((b, k) => {
+    optionsOf(b).forEach((o) => {
+      if (optionOutcome(o) !== 'bad') return;
+      cut += before(k);
+      if (o.bad === badId) cutTo += before(k);
+    });
+  });
+  return { truePaths: before(cont.length), cutPaths: cut, cutTo };
+}
 
 export function fixtureData(root, opts = {}) {
   // Uses the real meta/characters/scripture/common when available, plus generated story-mode routes
-  // (SPEC version 4): five choices with 2-4 options, three scolds, three cut branches (one reachable
-  // from two choices; the latest cut path sits at the 20-screen cap), the crowd sequence, the
-  // passerby, and the true ending with the memory verse. No story string carries an ASCII digit.
+  // (SPEC version 4): five choices with 2-4 options, three scolds, as many cut branches as the story
+  // shape asks for at least (SHAPE.bad[0]; one of them reachable from two choices; the latest cut path
+  // sits at the 20-screen cap), the crowd sequence, the passerby, and the true ending with the memory
+  // verse. No story string carries an ASCII digit.
   const rep = new Report();
   const loaded = loadProject(root, rep, { routeFilter: '__none__', partial: true });
   const d = loaded.data;
@@ -2464,7 +2509,7 @@ export function fixtureData(root, opts = {}) {
     beats.push({ type: 'verse', key: 'MT_9_7' }, { type: 'verse', key: 'MT_9_8' }, { type: 'fx', fx: 'light', level: 'soft' });
     beats.push(choice(5, [opt('a', 'ea'), opt('b', 'eb'), opt('c', 'ec')]));
     beats.push({ type: 'fx', fx: 'light', level: 'off' });
-    return {
+    const route = {
       id: rid,
       beats,
       endings: {
@@ -2476,6 +2521,9 @@ export function fixtureData(root, opts = {}) {
         }
       }
     };
+    // More cut branches until the story shape's minimum, in free option slots before the last choice.
+    for (let i = 0; Object.keys(route.endings.bad).length < SHAPE.bad[0] && i < FIX_EXTRA_BAD.length; i++) addFixtureBad(route, i);
+    return route;
   };
   d.routes = { scribe: mk('scribe'), friend: mk('friend'), asher: mk('asher') };
   if (opts.withEngine) return { data: d, engine: loaded.data.engine, bhs: loaded.bhs };
@@ -2523,10 +2571,13 @@ function selfTest() {
   t('paths: true paths = combinations of continue options; cut paths = cutting options after every continue prefix', () => {
     const r = base.routes.scribe;
     // continue options: c1 a,d; c2 a; c3 a; c4 a,b; c5 a,b,c -> 2*1*1*2*3 = 12 true paths
-    // cut options: c1 b (1 prefix), c2 b (2), c3 c (2), c4 c (2) -> 7 cut paths
+    // cut options: c1 b (1 prefix), c2 b (2), c3 c and the extra branches (2 each), c4 c (2); nap is
+    // reachable from c1 b and c4 c (1 + 2 = 3 paths)
+    const want = fixturePathCounts(r, 'nap');
     const tp = truePaths(r);
     const cp = cutPaths(r);
-    return tp.length === 12 && cp.length === 7 && cp.filter((c) => c.bad === 'nap').length === 3 && pathLabel(r, cp[0].picks) === 'b----';
+    return want.truePaths === 12 && want.cutTo === 3 && tp.length === want.truePaths && cp.length === want.cutPaths &&
+      cp.filter((c) => c.bad === 'nap').length === want.cutTo && pathLabel(r, cp[0].picks) === 'b----';
   });
   t('simulation: a scold plays its line and the choice comes back without it; a cut skips the rest', () => {
     const r = base.routes.scribe;
@@ -2608,7 +2659,8 @@ function selfTest() {
     [bs[i5], bs[i4]] = [bs[i4], bs[i5]];
     const d2 = clone(base);
     d2.routes.asher.beats = d2.routes.asher.beats.filter((x) => x.key !== 'MT_9_7');
-    return run(d).has('ERROR', 'canon', /crowd sequence/) && run(d2).has('ERROR', 'canon', /MT_9_7 not shown on 12\/12 true paths/);
+    const n = truePaths(d2.routes.asher).length;
+    return run(d).has('ERROR', 'canon', /crowd sequence/) && run(d2).has('ERROR', 'canon', new RegExp(`MT_9_7 not shown on ${n}/${n} true paths`));
   });
   t('cut paths may stop early: no "not shown" errors from them', () => !run(clone(base)).has(null, 'canon', /not shown/));
   t('choice ids out of order -> ERROR schema', () => { const d = clone(base); cho(d, 'asher', 'c3').id = 'c7'; return run(d).has('ERROR', 'schema', /c1, c2, \.\.\. in beat order/); });
@@ -2677,28 +2729,45 @@ function selfTest() {
     d2.routes.scribe.beats.push({ type: 'line', text: T('가 {{r:MT_9_5}}', 'See {{r:MT_9_5}}.') });
     return run(d).has('ERROR', 'digits', /5분/) && !run(d2).has('ERROR', 'digits');
   });
-  t('screens: 29 on a true path -> WARN, 31 -> ERROR; a cut path over 20 -> ERROR', () => {
+  t(`screens: ${SCREENS.trueWarn} on a true path -> fine, ${SCREENS.trueWarn + 1} -> WARN, ${SCREENS.trueMax + 1} -> ERROR; a cut path over ${SCREENS.cutMax} -> ERROR`, () => {
     const m0 = maxTrue(base, 'asher');
+    const dOk = clone(base);
+    pad(dOk, 'asher', SCREENS.trueWarn - m0);
     const dW = clone(base);
-    pad(dW, 'asher', 29 - m0);
+    pad(dW, 'asher', SCREENS.trueWarn + 1 - m0);
     const dE = clone(base);
-    pad(dE, 'asher', 31 - m0);
+    pad(dE, 'asher', SCREENS.trueMax + 1 - m0);
     const dC = clone(base);
     for (let i = 0; i < 8; i++) dC.routes.friend.endings.bad.guard.beats.push({ type: 'line', text: T('가 길다', 'Long.') });
-    return maxTrue(dW, 'asher') === 29 && run(dW, 'asher').has('WARN', 'screens', /29-30|have 29/) && !run(dW, 'asher').has('ERROR', 'screens') &&
-      run(dE, 'asher').has('ERROR', 'screens', /exceed 30 screens/) && run(dC, 'friend').has('ERROR', 'screens', /at most 20.*endings\.bad\.guard/);
+    const w = SCREENS.trueWarn + 1;
+    return maxTrue(dOk, 'asher') === SCREENS.trueWarn && !run(dOk, 'asher').has(null, 'screens', /true paths (have|exceed)/) &&
+      maxTrue(dW, 'asher') === w && run(dW, 'asher').has('WARN', 'screens', new RegExp(`have ${w}(-${SCREENS.trueMax})? screens`)) && !run(dW, 'asher').has('ERROR', 'screens') &&
+      run(dE, 'asher').has('ERROR', 'screens', new RegExp(`exceed ${SCREENS.trueMax} screens`)) && run(dC, 'friend').has('ERROR', 'screens', new RegExp(`at most ${SCREENS.cutMax}.*endings\\.bad\\.guard`));
   });
-  t('story shape: four choices, two cut branches, one scold -> WARN shape', () => {
+  t('story shape: four choices, too few or too many cut branches, one scold -> WARN shape', () => {
     const d = clone(base);
     d.routes.scribe.beats = d.routes.scribe.beats.filter((x) => !(x.type === 'choice' && x.id === 'c5'));
+    // One cut branch fewer than the shape's minimum: its options continue instead.
     const d2 = clone(base);
-    delete cho(d2, 'friend', 'c2').options[1].bad;
-    delete d2.routes.friend.endings.bad.lane;
+    const fr = d2.routes.friend;
+    for (const id of ['lane', 'guard', 'detour', 'figBet']) {
+      if (Object.keys(fr.endings.bad).length < SHAPE.bad[0]) break;
+      for (const b of fr.beats) if (b.type === 'choice') for (const o of b.options) if (o.bad === id) delete o.bad;
+      delete fr.endings.bad[id];
+    }
+    const few = Object.keys(fr.endings.bad).length;
+    // One cut branch more than the shape's maximum, in the free option slots.
+    const d4 = clone(base);
+    const ar = d4.routes.asher;
+    for (let i = 0; Object.keys(ar.endings.bad).length <= SHAPE.bad[1] && i < FIX_EXTRA_BAD.length; i++) addFixtureBad(ar, i);
+    const many = Object.keys(ar.endings.bad).length;
     const d3 = clone(base);
     delete cho(d3, 'asher', 'c3').options[1].scold;
     delete cho(d3, 'asher', 'c4').options[3].scold;
     // "Can't" thoughts are not counted as scolds, so the remaining count is 0 or 1 depending on the fixture.
-    return run(d).has('WARN', 'shape', /4 choices/) && run(d2).has('WARN', 'shape', /2 cut branch/) && run(d3).has('WARN', 'shape', /[01] scold option/);
+    return run(d).has('WARN', 'shape', /4 choices/) && few === SHAPE.bad[0] - 1 && run(d2).has('WARN', 'shape', new RegExp(`${few} cut branch`)) &&
+      many === SHAPE.bad[1] + 1 && run(d4).has('WARN', 'shape', new RegExp(`${many} cut branch`)) && !run(clone(base)).has('WARN', 'shape', /cut branch/) &&
+      run(d3).has('WARN', 'shape', /[01] scold option/);
   });
   t('voice: the scribe narration says 그분 -> WARN; the friend narration says 예수라는 사람 -> WARN', () => {
     const d = clone(base);
@@ -2733,7 +2802,12 @@ function selfTest() {
     const engErr = rep.findings.filter((f) => f.code === 'engine' && f.level !== 'INFO');
     if (engErr.length) console.log(engErr.map((f) => `   ${f.level} ${f.where}: ${f.msg}`).join('\n'));
     const lines = rep.stats.find((x) => x.title === 'Engine cross-check');
-    return !engErr.length && lines && lines.lines.length === 3 && lines.lines.every((l) => /24 true-path runs and 14 cut-path runs.*Try again back at the right choice 14\/14/.test(l));
+    // Each true path and each cut path runs twice (as planned, and with every scold on the way).
+    const want = (rid) => {
+      const c = fixturePathCounts(fx.data.routes[rid]);
+      return new RegExp(`^${rid}\\s.*${2 * c.truePaths} true-path runs and ${2 * c.cutPaths} cut-path runs.*Try again back at the right choice ${2 * c.cutPaths}/${2 * c.cutPaths}`);
+    };
+    return !engErr.length && lines && lines.lines.length === 3 && ['scribe', 'friend', 'asher'].every((rid) => lines.lines.some((l) => want(rid).test(l)));
   });
   t('engine cross-check: an engine that keeps scolded options -> ERROR engine', () => {
     const fx = withEngine();

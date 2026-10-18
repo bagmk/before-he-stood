@@ -2498,8 +2498,15 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   height: 0;
 }
 
-.tree--placed .branch__wood {
+/* The boughs grow from behind the trunk, so their bases never show. */
+.tree--placed .tree__trunk {
+  z-index: 1;
+}
+
+/* Every bough measures the full stem before layoutTree sets its length (an unseen stub included). */
+.tree--placed .branch[data-state] .branch__wood {
   position: absolute;
+  width: var(--stem-w);
   margin: 0;
   transform-origin: 0 50%;
 }
@@ -3565,6 +3572,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     --stem-w: 2vh;
     padding-left: 0.2vw;
     padding-right: 0.2vw;
+  }
+
+  /* A smaller fan of leaves, clear of the label columns beside the star. */
+  .tree--compact .tree__crown {
+    width: 280%;
+    height: 195%;
   }
 
   .treespage {
