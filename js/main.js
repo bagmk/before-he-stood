@@ -491,6 +491,10 @@
       }
       return;
     }
+    if (app.screen === "routeSelect") {
+      routeSelectKey(ev, key);
+      return;
+    }
     if (!PLAY_SCREENS[app.screen] || !app.game) return;
     var step = app.game.step;
     var kind = step && step.kind;
@@ -525,6 +529,30 @@
       return;
     }
     if (INERT_KEYS[key]) ev.preventDefault();
+  }
+
+  // Route select on a TV: 1-3 start a route (in card order), arrows and PageUp/PageDown move the focus
+  // between the cards (the focused card lifts its figure), Enter/Space start the focused one natively.
+  function routeSelectKey(ev, key) {
+    var cards = Array.prototype.slice.call(doc.querySelectorAll(".routecard"));
+    if (!cards.length) return;
+    if (/^[1-9]$/.test(key)) {
+      var card = cards[Number(key) - 1];
+      if (!card) return;
+      ev.preventDefault();
+      if (!ev.repeat) card.click();
+      return;
+    }
+    var dir = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1 }[key];
+    if (!dir) return;
+    ev.preventDefault();
+    var cur = cards.indexOf(doc.activeElement);
+    var next = cur < 0 ? (dir > 0 ? 0 : cards.length - 1) : (cur + dir + cards.length) % cards.length;
+    try {
+      cards[next].focus({ preventScroll: false });
+    } catch (err) {
+      cards[next].focus();
+    }
   }
 
   // ------------------------------------------------------------------ fullscreen + idle cursor

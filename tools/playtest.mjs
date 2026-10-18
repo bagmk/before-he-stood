@@ -790,6 +790,10 @@ async function playRun(browser, R, cfg) {
           await takeShot('phone-route-select', phoneShots && firstShots);
           await takeShot('tv-route-select', tvShots && firstShots);
           for (const r of ROUTE_IDS) if (!s.ids.includes('route-' + r)) run.fail(`route select: data-testid="route-${r}" not visible`, true);
+          if (!did.routeArt) {
+            did.routeArt = true;
+            await routeCardChecks(page, run);
+          }
           acted = await press('route-' + rid);
           break;
         case 'play': {
@@ -1083,6 +1087,34 @@ async function galleryChecks(page, run, rid, meta) {
     }
   } else run.fail('gallery reached without an ending card', true);
   for (const id of ['gallery-replay', 'gallery-home']) if (!(await visible(page, id))) run.fail(`gallery: data-testid="${id}" not visible after the ending`, true);
+}
+
+// Route cards (SPEC 5.8): each shows its protagonist between the tagline and the first line, aria-hidden,
+// never over the text; Asher lies (never standing). Missing portraits are allowed (text-only cards): WARN.
+async function routeCardChecks(page, run) {
+  const r = await page.evaluate(() => Array.from(document.querySelectorAll('.routecard')).map((card) => {
+    const art = card.querySelector('[data-testid^="routecard-portrait-"]');
+    const box = (sel) => { const el = card.querySelector(sel); return el ? el.getBoundingClientRect() : null; };
+    const a = art ? art.getBoundingClientRect() : null;
+    const tag = box('.routecard__tag');
+    const first = box('.routecard__first');
+    const svg = art && art.querySelector('svg');
+    return {
+      route: card.getAttribute('data-route'),
+      art: !!art,
+      hidden: art ? art.getAttribute('aria-hidden') : null,
+      lying: art ? art.classList.contains('routecard__art--lying') : null,
+      who: svg ? svg.getAttribute('data-portrait') : null,
+      clearTop: a && tag ? a.top >= tag.bottom - 0.5 : true,
+      clearBottom: a && first ? a.bottom <= first.top + 0.5 : true
+    };
+  }));
+  for (const c of r) {
+    if (!c.art) { run.warn(`route select: no portrait on the ${c.route} card (allowed only without js/portraits.js)`, true); continue; }
+    if (c.hidden !== 'true') run.fail(`route select: the ${c.route} portrait is not aria-hidden`, true);
+    if (!c.clearTop || !c.clearBottom) run.fail(`route select: the ${c.route} portrait band overlaps the card text`, true);
+    if (c.route === 'asher' && !c.lying) run.fail('route select: Asher must lie on his card (his standing pose is the ending)', true);
+  }
 }
 
 // Header language buttons: the contract names lang-ko/en/both; the header may use hdr-lang-*.

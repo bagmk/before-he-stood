@@ -104,6 +104,76 @@ try {
     await ctx.close();
   }
 
+  // 2b. "Both" mode types the two languages in parallel (teacher request): every language starts at
+  //     t = 0 and the last characters land together. First the timeline itself, exactly ...
+  {
+    const { ctx, page, errors } = await open(browser, index + "?test=1");
+    const r = await page.evaluate(() => {
+      const mk = (str) => Array.from(str).map((ch) => ({ textContent: ch }));
+      const ko = mk("등잔불이 흔들린다. 두루마리가 펼쳐져 있다.");
+      const en = mk("The lamp flickers. A scroll lies open.");
+      const seq = window.BHS.view.typeTimeline([{ chars: ko, rate: 28 }, { chars: en, rate: 28 * 0.4 }]);
+      const at = (c) => seq.find((x) => x.c === c).t;
+      const one = window.BHS.view.typeTimeline([{ chars: mk("가. 나"), rate: 10 }]).map((x) => x.t);
+      return {
+        firstKo: at(ko[0]),
+        firstEn: at(en[0]),
+        lastKo: at(ko[ko.length - 1]),
+        lastEn: at(en[en.length - 1]),
+        sorted: seq.every((x, i) => i === 0 || seq[i - 1].t <= x.t),
+        count: seq.length === ko.length + en.length,
+        enMonotone: en.every((c, i) => i === 0 || at(en[i - 1]) <= at(c)),
+        single: one
+      };
+    });
+    check(r.firstKo === 0 && r.firstEn === 0, `both mode: both languages start at t=0 (ko ${r.firstKo}, en ${r.firstEn})`);
+    check(Math.abs(r.lastKo - r.lastEn) < 1e-6 && r.lastKo > 0, `both mode: last ko and en chars land together (${r.lastKo} / ${r.lastEn})`);
+    check(r.sorted && r.count && r.enMonotone, "both mode: one sorted timeline holding every character");
+    // The syllable +1 step, "." +6 steps (a full stop pauses), " " +1 step: 0, 10, 70, 80 at 10 ms a step.
+    check(JSON.stringify(r.single) === JSON.stringify([0, 10, 70, 80]), `one language keeps its natural timeline (${r.single})`);
+    check(errors.length === 0, "timeline: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+  // ... then the live typewriter on the first scribe line: within one animation frame (about 17 ms).
+  {
+    const init = () => {
+      try {
+        localStorage.setItem("bhs.v1.settings", JSON.stringify({ lang: "both", speed: "normal", size: 1 }));
+      } catch (e) {
+        /* storage off */
+      }
+      window.__typed = [];
+      document.addEventListener("DOMContentLoaded", () => {
+        new MutationObserver((list) => {
+          const now = performance.now();
+          for (const m of list) {
+            const el = m.target;
+            if (el.className !== "c on" || el.__seen) continue;
+            el.__seen = true;
+            const p = el.closest("p");
+            const all = p ? Array.from(p.querySelectorAll("span.c")) : [];
+            window.__typed.push({ lang: p && p.getAttribute("lang"), i: all.indexOf(el), n: all.length, t: now });
+          }
+        }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ["class"] });
+      });
+    };
+    const { ctx, page, errors } = await open(browser, index + "#scribe", { init });
+    await page.waitForFunction(() => window.BHS_DEBUG && window.BHS_DEBUG.state().typing === false, null, { timeout: 15000 });
+    const r = await page.evaluate(() => {
+      const pick = (lang, which) => {
+        const xs = window.__typed.filter((x) => x.lang === lang && x.i === (which === "first" ? 0 : x.n - 1));
+        return xs.length ? xs[0].t : null;
+      };
+      return { firstKo: pick("ko", "first"), firstEn: pick("en", "first"), lastKo: pick("ko", "last"), lastEn: pick("en", "last"), n: window.__typed.length };
+    });
+    const frame = 17;
+    check(r.firstKo != null && r.firstEn != null && Math.abs(r.firstEn - r.firstKo) <= frame, `live both mode: English starts with Korean (${JSON.stringify(r)})`);
+    check(r.lastKo != null && r.lastEn != null && Math.abs(r.lastKo - r.lastEn) <= frame, `live both mode: the last ko and en chars land within one frame (${r.lastKo} / ${r.lastEn})`);
+    notes.push(`live both-mode typing of the first scribe line: ${(r.lastKo - r.firstKo).toFixed(0)} ms, ${r.n} characters`);
+    check(errors.length === 0, "live typing: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+
   // 3. Typewriter at normal speed: first tap completes, second tap advances.
   {
     const { ctx, page } = await open(browser, index + "#scribe", { viewport: { width: 390, height: 844 } });
@@ -251,6 +321,100 @@ try {
     check((await page.getAttribute('[data-testid="gallery-cell-scribe-cut"]', "data-seen")) === "true", "the scribe cut stays seen");
     await shot(page, "tv-gallery-v3");
     check(errors.length === 0, "cut: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+
+  // 8c. Route cards show the protagonist (teacher request): a bust rising from the divider (Menahem,
+  //     Yonah) or Asher lying across the band; aria-hidden; never over the text; no overflow on TV
+  //     (1920x1080, 1280x720) or phone (390x844); keys 1-3 and arrows work; no portraits -> text-only.
+  const toRouteSelect = async (page) => {
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem("bhs.v1.save", JSON.stringify({ v: 2, at: 1, screen: "routeSelect", routeId: null, state: null }));
+      } catch (e) {
+        /* storage off */
+      }
+    });
+    await page.goto(index + "?test=1");
+    await page.click('[data-testid="continue"]');
+    await page.waitForFunction(() => document.body.dataset.screen === "routeSelect");
+  };
+  for (const [w, h, dpr] of [
+    [1920, 1080, 1],
+    [1280, 720, 1],
+    [390, 844, 2]
+  ]) {
+    const { ctx, page, errors } = await open(browser, index + "?test=1", { viewport: { width: w, height: h }, dpr });
+    await toRouteSelect(page);
+    const m = await page.evaluate(() => {
+      const out = {};
+      for (const rid of ["scribe", "friend", "asher"]) {
+        const card = document.querySelector(`[data-testid="route-${rid}"]`);
+        const art = document.querySelector(`[data-testid="routecard-portrait-${rid}"]`);
+        if (!card || !art) {
+          out[rid] = null;
+          continue;
+        }
+        const r = (el) => el.getBoundingClientRect();
+        const svg = art.querySelector("svg");
+        const fig = r(art.querySelector(".routecard__fig"));
+        out[rid] = {
+          inCard: art.closest(".routecard") === card,
+          hidden: art.getAttribute("aria-hidden"),
+          lying: art.classList.contains("routecard__art--lying"),
+          svg: !!svg && svg.getAttribute("data-portrait"),
+          gapTop: r(art).top - r(card.querySelector(".routecard__tag")).bottom,
+          gapBottom: r(card.querySelector(".routecard__first")).top - r(art).bottom,
+          title: r(card.querySelector(".routecard__title")).bottom <= r(art).top,
+          band: Math.round(r(art).height),
+          fig: Math.round(fig.height),
+          cardH: Math.round(r(card).height)
+        };
+      }
+      const scr = document.getElementById("screen");
+      return { cards: out, overX: document.documentElement.scrollWidth - innerWidth, scrollY: scr.scrollHeight - scr.clientHeight };
+    });
+    const tag = `${w}x${h}`;
+    for (const rid of ["scribe", "friend", "asher"]) {
+      const c = m.cards[rid];
+      check(c && c.inCard && c.hidden === "true" && c.svg === (rid === "scribe" ? "menahem" : rid === "friend" ? "yonah" : "asher"), `${tag} ${rid}: portrait present, aria-hidden, right character (${JSON.stringify(c)})`);
+      if (!c) continue;
+      check(c.lying === (rid === "asher"), `${tag} ${rid}: ${rid === "asher" ? "Asher lies (never standing)" : "upright bust"}`);
+      check(c.gapTop >= -0.5 && c.gapBottom >= -0.5 && c.title, `${tag} ${rid}: the portrait band sits between the tagline and the first line (gaps ${c.gapTop.toFixed(1)} / ${c.gapBottom.toFixed(1)})`);
+      check(c.band >= (w > 900 ? 50 : 80), `${tag} ${rid}: the band has room for the figure (${c.band}px)`);
+    }
+    check(m.overX <= 1, `${tag}: no horizontal overflow on the route select (${m.overX}px)`);
+    if (w > 900) check(m.scrollY <= 1, `${tag}: the route select fits the TV screen (${m.scrollY}px too tall)`);
+    notes.push(`${tag} route cards: bands ${["scribe", "friend", "asher"].map((r) => m.cards[r] && m.cards[r].band + "px").join(" / ")} of ${m.cards.scribe && m.cards.scribe.cardH}px cards; figures ${["scribe", "friend", "asher"].map((r) => m.cards[r] && m.cards[r].fig + "px").join(" / ")}`);
+    if (w === 1920) {
+      // Keys: arrows move the focus between the cards, 1-3 start a route.
+      await page.keyboard.press("ArrowRight");
+      const f1 = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-testid"));
+      await page.keyboard.press("ArrowRight");
+      const f2 = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-testid"));
+      await page.keyboard.press("ArrowLeft");
+      await page.keyboard.press("ArrowLeft");
+      const f3 = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-testid"));
+      check(f1 === "route-scribe" && f2 === "route-friend" && f3 === "route-asher", `route select: arrows move the focus (${f1}, ${f2}, ${f3})`);
+      await page.keyboard.press("3");
+      const st = await state(page);
+      check(st.screen === "play" && st.routeId === "asher", `route select: key 3 starts the third route (${st.screen} ${st.routeId})`);
+    }
+    check(errors.length === 0, `${tag} route cards: console errors ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+  {
+    // Without the portrait module the cards stay text-only, silently.
+    const init = () => {
+      const B = (window.BHS = window.BHS || {});
+      Object.defineProperty(B, "portraits", { get: () => undefined, set: () => {}, configurable: false });
+    };
+    const { ctx, page, errors } = await open(browser, index + "?test=1", { init });
+    await toRouteSelect(page);
+    const n = await page.locator('[data-testid^="routecard-portrait-"]').count();
+    const cards = await page.locator(".routecard").count();
+    check(n === 0 && cards === 3, `no portrait module: text-only cards (${n} portraits, ${cards} cards)`);
+    check(errors.length === 0, "no portrait module: console errors " + errors.join(" | "));
     await ctx.close();
   }
 

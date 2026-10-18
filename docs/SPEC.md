@@ -1,7 +1,8 @@
 # SPEC — 그가 일어나기 전 · Before He Stood
 
-Version 1.0 (2026-10-18). Single source of truth for every agent on this project.
-- docs/scenario-v2.md (Korean) owns story beats, options, callbacks, ending prose and tone.
+Version 3 (2026-10-18): short routes. Single source of truth for every agent on this project.
+- Version 3 merges the short-route addendum (all three characters played together on one TV in one lesson): 4 choices per route with the last counting double, cut endings, a 3 × 4 endings gallery, the new balance and screen budget. Where docs/scenario-v2.md still describes the 10-choice routes, this file wins.
+- docs/scenario-v2.md (Korean) owns story beats, options, callbacks, ending prose and tone (within the version 3 route shape, §3.5).
 - THIS FILE owns structure, schema, canon facts, glossary, and guardrails. On conflict about structure or facts, this file wins.
 - Never edit a file you do not own (see §1). Put needed changes under "Requests" in your final report.
 
@@ -10,7 +11,7 @@ Version 1.0 (2026-10-18). Single source of truth for every agent on this project
 ## 0. What we are building
 
 - A mobile-first, bilingual (Korean/English) visual novel for a Korean-American church youth class (4–5 students, ages 14–18). Based on Matthew 9:1–8.
-- Each student picks one of three characters and plays ~8–9 minutes on their own phone: 10 choices × 4 options, 3 endings per character (9 total). Then the class fills a 3×3 grid on the whiteboard (columns = three lenses, rows = three characters) and the sermon on Matthew 8:23–9:8 follows.
+- The class plays ALL THREE characters together on one TV in a single lesson, about 5 minutes per character read aloud (a phone still plays one character alone): 4 choices × 4 options per character, 3 lens endings per character, plus a cut ending for the scribe and the friend (a choice that ends the route early, §4.5). Then the class fills the 3 × 4 endings grid (rows = three characters, columns = three lenses + "cut short") and the sermon on Matthew 8:23–9:8 follows.
 - Choices never change the biblical event. They change how the protagonist hears it. Endings are never graded (no good/bad/true endings, no visible score).
 - Static site: plain HTML/CSS/JS. No framework, no build step to play, no network required (Google Fonts optional, always with fallbacks). Must run (a) by double-clicking index.html (file://), (b) on GitHub Pages, (c) as a claude.ai artifact (single-file build, see §5.7).
 - The site is the game only: index.html (plus the single-file builds). There is no teacher page and no final screen with fill-in blanks; after an ending the player goes straight to the endings gallery (both removed 2026-10-18).
@@ -29,9 +30,10 @@ Version 1.0 (2026-10-18). Single source of truth for every agent on this project
 | data/routes/scribe.js | scribe writer | |
 | data/routes/friend.js | friend writer | |
 | data/routes/asher.js | asher writer | |
-| index.html, css/style.css, js/engine.js, js/ui.js, js/main.js, data/ui-strings.js, tools/build-single.mjs, tests/fixtures/* | engine agent | |
+| index.html, css/style.css, js/engine.js, js/ui.js, js/main.js, data/ui-strings.js, tools/build-single.mjs, tests/* (incl. fixtures) | engine agent | |
 | js/art.js | art agent | scene backgrounds as SVG |
-| tools/validate.mjs, tools/playtest.mjs, qa/* | QA agent (phase 2) | |
+| js/portraits.js | portrait agent | character busts as SVG |
+| tools/validate.mjs, tools/playtest.mjs, qa/* | engine + tools agent (version 3) | |
 | README.md | lead | |
 
 Do not run `git commit`; the lead commits.
@@ -78,7 +80,7 @@ Data files must not depend on each other at load time. js/engine.js must not tou
 | option text | 45 / 60 | 90 / 120 |
 | choice prompt | 50 / 70 | 100 / 130 |
 
-Token text counts as its rendered length. Route budget: ≤ 80 screens on a typical path (line + verse + choice beats), target 8–9 minutes.
+Token text counts as its rendered length. Route budget (version 3): 24–30 screens on a typical path, at most 32 on any path (screens = line + verse + choice + press beats, the ending's lines and last line included; the ending card is not a screen). A path that shows the mismatch line may reach 31. About 4 minutes read silently, about 5 minutes read aloud on a TV. The validator errors above 32 on any path and warns when a path exceeds 31 or the median path exceeds 30.
 
 ### 3.4 Style per language
 Korean
@@ -96,11 +98,31 @@ Both
 - Same meaning, same beats. No jokes in one language only.
 - Never mention game mechanics in story text (no "points", "lens", "ending").
 
+### 3.5 Route shape (version 3)
+Routes are short (about 5 minutes each read aloud together) and end soon after the climax; some choices cut a route short, so students realize "아, 이렇구나" while playing.
+- Exactly **4 choices** per route, ids `c1`…`c4`, in order. The last choice (`c4`) counts double.
+- Each option keeps at most **one** short reaction beat (two only when a `when` variant needs it; a cut option may keep two).
+- Lines stay short (§3.3 soft limits); no long setups. Cut anything that is not needed for the moment.
+- No evening or epilogue scenes. The route ends at the crowd (or at the doorway one step away) right after MT_9_7–MT_9_8, with the final choice and a short ending.
+
+Shared skeleton (adapt per character, keep the order):
+1. Opening (2–3 screens): who, where, the cultural question in one beat (e.g. the psalm, the rumor, "what did I do?").
+2. `c1` — the morning choice (sets up a callback).
+3. THE LANE (2–3 screens): §6.3 facts unchanged, including the passerby's exact line where that route shows it.
+4. THE CROWD — the full fixed sequence of §6.4, unchanged and in order (MT_9_2A … MT_9_8). `c2` and `c3` sit inside it at the moments that matter for this character (e.g. right after the first words; right after MT_9_4Q/MT_9_5). The friend's `c2` sits in the lane.
+5. `c4` (double weight) right after MT_9_7/MT_9_8 — where this character's eyes finally rest.
+6. Ending: title card (engine) → 1–3 short beats → `last` (one line).
+
+Keep: canon and voices; THE LANE facts; the whole crowd sequence; Jesus only through verse beats/tokens; the scribe's 「읽음」 (pinThought + readReceipt) and the dawn word in his notes; Asher's gray buttons, the lying POV, and the press sequence (일어나기 → 침상을 들어 → 집으로); the light FX.
+Drop: the friend's item mechanic (rope/cloak/water/food), long dawn setups, evening scenes, multi-beat reactions, extra callbacks that need long setup.
+
 ## 4. Data schema
 
 ### 4.1 data/meta.js (lead)
-`BHS.meta = { version, title: T, subtitle: T, lenses: {1,2,3: {label: T, desc: T}}, routeOrder: [...], routes: {routeId: {protagonist, name: T, title: T, tagline: T, firstLine: T, lensDesc: {1,2,3: T}}}, endings: {routeId: {1,2,3: T}}, bibleNotice: T, disclaimer: T }`.
+`BHS.meta = { version, title: T, subtitle: T, lenses: {1,2,3: {label: T, desc: T}}, cut: {label: T, desc: T}, routeOrder: [...], routes: {routeId: {protagonist, name: T, title: T, tagline: T, firstLine: T, lensDesc: {1,2,3: T}}}, endings: {routeId: {1,2,3: T, cut?: T, cutNote?: T}}, bibleNotice: T, disclaimer: T }`.
 Route files do not define titles. The engine reads route titles and ending titles from meta.
+- `cut` labels the gallery's fourth column and the cut ending card (「중간에 끝남」 / "Cut short"; `desc` under the column heading).
+- `endings.scribe.cut`, `endings.friend.cut`: the titles of the cut endings. `endings.asher.cutNote`: Asher has no cut ending by design; this note fills his cut cell once any Asher ending has been seen (「없음 · 아셀은 걸어서 떠날 수 없었다」).
 
 ### 4.2 data/characters.js (lead)
 `BHS.characters[id] = { name: T, role: T, color: "#hex", drawn?: false }`. Speaker ids for `line` beats come from here, plus the pseudo-speakers in §4.5.
@@ -173,11 +195,12 @@ BHS.routes.scribe = {
   beats: [ /* Beat */ ],
   endingPreface: [ /* optional Beat list, played before any ending */ ],
   endings: {
-    "1": { beats: [ /* Beat */ ], last: T },
+    "1": { beats: [ /* Beat, 1-3 short beats */ ], last: T },
     "2": { beats: [...], last: T },
-    "3": { beats: [...], last: T }
+    "3": { beats: [...], last: T },
+    "cut": { beats: [ /* 2-4 short beats */ ], last: T }   // scribe and friend only
   },
-  endingCoda: [ /* optional Beat list, played after the last line of any ending */ ]
+  endingCoda: [ /* optional Beat list, played after the last line of any ending, the cut ending included */ ]
 };
 ```
 
@@ -186,15 +209,15 @@ BHS.routes.scribe = {
 1. `{ type: "scene", bg: BG_ID, caption?: T, pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night" }` — change background; optional place/time chip, e.g. `{ko:"새벽 · 므나헴의 방", en:"Dawn · Menahem's room"}`. `time` (default "day") is passed to `BHS.art.render(bg, { pov, time })`; used for asher_home in the evening/night endings. A scene change keeps the current light level and pov unless the beat sets pov.
 2. `{ type: "line", speaker?: SPEAKER, text: T }` — one text box. SPEAKER = a character id (§6.1) | `"narrator"` (default) | `"thought"` (protagonist's inner voice; rendered italic, no name plate) | `"sign"` (centered caption such as 「― 두루마리 펴는 소리 ―」 or 「몇 시간 뒤 / Hours later」).
 3. `{ type: "verse", key: KEY, speaker?: "jesus"|"scribes"|"narrator" }` — scripture card (text + reference). Speaker defaults to the key's speaker. Jesus' words appear ONLY as verse beats or tokens.
-4. `{ type: "choice", id: "c1"…"c10", prompt: T, options: [Option ×4] }` — exactly ten per route, ids in order c1…c10. c10 counts double automatically.
-   `Option = { id: "a"|"b"|"c"|"d", text: T, lens: 1|2|3|null, set?: { flag: value }, reaction?: [Beat] }`. Reaction beats (0–2 short lines, may use `when`) play right after the pick. Option ids a–d in order.
+4. `{ type: "choice", id: "c1"…"c4", prompt: T, options: [Option ×4] }` — exactly four per route, ids in order c1…c4. The last choice (the highest cN, c4) counts double automatically; the engine has no hardcoded choice id.
+   `Option = { id: "a"|"b"|"c"|"d", text: T, lens: 1|2|3|null, set?: { flag: value }, reaction?: [Beat], cut?: true }`. Reaction beats (at most one short beat, two only when a `when` variant needs it) play right after the pick. Option ids a–d in order. `cut: true` (with `lens: null`) ends the route early after the reaction (see **Cut endings** below).
 5. `{ type: "fx", fx: FX_NAME, ...params }` — see FX list.
 6. `{ type: "press", action?: ACTION_ID, label?: T, hint?: T }` — waits for the player to tap one glowing button. With `action`: that persistent action button turns on and must be tapped. With `label`: a one-off button appears (e.g. 「침상을 들어 / Pick up your bed」).
 
 **Conditions (Cond).** May only reference earlier choices and flags set earlier.
 - `{ choice: "c3", is: "a" }`, `{ choice: "c3", in: ["a","b"] }`
-- `{ flag: "far", is: true }`, `{ flag: "item", in: ["rope","water"] }`
-- `{ c10lens: 2 }` — lens of the option chosen at c10 (endings only)
+- `{ flag: "stood", is: true }`, `{ flag: "mark", in: ["he","order"] }` (an unset flag counts as `false`)
+- `{ lastLens: 2 }` — lens of the option chosen at the last choice, c4 (endings, endingPreface and endingCoda only; never true inside `endings.cut`, where no last choice was made). `{ c10lens: 2 }` is the old name and still works.
 - `{ all: [Cond...] }`, `{ any: [Cond...] }`, `{ not: Cond }`
 
 **FX list** (the engine implements exactly these):
@@ -219,37 +242,45 @@ Gray buttons sit under the text box from the first beat until `actionsHide` or t
 
 **Endings.** At the end of `beats` the engine:
 1. computes the ending lens (§5.1);
-2. plays `common.mismatchLine` if the ending lens ≠ c10 lens;
+2. plays `common.mismatchLine` if the ending lens ≠ the last choice's lens;
 3. plays `endingPreface`;
 4. shows the ending title card: lens label + title from `meta.endings` (e.g. 「① 누가? · 누가 말했는가」);
-5. plays `endings[lens].beats`, then `endings[lens].last` as a large last line;
+5. plays `endings[lens].beats` (1–3 short beats), then `endings[lens].last` as a large last line;
 6. plays `endingCoda`;
-7. ends the route (step `end`): the UI marks the ending seen, clears the save and opens the endings gallery with that ending highlighted; the gallery offers 「다른 인물로 하기 / Play another character」 and 「처음 화면 / Title screen」.
+7. ends the route (step `end`): the UI marks the ending seen (`"<route>-<lens>"`), clears the save and opens the endings gallery (§5.8) with that ending highlighted; the gallery offers 「다른 인물로 하기 / Play another character」 and 「처음 화면 / Title screen」.
+
+**Cut endings** ("중간에 끊기는 선택").
+- The **scribe** and **friend** routes each have exactly **one** cut option, in `c2` or `c3`. The **Asher** route has **none** — by design: he cannot walk away. Do not add one.
+- A cut option is an ordinary option with `cut: true` and `lens: null`. After its reaction (at most two beats) the route ends immediately: the engine skips all remaining beats of the route. At that moment the protagonist leaves the scene: the pinned thought is cleared, the light goes off and persistent actions hide (`endings.cut` beats may set a scene or light again). Then: the ending title card shows `meta.cut.label` + `meta.endings[route].cut` (e.g. 「중간에 끝남 · 끝까지 듣지 않은 사람」) → `endings.cut.beats` → `endings.cut.last` → `endingCoda` → end. No lens scoring, no mismatch line, no `endingPreface`. The ending id is `"<route>-cut"`; the gallery marks the route's cut cell.
+- `endings.cut = { beats, last }` with 2–4 short beats: the biblical event still happens without the protagonist (others carry the bed / the crowd still sees it); the protagonist learns of it afterwards (e.g. Hanan tells Menahem; Asher walks past Yonah carrying his own bed). The `last` line is the "아, 이렇구나" moment — concrete, never preachy, never shaming the player. The event itself never changes: Jesus still forgives and heals.
+- Scribe cut: Menahem decides he has heard enough after the first words (and the unspoken 「신성모독」 thought) and leaves before the answer (MT_9_4 onward). Friend cut: Yonah sets the bed down in the lane (「…오늘은 안 되겠어」); the others carry Asher on.
+- Saving and resuming work across a cut (in its reaction, on its card and in its ending).
 
 ### 4.6 data/ui-strings.js (engine agent)
 All UI chrome strings (buttons, labels, settings, gallery, errors) as T objects in `BHS.ui`.
 
 ## 5. Engine rules
 
-### 5.1 Lens scoring (QA reuses this exact function)
-- Each picked option adds its weight (1; 2 at c10) to `score[lens]` when lens is not null.
-- Ending lens = highest score. Tie → the c10 option's lens if it is among the tied lenses; otherwise the smallest tied lens number.
-- `BHS.engine.computeLens(routeId, choices)` → `{ lens, scores: {1,2,3}, c10Lens, mismatch }` where `choices = { c1: "a", …, c10: "d" }`. Pure function, no DOM.
-- Also expose `BHS.engine.evalCond(cond, state)` and `BHS.engine.resolveText(t, lang, state)` (lang ∈ "ko"|"en").
+### 5.1 Lens scoring (tools/validate.mjs reuses this exact rule)
+- Each picked option adds its weight (1; 2 for the last choice) to `score[lens]` when lens is not null. The last choice is the highest cN in the route (c4); nothing is tied to a fixed id.
+- Ending lens = highest score. Tie → the last choice's lens if it is among the tied lenses; otherwise the smallest tied lens number. The mismatch line plays when the ending lens differs from the last choice's lens.
+- A picked cut option gives the cut outcome instead: no lens, no mismatch (§4.5 Cut endings).
+- `BHS.engine.computeLens(routeOrId, choices)` → `{ lens, scores: {1,2,3}, lastLens, c10Lens, mismatch, cut }` where `choices = { c1: "a", …, c4: "d" }`; `c10Lens` is an alias of `lastLens` kept for older callers; on a cut path `{ lens: null, lastLens: null, mismatch: false, cut: true }`. Picks for choice ids the route does not have (for example c5–c10 from an old save) are ignored. Pure function, no DOM.
+- Also exposed: `BHS.engine.lastChoiceId(routeOrId)`, `evalCond(cond, state)`, `resolveText(t, lang, state)` (lang ∈ "ko"|"en"), `fingerprint(routeOrId)` and `canRestore(savedState)` (§5.3).
 
 ### 5.2 Language modes
-`ko`, `en`, `both`. The title screen asks first (default highlight: `both`). In `both`, Korean first, English below in a secondary style. Changeable anytime from the header. Option buttons in `both` show both lines.
+`ko`, `en`, `both`. The title screen asks first (default highlight: `both`). In `both`, Korean first, English below in a secondary style. Changeable anytime from the header. Option buttons in `both` show both lines. In `both` the typewriter types the two languages in parallel: both start together and their last characters appear together (the shorter timeline is stretched); one tap completes both.
 
 ### 5.3 Persistence (localStorage, every access in try/catch; game must work without it)
 - `bhs.v1.settings` — language, text speed, text size.
-- `bhs.v1.save` — current route, position, state (resume after an accidental refresh). A save written by 1.0 during an ending or on its (removed) final screen still resumes; it then ends straight on the gallery.
-- `bhs.v1.gallery` — endings seen on this device (`"scribe-1"` …).
+- `bhs.v1.save` — current route, position, state (resume after an accidental refresh). Save format 2 (version 3): every save carries the route fingerprint, a hash of the route's structure (beat types in order, choice and option ids, cut flags, reaction and ending lengths, actions; text edits keep it). A save that no longer fits the loaded data — a release 1.0 save from the 10-choice routes, or one made before a route was restructured — is removed silently and no "Continue" is offered. Saving and resuming work mid-route, across a cut and during any ending.
+- `bhs.v1.gallery` — endings seen on this device (`"scribe-1"` … `"friend-cut"`). Ids from release 1.0 stay valid; unknown ids are ignored.
 
 ### 5.4 Controls and accessibility
-Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (slow/normal/instant); text size (A−/A+); tap targets ≥ 44px; visible focus; `aria-live` on the text box; `prefers-reduced-motion` → no typewriter, no shake, fades ≤ 150ms.
+Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (slow/normal/instant); text size (A−/A+); tap targets ≥ 44px; visible focus; `aria-live` on the text box; `prefers-reduced-motion` → no typewriter, no shake, no lift on the route cards, fades ≤ 150ms. Route select on a keyboard or clicker: 1–3 start a route, arrows and PageUp/PageDown move the focus between the cards, Enter/Space start the focused card.
 
 ### 5.5 Debug and deep links
-`?debug=1` → panel with route, beat index, choices, scores, flags, a "jump to cN" control and an auto-pick button. `#scribe`, `#friend`, `#asher` → start that route directly (bare hash tokens only).
+`?debug=1` → panel with route, beat index, choices, scores, flags, a "jump to cN" control (the route's own choice ids; a cut option on the way is replaced by the first option that does not end the route) and an auto-pick button. `#scribe`, `#friend`, `#asher` → start that route directly (bare hash tokens only).
 
 ### 5.6 Look and feel (engine + art agents)
 Committed single look (not a light/dark pair): scene art fills the stage; text sits on a parchment-like panel with dark ink for daylight legibility. Palette from the place: black basalt (Capernaum's houses), limestone, Galilee blue, olive, lamp amber; Jesus' presence = warm white light, never a figure. Korean serif for story text, a clean sans for UI; real fallback stacks. No emoji in UI.
@@ -266,6 +297,10 @@ Tablets and laptops in between should also look right.
 
 Both builds play exactly like index.html. The only thing they add is the marker `window.BHS.config = { build: "single" }` before the data scripts; there are no links to other pages.
 
+### 5.8 Route cards and the endings gallery
+- Route select: each card shows its protagonist from js/portraits.js between the tagline and the divider above the first line: Menahem and Yonah as busts rising from the divider at the card's right edge (cropped by it, facing the text), Asher in his lying pose laid across the band (never standing: that is the ending). A soft wash in the character's color sits behind the figure; on hover or keyboard focus the figure lifts a few px and the wash brightens (no lift under reduced motion). The art is decorative (`aria-hidden`, `data-testid="routecard-portrait-<route>"`), never covers text, and the card stays text-only without the portrait module.
+- Endings gallery: 3 rows (characters) × 4 columns (lenses 1–3, then "cut" headed by `meta.cut.label` and `meta.cut.desc`). Cells: `data-testid="gallery-cell-<route>-<1|2|3|cut>"`, `data-state` = locked | seen | note. A scribe or friend cut cell unlocks with its cut ending (`"<route>-cut"`). Asher's cut cell stays locked until any Asher ending has been seen, then shows `meta.endings.asher.cutNote`, styled as a note (no paper, italic), not as an ending. The ending just seen is highlighted. TV (1920×1080, 1280×720): a name column plus four columns, buttons beside the title, no scrolling. Phone: four columns, each character's name across its row; the page scrolls vertically, never sideways.
+
 ## 6. Canon
 
 ### 6.1 Characters — fixed facts (do not contradict)
@@ -274,10 +309,10 @@ Both builds play exactly like index.html. The only thing they add is the marker 
 | menahem | 므나헴 / Menahem | Scribe (서기관) of Capernaum, about 50. Gray-streaked beard, ink-stained fingers. Keeps notes (기록장 / his notes). Loves Scripture sincerely; worries that what belongs to God not be claimed lightly. Not a villain; never sneers. Teaches Hanan. At the crowd he stands among "some of the scribes" near the front and says nothing aloud the whole time. | measured, precise |
 | hanan | 하난 / Hanan | Menahem's student, 17. Sharp and curious; asks the dawn questions; walks with Menahem to the crowd. | polite, eager |
 | yonah | 요나 / Yonah | Fisherman, about 24. Asher's childhood friend (they raced each other on the beach as boys). Works the nets with his partners; a day's wage is one denarius. | warm, impulsive, plain-spoken |
-| asher | 아셀 / Asher | About 24. Has not been able to walk for four years (네 해째 / four years now). The cause is never stated. Lives with his mother and his little brother (about 10). Dry humor, says what he feels, hates being stared at, prays the Psalms. Owns a worn brown wool cloak (겉옷). Years ago he said cruel words to his little brother and never apologized (Asher route, choice 3). | wry, guarded, honest |
+| asher | 아셀 / Asher | About 24. Has not been able to walk for four years (네 해째 / four years now). The cause is never stated. Lives with his mother and his little brother (about 10). Dry humor, says what he feels, hates being stared at, prays the Psalms. Owns a worn brown wool cloak (겉옷). Years ago he said cruel words to his little brother and never apologized. | wry, guarded, honest |
 | mother | 어머니 / Mom (label "Asher's mother" outside Asher's POV) | Draws water every morning; hears talk at the well. Tired and tender. | |
 | brother | 동생 / Little brother | About 10, plays by the doorway. Unnamed. | |
-| neighbor | 이웃 / Neighbor | Brings the rumor to Menahem's door (scribe c3). | |
+| neighbor | 이웃 / Neighbor | Brings the rumor to Menahem's door (scribe route). | |
 | partners | 그물 동료들 / net partners | Two or three fishermen, unnamed. Help carry the bed. Never state a number of carriers (avoid Mark's "four"). | |
 | passerby | 행인 / Passerby | One person in the lane (§6.3). | |
 | crowd | 무리 / The crowd | | |
@@ -291,9 +326,9 @@ How characters refer to Jesus: scribe POV — 「예수라는 사람」, 「그 
 2. **아침 / Morning** — Rumor: Jesus' boat is coming back across the sea. Stories of the storm (8:23–27) and of the demoniacs and the town that begged him to leave (8:28–34) got here first (how is invented). Yonah runs to Asher's house; his partners gather. A neighbor tells Menahem.
 3. **늦은 아침 / Late morning — THE LANE** (§6.3).
 4. **정오 무렵 / Around noon — THE CROWD** (§6.4), on open ground at the edge of town near the shore where Jesus has landed. No house, no roof, no door.
-5. **오후–저녁 / Afternoon–evening** — Endings: Menahem's room at lamplight; the road home; Asher's doorway.
+5. **Right after the crowd** — Endings (version 3): no evening or epilogue scenes; a route ends at the crowd or one step away (Asher's doorway at most).
 
-### 6.3 THE LANE — one moment, three routes (scribe c4 · friend c6 · asher c5)
+### 6.3 THE LANE — one moment, three routes (after c1 in every route; the friend's c2 and its cut sit in the lane)
 - A narrow lane of black basalt houses sloping down toward the shore. Late morning, bright, a breeze off the water.
 - Yonah and his net partners carry Asher on his bed toward the crowd.
 - A passerby mutters this exact line wherever it is shown:
@@ -313,6 +348,8 @@ How characters refer to Jesus: scribe POV — 「예수라는 사람」, 「그 
 8. MT_9_7 — he rises and goes home (Asher route: press beats).
 9. MT_9_8 — the crowd is afraid and glorifies God.
 Nobody is punished. Jesus does nothing to the scribes. The scribes do nothing.
+
+Version 3: `c2` and `c3` sit inside this sequence (the friend's `c2` in the lane), `c4` right after MT_9_7/MT_9_8. MT_9_1 is optional in the short routes. The order must hold on every path that is not cut; a cut path may stop early (the scribe leaves after the first words and MT_9_3Q).
 
 ### 6.5 Glossary (use these exact terms)
 | KO | EN |
@@ -372,12 +409,11 @@ Name spellings are fixed. Forbidden variants (validator errors): 메나헴, 므�
 9. Never quote the Talmud (Nedarim 41a) in the first-century scenes; it is a later text.
 10. Psalm 103:3's order (forgive, then heal) is literary, not a rule that one must be forgiven before being healed.
 
-## 8. Balance rules (lenses)
-- c1–c9: the four options must include lens 1, 2 and 3 at least once each; the fourth may be any lens or null.
-  - Exceptions: friend c5 (item pick) is all null. friend c6 option d (the "far" path) and friend c7 option d (roof Easter egg) are null; the other three options of those choices must cover 1, 2 and 3.
-- c10: four options covering lenses 1, 2 and 3 (one lens repeats).
-- Per route, across c1–c9, each lens appears 10–14 times.
-- Uniform random play should give each ending 20–45% (QA checks by full enumeration of all 4^10 paths).
+## 8. Balance rules (lenses, version 3)
+- `c1`–`c3`: the options cover lenses 1, 2 and 3; the fourth option may be any lens or null; a cut option is the null one.
+- `c4`: four options covering lenses 1, 2 and 3 (one lens repeats).
+- Enumerate all 4^4 = 256 paths (tools/validate.mjs): cut paths ≤ 25% (one cut option at one choice is exactly 25%); among the non-cut paths each lens ending gets 20–50% (the validator warns outside 20–50% and errors outside 15–55%).
+- Screen budget: §3.3 (≤ 32 screens on every path).
 - Lens must not be obvious from wording. Options are natural thoughts or actions, never labels.
 
 ## 9. Deviation policy and report format

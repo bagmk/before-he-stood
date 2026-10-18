@@ -1638,6 +1638,118 @@ body.is-last .veil {
   opacity: 0.55;
 }
 
+/* The protagonist on the card: a band between the tagline and the divider above the first line.
+   A bust stands on the divider at the card's right edge, its lower part cropped by the divider (the
+   top 60% shows: head, shoulders and what he carries); a soft wash in the character's color sits
+   behind it. Asher lies across the band in his lying pose. The band never overlaps the text. */
+.routecard__art {
+  position: relative;
+  display: block;
+  height: 96px;
+  margin: 8px calc(-1 * 18px) 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Figures size against the band itself (cqw/cqh), so a tall band never makes them wider than it. */
+  container-type: size;
+}
+
+.routecard__art + .routecard__first {
+  margin-top: 0;
+}
+
+.routecard__wash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 36% 95% at 78% 100%, var(--wash, transparent), transparent 75%);
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.routecard__fig {
+  position: absolute;
+  right: 7%;
+  bottom: 0;
+  height: 166.7%;
+  height: min(166.7cqh, 90cqw);
+  aspect-ratio: 2 / 3;
+  transform: translateY(40%);
+  transition: transform 0.3s var(--ease-out);
+}
+
+.routecard__svg {
+  position: absolute;
+  inset: 0;
+}
+
+.routecard__svg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Asher lies across the band, seen from above: his lying bust turned a quarter to the right inside a
+   wide box, head on the pillow at the right, the body along the divider. The bust's straight bottom
+   cut (now at the left end) fades out. */
+.routecard__art--lying .routecard__wash {
+  background: radial-gradient(ellipse 46% 95% at 70% 100%, var(--wash, transparent), transparent 75%);
+}
+
+.routecard__art--lying .routecard__fig {
+  right: 4%;
+  height: 140%;
+  height: min(140cqh, 42cqw);
+  aspect-ratio: 3 / 2;
+  transform: translateY(28%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 6%, #000 34%);
+  mask-image: linear-gradient(90deg, transparent 6%, #000 34%);
+}
+
+.routecard__art--lying .routecard__svg {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 66.667%;
+  height: 150%;
+  transform: translate(-50%, -50%) rotate(100deg);
+}
+
+.routecard:hover .routecard__wash,
+.routecard:focus-visible .routecard__wash {
+  opacity: 1;
+}
+
+.routecard:hover .routecard__fig,
+.routecard:focus-visible .routecard__fig {
+  transform: translateY(calc(40% - 6px));
+}
+
+.routecard:hover .routecard__art--lying .routecard__fig,
+.routecard:focus-visible .routecard__art--lying .routecard__fig {
+  transform: translateY(calc(28% - 6px));
+}
+
+/* No lift without motion: reduced motion and the ?test=1 mode keep the figure still. */
+@media (prefers-reduced-motion: reduce) {
+  .routecard:hover .routecard__fig,
+  .routecard:focus-visible .routecard__fig {
+    transform: translateY(40%);
+  }
+  .routecard:hover .routecard__art--lying .routecard__fig,
+  .routecard:focus-visible .routecard__art--lying .routecard__fig {
+    transform: translateY(28%);
+  }
+}
+
+html.is-test .routecard:hover .routecard__fig,
+html.is-test .routecard:focus-visible .routecard__fig {
+  transform: translateY(40%);
+}
+
+html.is-test .routecard:hover .routecard__art--lying .routecard__fig,
+html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
+  transform: translateY(28%);
+}
+
 /* Gallery: rows = characters, columns = the three lenses plus the "cut" column (SPEC 4.5).
    Phone: four equal columns; each character's name runs across the row above its four cells.
    Wider layouts (tablet portrait, TV) add a name column on the left. */
@@ -2482,8 +2594,29 @@ body.is-last .veil {
 
   .routecard__first {
     margin-top: auto;
-    padding-top: 2.4vh;
-    font-size: calc(3vh * var(--text-scale));
+    padding-top: 2.2vh;
+    font-size: calc(2.75vh * var(--text-scale));
+    line-height: 1.5;
+  }
+
+  /* The portrait band takes the free height between the tagline and the first line. */
+  .routecard__art {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 9vh;
+    margin: 1.4vh calc(-1 * 2.4vw) 0 0;
+  }
+
+  .routecard__fig {
+    right: 2.6vw;
+    height: min(166.7%, 42vh);
+    height: min(166.7cqh, 42vh, 90cqw);
+  }
+
+  .routecard__art--lying .routecard__fig {
+    right: 1.4vw;
+    height: min(140%, 26vh);
+    height: min(140cqh, 26vh, 42cqw);
   }
 
   /* Gallery on a 16:9 screen: title and buttons share the top row, the 3 x 4 grid fills the rest
@@ -8153,17 +8286,42 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return 1;
   }
 
+  // The typewriter timeline: [{ c, t }] sorted by t (ms from the start). Each group (one language) gets
+  // its natural timeline (its rate, longer pauses after punctuation). In "both" mode the languages type
+  // in parallel: every group starts at t = 0, and the shorter timelines are stretched (longest / own
+  // duration) so that the last characters of all groups appear together.
+  function typeTimeline(groups) {
+    var lines = groups.map(function (g) {
+      var t = 0;
+      var times = g.chars.map(function (c) {
+        var at = t;
+        t += g.rate * pauseAfter(c.textContent);
+        return at;
+      });
+      return { chars: g.chars, times: times, end: times.length ? times[times.length - 1] : 0 };
+    });
+    var longest = 0;
+    lines.forEach(function (ln) {
+      if (ln.end > longest) longest = ln.end;
+    });
+    var seq = [];
+    lines.forEach(function (ln) {
+      var k = ln.end > 0 ? longest / ln.end : 1;
+      ln.chars.forEach(function (c, i) {
+        // The last character lands exactly on `longest`, whatever rounding the stretch gives.
+        seq.push({ c: c, t: ln.end > 0 && i === ln.chars.length - 1 ? longest : ln.times[i] * k });
+      });
+    });
+    // Array sort is stable (ES2019), so at equal times the first language stays first.
+    seq.sort(function (a, b) {
+      return a.t - b.t;
+    });
+    return seq;
+  }
+
   function typeStart(groups, onDone) {
     typeStop();
-    var seq = [];
-    var t = 0;
-    groups.forEach(function (g) {
-      g.chars.forEach(function (c) {
-        seq.push({ c: c, t: t });
-        t += g.rate * pauseAfter(c.textContent);
-      });
-      t += g.rate * 4;
-    });
+    var seq = typeTimeline(groups);
     typer.seq = seq;
     typer.i = 0;
     typer.done = false;
@@ -8963,11 +9121,43 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     page("title-page", kids);
   }
 
+  // "#rrggbb" -> "rgba(r, g, b, a)" for the soft wash behind a route card's figure.
+  function hexAlpha(hex, a) {
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || ""));
+    if (!m) return null;
+    var x = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
+    var n = parseInt(x, 16);
+    return "rgba(" + ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255) + ", " + a + ")";
+  }
+
+  // The protagonist on a route card: a cut-paper bust rising from the divider above the first line
+  // (Menahem, Yonah), or Asher in his lying pose laid across the band; never Asher standing (that is
+  // the ending). Decorative only (aria-hidden); without a portrait module the card stays text-only.
+  function routeArt(rid, charId, color) {
+    var lying = charId === "asher";
+    var markup = charId ? portraitMarkup(charId, lying ? "lying" : null, "") : null;
+    if (!markup) return null;
+    var svgBox = h("span", { class: "routecard__svg" });
+    svgBox.innerHTML = namespaceSvg(markup, "r" + ++S.artSeq + "-");
+    var svg = svgBox.querySelector("svg");
+    if (!svg) return null;
+    svg.setAttribute("preserveAspectRatio", "xMidYMax meet");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    var wash = hexAlpha(color, 0.3);
+    return h("span", { class: "routecard__art" + (lying ? " routecard__art--lying" : ""), "data-testid": "routecard-portrait-" + rid, "aria-hidden": "true", style: wash ? "--wash:" + wash : null }, [
+      h("span", { class: "routecard__wash" }),
+      h("span", { class: "routecard__fig" }, svgBox)
+    ]);
+  }
+
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
     var prompt = (BHS.common && BHS.common.routeSelect && BHS.common.routeSelect.prompt) || { ko: "", en: "" };
-    var cards = order.map(function (id) {
+    var cards = order.map(function (id, idx) {
       var r = (meta.routes && meta.routes[id]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var ready = !!(BHS.routes && BHS.routes[id]);
@@ -8980,13 +9170,20 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           class: "routecard" + (ready ? "" : " routecard--missing"),
           "data-testid": "route-" + id,
           "data-route": id,
+          "aria-keyshortcuts": idx < 9 ? String(idx + 1) : null,
           on: {
             click: function () {
               if (o.onPick) o.onPick(id);
             }
           }
         },
-        [plate, h("span", { class: "routecard__title" }, bi(r.title || { ko: id, en: id })), r.tagline ? h("span", { class: "routecard__tag" }, bi(r.tagline)) : null, r.firstLine ? h("span", { class: "routecard__first" }, bi(r.firstLine)) : null]
+        [
+          plate,
+          h("span", { class: "routecard__title" }, bi(r.title || { ko: id, en: id })),
+          r.tagline ? h("span", { class: "routecard__tag" }, bi(r.tagline)) : null,
+          routeArt(id, r.protagonist, c.color),
+          r.firstLine ? h("span", { class: "routecard__first" }, bi(r.firstLine)) : null
+        ]
       );
     });
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
@@ -9283,7 +9480,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     shake: shake,
     anchorCast: anchorCast,
     completeTyping: completeTyping,
-    isTyping: isTyping
+    isTyping: isTyping,
+    typeTimeline: typeTimeline
   };
 })();
 
@@ -9782,6 +9980,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       }
       return;
     }
+    if (app.screen === "routeSelect") {
+      routeSelectKey(ev, key);
+      return;
+    }
     if (!PLAY_SCREENS[app.screen] || !app.game) return;
     var step = app.game.step;
     var kind = step && step.kind;
@@ -9816,6 +10018,30 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       return;
     }
     if (INERT_KEYS[key]) ev.preventDefault();
+  }
+
+  // Route select on a TV: 1-3 start a route (in card order), arrows and PageUp/PageDown move the focus
+  // between the cards (the focused card lifts its figure), Enter/Space start the focused one natively.
+  function routeSelectKey(ev, key) {
+    var cards = Array.prototype.slice.call(doc.querySelectorAll(".routecard"));
+    if (!cards.length) return;
+    if (/^[1-9]$/.test(key)) {
+      var card = cards[Number(key) - 1];
+      if (!card) return;
+      ev.preventDefault();
+      if (!ev.repeat) card.click();
+      return;
+    }
+    var dir = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1 }[key];
+    if (!dir) return;
+    ev.preventDefault();
+    var cur = cards.indexOf(doc.activeElement);
+    var next = cur < 0 ? (dir > 0 ? 0 : cards.length - 1) : (cur + dir + cards.length) % cards.length;
+    try {
+      cards[next].focus({ preventScroll: false });
+    } catch (err) {
+      cards[next].focus();
+    }
   }
 
   // ------------------------------------------------------------------ fullscreen + idle cursor

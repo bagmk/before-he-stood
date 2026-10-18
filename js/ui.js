@@ -220,17 +220,42 @@
     return 1;
   }
 
+  // The typewriter timeline: [{ c, t }] sorted by t (ms from the start). Each group (one language) gets
+  // its natural timeline (its rate, longer pauses after punctuation). In "both" mode the languages type
+  // in parallel: every group starts at t = 0, and the shorter timelines are stretched (longest / own
+  // duration) so that the last characters of all groups appear together.
+  function typeTimeline(groups) {
+    var lines = groups.map(function (g) {
+      var t = 0;
+      var times = g.chars.map(function (c) {
+        var at = t;
+        t += g.rate * pauseAfter(c.textContent);
+        return at;
+      });
+      return { chars: g.chars, times: times, end: times.length ? times[times.length - 1] : 0 };
+    });
+    var longest = 0;
+    lines.forEach(function (ln) {
+      if (ln.end > longest) longest = ln.end;
+    });
+    var seq = [];
+    lines.forEach(function (ln) {
+      var k = ln.end > 0 ? longest / ln.end : 1;
+      ln.chars.forEach(function (c, i) {
+        // The last character lands exactly on `longest`, whatever rounding the stretch gives.
+        seq.push({ c: c, t: ln.end > 0 && i === ln.chars.length - 1 ? longest : ln.times[i] * k });
+      });
+    });
+    // Array sort is stable (ES2019), so at equal times the first language stays first.
+    seq.sort(function (a, b) {
+      return a.t - b.t;
+    });
+    return seq;
+  }
+
   function typeStart(groups, onDone) {
     typeStop();
-    var seq = [];
-    var t = 0;
-    groups.forEach(function (g) {
-      g.chars.forEach(function (c) {
-        seq.push({ c: c, t: t });
-        t += g.rate * pauseAfter(c.textContent);
-      });
-      t += g.rate * 4;
-    });
+    var seq = typeTimeline(groups);
     typer.seq = seq;
     typer.i = 0;
     typer.done = false;
@@ -1030,11 +1055,43 @@
     page("title-page", kids);
   }
 
+  // "#rrggbb" -> "rgba(r, g, b, a)" for the soft wash behind a route card's figure.
+  function hexAlpha(hex, a) {
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || ""));
+    if (!m) return null;
+    var x = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
+    var n = parseInt(x, 16);
+    return "rgba(" + ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255) + ", " + a + ")";
+  }
+
+  // The protagonist on a route card: a cut-paper bust rising from the divider above the first line
+  // (Menahem, Yonah), or Asher in his lying pose laid across the band; never Asher standing (that is
+  // the ending). Decorative only (aria-hidden); without a portrait module the card stays text-only.
+  function routeArt(rid, charId, color) {
+    var lying = charId === "asher";
+    var markup = charId ? portraitMarkup(charId, lying ? "lying" : null, "") : null;
+    if (!markup) return null;
+    var svgBox = h("span", { class: "routecard__svg" });
+    svgBox.innerHTML = namespaceSvg(markup, "r" + ++S.artSeq + "-");
+    var svg = svgBox.querySelector("svg");
+    if (!svg) return null;
+    svg.setAttribute("preserveAspectRatio", "xMidYMax meet");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    var wash = hexAlpha(color, 0.3);
+    return h("span", { class: "routecard__art" + (lying ? " routecard__art--lying" : ""), "data-testid": "routecard-portrait-" + rid, "aria-hidden": "true", style: wash ? "--wash:" + wash : null }, [
+      h("span", { class: "routecard__wash" }),
+      h("span", { class: "routecard__fig" }, svgBox)
+    ]);
+  }
+
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
     var prompt = (BHS.common && BHS.common.routeSelect && BHS.common.routeSelect.prompt) || { ko: "", en: "" };
-    var cards = order.map(function (id) {
+    var cards = order.map(function (id, idx) {
       var r = (meta.routes && meta.routes[id]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var ready = !!(BHS.routes && BHS.routes[id]);
@@ -1047,13 +1104,20 @@
           class: "routecard" + (ready ? "" : " routecard--missing"),
           "data-testid": "route-" + id,
           "data-route": id,
+          "aria-keyshortcuts": idx < 9 ? String(idx + 1) : null,
           on: {
             click: function () {
               if (o.onPick) o.onPick(id);
             }
           }
         },
-        [plate, h("span", { class: "routecard__title" }, bi(r.title || { ko: id, en: id })), r.tagline ? h("span", { class: "routecard__tag" }, bi(r.tagline)) : null, r.firstLine ? h("span", { class: "routecard__first" }, bi(r.firstLine)) : null]
+        [
+          plate,
+          h("span", { class: "routecard__title" }, bi(r.title || { ko: id, en: id })),
+          r.tagline ? h("span", { class: "routecard__tag" }, bi(r.tagline)) : null,
+          routeArt(id, r.protagonist, c.color),
+          r.firstLine ? h("span", { class: "routecard__first" }, bi(r.firstLine)) : null
+        ]
       );
     });
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
@@ -1350,6 +1414,7 @@
     shake: shake,
     anchorCast: anchorCast,
     completeTyping: completeTyping,
-    isTyping: isTyping
+    isTyping: isTyping,
+    typeTimeline: typeTimeline
   };
 })();
