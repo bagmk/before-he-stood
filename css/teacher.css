@@ -782,10 +782,9 @@ main {
 .url {
   flex: 1 1 15rem;
   min-width: 0;
-  display: flex;
-  align-items: center;
+  display: block;
   min-height: 44px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.75rem;
   font-family: var(--font-mono);
   font-size: 0.9375rem;
   line-height: 1.45;
@@ -797,6 +796,11 @@ main {
   overflow-wrap: anywhere;
   -webkit-user-select: all;
   user-select: all;
+}
+
+/* URL halves stay whole so the address breaks only after the domain. */
+.url .nw {
+  white-space: nowrap;
 }
 
 .copy-status {

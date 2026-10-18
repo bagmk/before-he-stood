@@ -608,6 +608,12 @@ body.is-last .veil {
 
 .dock > * {
   pointer-events: auto;
+  flex-shrink: 0;
+}
+
+.dock > .choices {
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 .dock > .panel,
@@ -817,8 +823,9 @@ body.is-last .veil {
 }
 
 .play--sign .text {
-  font-size: calc(16px * var(--text-scale));
-  letter-spacing: 0.04em;
+  font-size: calc(17px * var(--text-scale));
+  line-height: 1.7;
+  letter-spacing: 0.01em;
 }
 
 .play--sign .text .en {

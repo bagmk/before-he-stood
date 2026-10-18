@@ -315,10 +315,12 @@
       });
   }
 
-  function artNode(bg, pov) {
+  function artNode(bg, pov, time) {
     var markup = null;
+    var opts = { pov: pov };
+    if (time) opts.time = time;
     try {
-      if (BHS.art && typeof BHS.art.render === "function") markup = BHS.art.render(bg, { pov: pov });
+      if (BHS.art && typeof BHS.art.render === "function") markup = BHS.art.render(bg, opts);
     } catch (err) {
       if (window.console) console.warn("[BHS.view] art.render failed for " + bg, err);
       markup = null;
@@ -340,9 +342,9 @@
     return h("div", { class: "art__fallback", style: "background:" + (FALLBACK[bg] || FALLBACK.black) });
   }
 
-  function setArt(bg, pov) {
+  function setArt(bg, pov, time) {
     bg = bg || "black";
-    var key = bg + "|" + pov;
+    var key = bg + "|" + pov + "|" + (time || "");
     if (key === S.artKey) return;
     S.artKey = key;
     var a = $("artA");
@@ -351,7 +353,7 @@
     var outgoing = S.artFlip ? b : a;
     S.artFlip = !S.artFlip;
     clear(incoming);
-    incoming.appendChild(artNode(bg, pov));
+    incoming.appendChild(artNode(bg, pov, time));
     // Force a style flush so the fade runs even when both layers change in one frame.
     void incoming.offsetWidth;
     incoming.classList.add("is-on");
@@ -494,7 +496,7 @@
 
   function updateStage(v, state) {
     var st = v.stage;
-    setArt(st.bg, st.pov);
+    setArt(st.bg, st.pov, st.time);
     setPov(st.pov);
     setLight(st.light);
     setCaption(st.caption);

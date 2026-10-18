@@ -39,6 +39,7 @@
   var LENSES = [1, 2, 3];
   var LIGHT_LEVELS = { off: true, soft: true, bright: true };
   var POVS = { normal: true, lying: true, standing: true };
+  var TIMES = { day: true, evening: true, night: true };
   var STATE_VERSION = 1;
 
   var warnings = [];
@@ -362,6 +363,7 @@
       stage: {
         bg: null,
         caption: null,
+        time: null,
         pov: "normal",
         light: "off",
         pinned: null,
@@ -543,8 +545,10 @@
     var st = this.state;
     switch (beat.type) {
       case "scene":
+        // A scene never touches the light level, and changes pov only when it sets one.
         st.stage.bg = beat.bg || null;
         st.stage.caption = beat.caption || null;
+        st.stage.time = TIMES[beat.time] ? beat.time : null;
         if (beat.pov && POVS[beat.pov]) st.stage.pov = beat.pov;
         st.stage.sceneSeq++;
         return false;
