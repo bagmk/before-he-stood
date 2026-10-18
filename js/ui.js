@@ -1087,6 +1087,35 @@
     ]);
   }
 
+  // The busts on the route cards share one size, set by the smallest bust band (a bigger bust in a
+  // smaller band would lose its head), so the cards read as a set; Asher lying sizes on his own band.
+  // Band heights follow the text (language, text size, fonts loading, window size), hence the observer.
+  var routeArtObserver = null;
+
+  function equalizeRouteArt(list) {
+    var min = Infinity;
+    Array.prototype.forEach.call(list.querySelectorAll(".routecard__art:not(.routecard__art--lying)"), function (band) {
+      var bh = band.clientHeight;
+      if (bh > 0 && bh < min) min = bh;
+    });
+    if (min < Infinity) list.style.setProperty("--band-min", min + "px");
+    else list.style.removeProperty("--band-min");
+  }
+
+  function watchRouteArt(list) {
+    if (routeArtObserver) routeArtObserver.disconnect();
+    routeArtObserver = null;
+    equalizeRouteArt(list);
+    if (typeof window.ResizeObserver !== "function") return;
+    routeArtObserver = new window.ResizeObserver(function () {
+      if (list.isConnected) equalizeRouteArt(list);
+      else if (routeArtObserver) routeArtObserver.disconnect();
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".routecard__art"), function (band) {
+      routeArtObserver.observe(band);
+    });
+  }
+
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
@@ -1120,7 +1149,9 @@
         ]
       );
     });
-    page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
+    var list = h("div", { class: "routes-list" }, cards);
+    page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, list]);
+    watchRouteArt(list);
   }
 
   // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).

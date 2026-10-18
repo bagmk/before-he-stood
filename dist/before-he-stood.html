@@ -1645,15 +1645,16 @@ body.is-last .veil {
   opacity: 0.55;
 }
 
-/* The protagonist on the card: a band between the tagline and the divider above the first line.
-   A bust stands on the divider at the card's right edge, its lower part cropped by the divider (the
-   top 60% shows: head, shoulders and what he carries); a soft wash in the character's color sits
-   behind it. Asher lies across the band in his lying pose. The band never overlaps the text. */
+/* The protagonist on the card: a band between the tagline and the divider above the first line,
+   as wide as the text and the divider. A bust stands on the divider toward the right, its lower part
+   cropped by the divider (the top 60% shows: head, shoulders and what he carries); a soft wash in the
+   character's color sits behind it. Asher lies across the band and rests on the divider. The band
+   never overlaps the text. ui.js sets --band-min (the smallest bust band) so the busts match in size. */
 .routecard__art {
   position: relative;
   display: block;
   height: 96px;
-  margin: 8px calc(-1 * 18px) 0 0;
+  margin: 8px 0 0;
   overflow: hidden;
   pointer-events: none;
   /* Figures size against the band itself (cqw/cqh), so a tall band never makes them wider than it. */
@@ -1667,20 +1668,25 @@ body.is-last .veil {
 .routecard__wash {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 36% 95% at 78% 100%, var(--wash, transparent), transparent 75%);
+  background: radial-gradient(ellipse 32% 95% at 72% 100%, var(--wash, transparent), transparent 75%);
   opacity: 0.8;
   transition: opacity 0.3s ease;
 }
 
 .routecard__fig {
   position: absolute;
-  right: 7%;
+  right: 9%;
   bottom: 0;
   height: 166.7%;
-  height: min(166.7cqh, 90cqw);
   aspect-ratio: 2 / 3;
   transform: translateY(40%);
   transition: transform 0.3s var(--ease-out);
+}
+
+@supports (height: 1cqh) {
+  .routecard__fig {
+    height: min(calc(var(--band-min, 100cqh) * 1.667), 90cqw);
+  }
 }
 
 .routecard__svg {
@@ -1695,20 +1701,27 @@ body.is-last .veil {
 }
 
 /* Asher lies across the band, seen from above: his lying bust turned a quarter to the right inside a
-   wide box, head on the pillow at the right, the body along the divider. The bust's straight bottom
-   cut (now at the left end) fades out. */
+   wide box, head on the pillow toward the right, the body along the divider, the blanket resting on it.
+   The drawing fills the box from about 11% below its top to its bottom edge, and the pillow ends about
+   13% short of the box's right edge, so a box of 110% of the band fits it whole. The bust's straight
+   bottom cut (now at the left end) fades out. */
 .routecard__art--lying .routecard__wash {
-  background: radial-gradient(ellipse 46% 95% at 70% 100%, var(--wash, transparent), transparent 75%);
+  background: radial-gradient(ellipse 40% 95% at 62% 100%, var(--wash, transparent), transparent 75%);
 }
 
 .routecard__art--lying .routecard__fig {
-  right: 4%;
-  height: 140%;
-  height: min(140cqh, 42cqw);
+  right: 8%;
+  height: 110%;
   aspect-ratio: 3 / 2;
-  transform: translateY(28%);
+  transform: none;
   -webkit-mask-image: linear-gradient(90deg, transparent 6%, #000 34%);
   mask-image: linear-gradient(90deg, transparent 6%, #000 34%);
+}
+
+@supports (height: 1cqh) {
+  .routecard__art--lying .routecard__fig {
+    height: min(110cqh, 44cqw);
+  }
 }
 
 .routecard__art--lying .routecard__svg {
@@ -1732,7 +1745,7 @@ body.is-last .veil {
 
 .routecard:hover .routecard__art--lying .routecard__fig,
 .routecard:focus-visible .routecard__art--lying .routecard__fig {
-  transform: translateY(calc(28% - 6px));
+  transform: translateY(-6px);
 }
 
 /* No lift without motion: reduced motion and the ?test=1 mode keep the figure still. */
@@ -1743,7 +1756,7 @@ body.is-last .veil {
   }
   .routecard:hover .routecard__art--lying .routecard__fig,
   .routecard:focus-visible .routecard__art--lying .routecard__fig {
-    transform: translateY(28%);
+    transform: none;
   }
 }
 
@@ -1754,7 +1767,7 @@ html.is-test .routecard:focus-visible .routecard__fig {
 
 html.is-test .routecard:hover .routecard__art--lying .routecard__fig,
 html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
-  transform: translateY(28%);
+  transform: none;
 }
 
 /* Gallery: rows = characters, columns = the three lenses plus the "cut" column (SPEC 4.5).
@@ -2611,19 +2624,25 @@ html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
     flex: 1 1 0;
     height: auto;
     min-height: 9vh;
-    margin: 1.4vh calc(-1 * 2.4vw) 0 0;
+    margin: 1.4vh 0 0;
   }
 
   .routecard__fig {
-    right: 2.6vw;
     height: min(166.7%, 42vh);
-    height: min(166.7cqh, 42vh, 90cqw);
   }
 
   .routecard__art--lying .routecard__fig {
-    right: 1.4vw;
-    height: min(140%, 26vh);
-    height: min(140cqh, 26vh, 42cqw);
+    height: min(110%, 26vh);
+  }
+
+  @supports (height: 1cqh) {
+    .routecard__fig {
+      height: min(calc(var(--band-min, 100cqh) * 1.667), 42vh, 90cqw);
+    }
+
+    .routecard__art--lying .routecard__fig {
+      height: min(110cqh, 26vh, 44cqw);
+    }
   }
 
   /* Gallery on a 16:9 screen: title and buttons share the top row, the 3 x 4 grid fills the rest
@@ -3583,7 +3602,7 @@ html.is-test .echo mark {
       // ---------------------------------------------------------------
       { id: "dawn", type: "scene", bg: "dawn_lamp", caption: { ko: "새벽 · 므나헴의 방", en: "Dawn · Menahem's room" } },
       // He writes in his notes, never on the scroll (lead decision).
-      { type: "line", text: { ko: "등잔불 아래, 므나헴이 잉크 묻은 손가락으로 시편 두루마리를 편다. 맞은편엔 제자 하난, 두루마리 곁엔 그의 기록장.", en: "By the oil lamp, Menahem unrolls the scroll of Psalms with ink-stained fingers. Across from him, his student Hanan. Beside the scroll, his notes." } },
+      { type: "line", text: { ko: "등잔불 아래, 므나헴이 잉크 묻은 손으로 시편 두루마리를 편다. 맞은편엔 제자 하난, 곁에는 기록장.", en: "By lamplight, Menahem unrolls the Psalms with ink-stained fingers. Across from him, his student Hanan. Beside him, his notes." } },
       { type: "verse", key: "PS_103_3" },
       { type: "line", speaker: "hanan", text: { ko: "선생님, 누가 용서하시고, 누가 고치시는 거예요?", en: "Teacher, who forgives? And who heals?" } },
       {
@@ -3597,7 +3616,7 @@ html.is-test .echo mark {
             set: { underline: "subject" },
             text: { ko: "“주님이시다. 주어를 분명히 해라.”", en: "“The Lord. Be clear about the subject.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가*를 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } }
+              { type: "line", text: { ko: "므나헴은 ‘그가’라는 첫 낱말을 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } }
             ]
           },
           {
@@ -3606,7 +3625,7 @@ html.is-test .echo mark {
             set: { underline: "order" },
             text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“So forgiving is named first, and healing after.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 기록장에 *사하시며*와 *고치시며*를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } }
+              { type: "line", text: { ko: "므나헴은 기록장에 ‘사하시며’와 ‘고치시며’를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } }
             ]
           },
           {
@@ -3615,7 +3634,7 @@ html.is-test .echo mark {
             set: { underline: "sick" },
             text: { ko: "“아픈 사람에게 이 구절은 어떻게 들릴까.”", en: "“I wonder how this line sounds to someone who is sick.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *병*이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } }
+              { type: "line", text: { ko: "므나헴은 ‘병’이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } }
             ]
           },
           {
@@ -3635,9 +3654,9 @@ html.is-test .echo mark {
       // They step aside, his eyes meet Asher's, nobody speaks to anybody.
       // ---------------------------------------------------------------
       { id: "lane", type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
-      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문. 므나헴과 하난도 현무암 골목을 따라 바닷가로 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is back by boat. Menahem and Hanan head down the basalt lane to the shore. Behind them, some men carry a man on a bed." } },
+      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문에, 므나헴과 하난도 골목을 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is back by boat. Menahem and Hanan head down the lane. Behind them, some men are carrying a man on a bed." } },
       { type: "line", speaker: "passerby", text: { ko: "고통 뒤에 무슨 사연이 있는지 누가 알겠어. 저 사람은 무슨 잘못을 했기에 저렇게 됐을까.", en: "Who knows what's behind suffering like that. What did he do to end up like that?" } },
-      { type: "line", text: { ko: "두 사람은 벽 쪽으로 비켜선다. 므나헴은 침상을 힐끗 본다. 잠깐, 침상 위의 아셀과 눈이 마주친다. 누구도 서로 말을 걸지 않는다.", en: "The two of them step back against the wall. Menahem glances at the bed, and for a moment his eyes meet Asher's. No one says a word to anyone." } },
+      { type: "line", text: { ko: "두 사람은 벽 쪽으로 비켜선다. 므나헴은 침상을 힐끗 보다가, 침상 위의 아셀과 눈이 마주친다. 서로 아무 말이 없다.", en: "They step back against the wall. Menahem glances at the bed, and for a moment his eyes meet Asher's. Neither says a word to the other." } },
 
       // ---------------------------------------------------------------
       // AROUND NOON: THE CROWD, fixed sequence of SPEC 6.4 (c2 after 9:3, c3 after 9:5, c4 after 9:8)
@@ -3655,13 +3674,13 @@ html.is-test .echo mark {
       { type: "verse", key: "MT_9_2B" },
       // One echo per noted word, so each thought line below is always shown with its echo.
       { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *그가*. 사하시는 분은 주님이시다.", en: "The word in my notes from this morning: *who*. The one who forgives is the Lord." } },
+      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 낱말, ‘그가’. 사하시는 분은 주님이시다.", en: "The word in my notes from this morning: *who*. The one who forgives is the Lord." } },
       { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
       { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 찍어 둔 작은 점. 용서가 먼저, 치유는 그다음.", en: "The little dot in my notes from this morning. Forgiving first, healing after." } },
       { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *병*이라는 말이, 저 침상 위의 사람에게로 번진다.", en: "The word I wrote in my notes this morning, *diseases*, spreads toward the man on the bed." } },
+      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 ‘병’이라는 말이, 저 침상 위의 사람에게로 번진다.", en: "The word I wrote in my notes this morning, *diseases*, spreads toward the man on the bed." } },
       { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 다시 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning rises over the moment." } },
+      { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 다시 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning comes flooding back." } },
       { type: "fx", fx: "light", level: "soft" },
 
       // Matt 9:3, shown as Menahem's own unspoken thought.
@@ -3669,7 +3688,7 @@ html.is-test .echo mark {
       {
         type: "choice",
         id: "c2",
-        prompt: { ko: "속으로만 한 생각이다. 아무도 듣지 못했다. 그다음엔?", en: "He only thought it. No one heard. What comes next?" },
+        prompt: { ko: "므나헴은 속으로만 생각했다. 아무도 듣지 못했다. 그다음엔?", en: "Menahem only thought it. No one heard. What next?" },
         options: [
           {
             id: "a",
@@ -3698,7 +3717,7 @@ html.is-test .echo mark {
             reaction: [
               pinThought(),
               // Callback to the lane, where he only looked.
-              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 그를 보며 생각만 했다. 이 사람은 그에게 말을 건다.", en: "In the lane, all I did was look at him and think. This man speaks to him." } }
+              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 저 사람을 보며 생각만 했다. 예수라는 이 사람은 그에게 직접 말을 건다.", en: "In the lane, all I did was look at that man and think. This Jesus speaks to him directly." } }
             ]
           },
           {
@@ -3707,7 +3726,8 @@ html.is-test .echo mark {
             id: "d",
             lens: null,
             cut: true,
-            text: { ko: "더 들을 것도 없다. 자리를 뜨자.", en: "There's nothing more to hear. Time to leave." },
+            // A sincere reason, not a quit button: staying to hear blasphemy would feel like taking part in it.
+            text: { ko: "신성모독을 듣고 서 있을 수는 없다. 자리를 뜨자.", en: "I can't stand here and listen to blasphemy. I'm leaving." },
             reaction: [
               { type: "line", text: { ko: "므나헴은 몸을 돌려 무리를 빠져나간다. 하난은 머뭇거리다, 그 자리에 남는다.", en: "Menahem turns and makes his way out of the crowd. Hanan hesitates, then stays where he is." } },
               { type: "fx", fx: "light", level: "off" }
@@ -3752,7 +3772,7 @@ html.is-test .echo mark {
             reaction: [
               // Callback: the psalm returns with the word he noted at dawn highlighted.
               { type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-              { type: "line", speaker: "thought", text: { ko: "아침의 그 한 문장 안에, 둘이 다 들어 있다.", en: "Both are there, inside this morning's one sentence." } }
+              { type: "line", speaker: "thought", text: { ko: "아침의 그 한 문장 안에, 둘이 다 들어 있다.", en: "Both are right there, in the one line I read this morning." } }
             ]
           },
           {
@@ -3789,12 +3809,12 @@ html.is-test .echo mark {
           {
             id: "b",
             lens: 2,
-            text: { ko: "“말씀은 그대로다. 오늘 그 말씀이 한 사람의 입에서 나왔다.”", en: "“The Word stands as it was. Today it came from one man's mouth.”" }
+            text: { ko: "“말씀은 그대로다. 다만 오늘은 그 말씀을 한 사람이 했다.”", en: "“The Word hasn't changed. Today, a man spoke it.”" }
           },
           {
             id: "c",
             lens: 3,
-            text: { ko: "“그는 권한으로 한 사람을 집에 보냈다. 나는 내 권한으로 오늘 무엇을 했나.”", en: "“He used that authority to send one man home. What did I do with mine today?”" }
+            text: { ko: "“그는 권한으로 한 사람을 집에 보냈다. 내 권한으로 나는 무엇을 했나.”", en: "“He used his authority to send a man home. What did I do with mine?”" }
           },
           {
             id: "d",
@@ -3815,13 +3835,14 @@ html.is-test .echo mark {
       // (1) Who? "Who Spoke"
       "1": {
         beats: [
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 기록장에 적은 *그가*는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The word in his notes this morning, *who*, meant the Lord. Today a man stood in that very place and spoke." } },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 사람의 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one man's mouth." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 기록장에 *병*이라고 적었다. 오늘 한 사람이 죄를 사하는 권한을 말하고, 그 병까지 고쳤다.", en: "This morning he wrote *diseases* in his notes. Today a man claimed the authority to forgive sins, and healed the disease as well." } },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
+          // Narration names Menahem so that "he" in the last line can only mean Jesus.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 ‘그가’는 주님이셨다. 그런데 오늘, 주님만 하실 말을 한 사람이 했다.", en: "This morning, *who* in his notes meant the Lord. Today a man said what only the Lord can say." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 므나헴은 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 사람의 입에서 나왔다.", en: "This morning Menahem put a dot between forgiving and healing. Today both came from one man's mouth." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 므나헴은 ‘병’이라고 적었다. 오늘 한 사람이 죄를 사하는 권한을 말하고, 병까지 고쳤다.", en: "This morning Menahem wrote *diseases*. Today a man claimed the authority to forgive sins, and healed the disease too." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 므나헴은 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning Menahem read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the line he will write (c4).
-          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "그가 적을 말, *신성모독*. 같은 말이 마태복음 끝, 대제사장의 입에서 다시 나온다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "The word he'll write: *blasphemy*. The same charge returns at the end of Matthew, from the high priest: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
-          { when: { choice: "c4", is: "d" }, type: "line", text: { ko: "결론 칸은 비어 있다. 그는 누구인가. 그 질문이 내일도 그를 그 자리로 데려갈 것이다.", en: "The space for a conclusion stays empty. Who is he? That question will take him back there tomorrow." } }
+          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "므나헴이 적을 말은 ‘신성모독’. 마태복음 끝에서 대제사장도 같은 말을 한다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "Menahem will write *blasphemy*. At the end of Matthew, the high priest makes the same charge: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
+          { when: { choice: "c4", is: "d" }, type: "line", text: { ko: "결론 칸은 비어 있다. 그는 누구인가. 그 질문이 내일도 므나헴을 그 자리로 데려갈 것이다.", en: "The space for a conclusion stays empty. Who is he? That question will take Menahem back there tomorrow." } }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.", en: "About God, you were right. What's left is a question about him." }
       },
@@ -3831,13 +3852,13 @@ html.is-test .echo mark {
         beats: [
           // The same highlight as at dawn and at the first words.
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 *그가*가 다시 보인다. 사하시는 일도, 고치시는 일도 오늘 한 사람의 말로 일어났다.", en: "He sees this morning's word again: *who*. Forgiving and healing both happened today, at one man's word." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 ‘그가’라는 낱말이 다시 보인다. 사하시는 일도, 고치시는 일도 오늘 한 사람의 말로 일어났다.", en: "He sees this morning's word again: *who*. Forgiving and healing both happened today, at one man's word." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 꼭 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in exactly that order, at one man's word." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 *병*이 다시 보인다. 오늘 그 병이 한 사람의 말로 나았다. 죄 사함의 말 다음에.", en: "He sees this morning's word again: *diseases*. Today a disease was healed at one man's word, right after the words of forgiveness." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 ‘병’이라는 말이 다시 보인다. 오늘 그 병이 한 사람의 말로 나았다. 죄 사함의 말 다음에.", en: "He sees this morning's word again: *diseases*. Today a disease was healed at one man's word, right after the words of forgiveness." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가 다시 들린다. 오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "The psalm he read from the top this morning comes back. Today its two works happened, in that order, at one man's word." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가 다시 들린다. 오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "The psalm he read from the top this morning comes back. Today the two things it names happened, in that order, at one man's word." } },
           // Callback to Hanan's dawn question.
           { type: "line", speaker: "thought", text: { ko: "아침엔 하난이 물었다. 누가 용서하시고, 누가 고치시느냐고. 이제는 내가 묻는다.", en: "This morning Hanan asked who forgives and who heals. Now I'm the one asking." } }
         ],
@@ -3846,14 +3867,16 @@ html.is-test .echo mark {
 
       // (3) Where to? "A Man Carrying His Bed"
       "3": {
+        // First-person thoughts, matching the last line; "he" is always Jesus here.
         beats: [
-          { type: "line", text: { ko: "그는 하나님만 가지신 권한을 말했다. 그리고 그 권한으로 우리를 벌하지도, 무리를 모으지도 않았다. 한 사람을 집에 보냈다.", en: "He claimed an authority that belongs to God alone. And he didn't use it to punish us or to rally the crowd. He sent one man home." } },
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 누구에게 하시는지가 눈에 걸린다.", en: "This morning he wrote down who does it. Now what catches his eye is who it was done for." } },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning he saw only a dot between two words. Today he saw a man lying in between." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 *병*이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he wrote this morning, *diseases*, he now sees a face from today." } },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 이제는 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning now reads like one man's story." } }
+          { type: "line", speaker: "thought", text: { ko: "그는 하나님만 가지신 권한을 말했다. 그러고는 우리를 벌하지도, 무리를 모으지도 않고, 한 사람을 집에 보냈다.", en: "He claimed an authority that belongs to God alone. Then, instead of punishing us or rallying the crowd, he sent one man home." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 누구에게 하시는지가 눈에 걸린다.", en: "This morning I wrote down who does it. Now what catches my eye is who it is done for." } },
+          { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning I saw only a dot between two words. Today I saw a man lying in between." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 적은 ‘병’이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word I wrote this morning, *diseases*, I now see a face from today." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 그 시가, 이제는 한 사람의 이야기로 읽힌다.", en: "The psalm I read from the top this morning now reads like one man's story." } }
         ],
-        last: { ko: "나는 오늘 율법으로 그 사람을 판단했다. 그는 권한으로 그 사람을 일으켰다.", en: "Today I judged that man by the Law. He raised him up by his authority." }
+        // What he judged on every path is Jesus (the fixed Matt 9:3 thought), not the man on the bed.
+        last: { ko: "오늘 나는 율법으로 그를 판단했다. 그는 그 권한으로 한 사람을 일으켜 세웠다.", en: "Today I judged him by the Law. He used his authority to raise a man to his feet." }
       },
 
       // Cut ending (c2 d). The event does not change: the man still rises and goes home.
@@ -3862,11 +3885,11 @@ html.is-test .echo mark {
           // The light already went off in the cut option's reaction (it plays in full before this).
           { type: "scene", bg: "lane", caption: { ko: "정오 무렵 · 골목", en: "Around noon · The lane" } },
           { type: "line", text: { ko: "누가 죄를 사할 수 있는가. 그 질문을 안고, 므나헴은 혼자 골목을 오른다. 등 뒤에서 함성이 터진다.", en: "Who can forgive sins? Carrying that question, Menahem climbs the lane alone. Behind him, the crowd breaks into a shout." } },
-          { type: "line", text: { ko: "그날 저녁, 끝까지 남아 있던 하난이 전한다. 골목의 그 사람이 일어나, 자기 침상을 들고 집으로 걸어갔다고.", en: "That evening Hanan, who stayed to the end, tells him: the man from the lane stood up, picked up his bed, and walked home." } },
+          { type: "line", text: { ko: "나중에 하난이 달려와 전한다. 골목의 그 사람이 일어나, 자기 침상을 들고 걸어서 집에 갔다고.", en: "Later, Hanan catches up and tells him: the man from the lane got up, picked up his bed, and walked home." } },
           // Hanan reports the answer Menahem left before hearing (Matt 9:6a, via token only).
-          { type: "line", speaker: "hanan", text: { ko: "예수라는 그 사람이, 일어나라고 하기 전에 이렇게 말했어요. {{v:MT_9_6A}}", en: "Jesus said this before he told the man to rise: {{v:MT_9_6A}}" } }
+          { type: "line", speaker: "hanan", text: { ko: "선생님, 예수라는 그 사람이 먼저 이렇게 말했어요. {{v:MT_9_6A}}", en: "Teacher, that man Jesus said this first: {{v:MT_9_6A}}" } }
         ],
-        last: { ko: "질문은 옳았다. 다만 그는 답이 보이기 전에 떠났다.", en: "His question was right. He just left before the answer was shown." }
+        last: { ko: "질문은 옳았다. 다만 그는 답이 보이기 전에 떠났다.", en: "His question was right. He left before the answer could be seen." }
       }
     },
 
@@ -9157,6 +9180,35 @@ html.is-test .echo mark {
     ]);
   }
 
+  // The busts on the route cards share one size, set by the smallest bust band (a bigger bust in a
+  // smaller band would lose its head), so the cards read as a set; Asher lying sizes on his own band.
+  // Band heights follow the text (language, text size, fonts loading, window size), hence the observer.
+  var routeArtObserver = null;
+
+  function equalizeRouteArt(list) {
+    var min = Infinity;
+    Array.prototype.forEach.call(list.querySelectorAll(".routecard__art:not(.routecard__art--lying)"), function (band) {
+      var bh = band.clientHeight;
+      if (bh > 0 && bh < min) min = bh;
+    });
+    if (min < Infinity) list.style.setProperty("--band-min", min + "px");
+    else list.style.removeProperty("--band-min");
+  }
+
+  function watchRouteArt(list) {
+    if (routeArtObserver) routeArtObserver.disconnect();
+    routeArtObserver = null;
+    equalizeRouteArt(list);
+    if (typeof window.ResizeObserver !== "function") return;
+    routeArtObserver = new window.ResizeObserver(function () {
+      if (list.isConnected) equalizeRouteArt(list);
+      else if (routeArtObserver) routeArtObserver.disconnect();
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".routecard__art"), function (band) {
+      routeArtObserver.observe(band);
+    });
+  }
+
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
@@ -9190,7 +9242,9 @@ html.is-test .echo mark {
         ]
       );
     });
-    page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
+    var list = h("div", { class: "routes-list" }, cards);
+    page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, list]);
+    watchRouteArt(list);
   }
 
   // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).
