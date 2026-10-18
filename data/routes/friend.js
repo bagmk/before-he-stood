@@ -319,24 +319,25 @@
           last: t("평생 제일 많이 잡은 날. 하필 아무도 고기 얘기를 안 하는 날이었다.", "The biggest catch of his life—on the one day nobody cared about fish.")
         },
 
-        // c3 c: the quarrel with the passerby turns into an arm-wrestling match on a fish barrel (a playful
-        // contest, SPEC 4.6). Yonah keeps winning rounds; the passerby takes his words back only when the
-        // news of the healing comes up from the shore. The canon passerby line stays in the lane beat above.
+        // c3 c: the quarrel with the passerby turns into an arm-wrestling match across a fish stall (a playful
+        // contest, SPEC 4.6). The passerby takes his words back only after losing every round, not because
+        // of the healing (so the question isn't left standing for anyone who isn't healed). The canon
+        // passerby line stays in the lane beat above.
         armWrestle: {
           title: t("세기의 팔씨름", "Arm-Wrestle of the Century"),
           beats: [
             say("passerby", "싫은데? 팔씨름에서 이기면 취소해 주지.", "Nope. Beat me at arm-wrestling, and I'll take it back."),
             say(
               null,
-              "곧 생선 통 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
-              "Soon they're arm-wrestling on a fish barrel, and the whole lane is betting figs. Yonah takes the first round!"
+              "곧 생선 좌판 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
+              "Soon they're arm-wrestling across a fish stall, and the whole lane is betting figs. Yonah takes the first round!"
             ),
             say("passerby", "방금 건 연습이야! 삼세판! …아니, 다섯 판!", "That one was just practice! Best of three! …No, best of five!")
           ],
           // Not Asher walking up the lane: that picture belongs to stayedInLane, at the same choice.
           last: t(
-            "행인은 결국 그 말을 취소했다. 바닷가에서 “침상에 누워 있던 사람이 일어났대!” 소리가 들려온 뒤에야.",
-            "In the end, the passerby did take it back—but only after a shout came up from the shore: “The man on the bed got up!”"
+            "행인은 판판이 다 지고서야 그 말을 취소했다. 그사이 바닷가에서는 아셀이 일어났다.",
+            "The passerby took it back only after losing every single round. Meanwhile, down at the shore, Asher stood up."
           )
         },
 

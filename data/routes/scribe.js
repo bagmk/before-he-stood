@@ -263,7 +263,8 @@
         wordWar: {
           title: { ko: "말꼬리 대전", en: "The Great Nitpick" },
           beats: [
-            { type: "line", speaker: "menahem", text: { ko: "잘못이면 잘못이라니! 죄, 죄악, 허물은 히브리어로 다 다른 말이오!", en: "Wrong is wrong? Sin, iniquity, transgression—in Hebrew, those are three different words!" } },
+            // He first denies the premise (no cause is given in Matthew), then gets lost in the vocabulary.
+            { type: "line", speaker: "menahem", text: { ko: "잘못이라니! 저 사람이 뭘 잘못해서 저렇게 됐다고 누가 그랬소? 게다가 죄, 죄악, 허물은 히브리어로 다 다른 말이오!", en: "Wrong? Who says he did something to end up like that? Besides, sin, iniquity, transgression—in Hebrew, those are three different words!" } },
             { type: "line", text: { ko: "“다 같은 말이지!” “같은 말이라니!” 창문마다 구경꾼이 고개를 내민다. 하난은 벽에 기대 한숨만 쉰다.", en: "“It's all the same!” “The same?!” Heads pop out of every window. Hanan leans on the wall and sighs." } },
             { type: "line", text: { ko: "얼마 뒤, 아침에 침상에 실려 가던 그 사람이 자기 침상을 들고 집으로 간다. 두 사람은 말싸움을 멈추지도 않고 나란히 비켜선다.", en: "Later, the man who was carried down on that bed walks by on his way home, carrying it. Without missing a word, the two step aside for him." } }
           ],
@@ -277,7 +278,7 @@
             { type: "line", text: { ko: "첨벙! 므나헴이 염색집 항아리에 엉덩이부터 빠진다.", en: "Splash! Menahem lands bottom-first in a dyer's vat." } },
             { type: "line", text: { ko: "항아리에서 기어 나온 므나헴은 수염까지 새파랗다. 이 꼴로는 아무 데도 못 간다. 뒷골목으로 집에 숨어든다.", en: "He climbs out blue, beard and all. He can't go anywhere like this. He sneaks home through the back alleys." } },
             { type: "scene", bg: "lamp_night", caption: { ko: "저녁 · 므나헴의 방", en: "Evening · Menahem's room" } },
-            { type: "line", speaker: "hanan", text: { ko: "선생님! 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 걸어서 집에 갔어요! …그리고 선생님, 아직 파래요.", en: "Teacher! The man on the bed got up, picked up his bed, and walked home! …Also, you're still blue." } }
+            { type: "line", speaker: "hanan", text: { ko: "선생님, 아직도 파래요? …아니, 그게 중요한 게 아니고요! 침상에 누워 있던 그 사람이 걸어서 집에 갔어요!", en: "Teacher, you're *still* blue? …No, wait, that's not the point! The man on the bed walked home!" } }
           ],
           last: { ko: "며칠 뒤에야 므나헴은 집 밖에 나왔다. 동네는 아직도 한 사람 얘기뿐이었다. 다행히 파란 사람은 아니었다.", en: "Menahem didn't go out again for days. When he did, the whole town was still talking about one man. Luckily, not the blue one." }
         },

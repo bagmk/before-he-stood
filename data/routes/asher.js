@@ -142,8 +142,8 @@
         go("a", "“다 들리거든요?”", "“I can hear you, you know.”"),
         // The quarrel (teacher's v4.1 note). It stays a war of words; the passerby speaks after the
         // fixed SPEC §6.3 line only inside this branch.
-        snip("b", "“아저씨 사연부터 들어 볼까요?”", "“Why don't we start with *your* story?”", "fishChase", [
-          say("passerby", "사연은 무슨! 나는 그런 거 없어!", "My story? I don't have a story!")
+        snip("b", "“아저씨 사연부터 들어 볼까요?”", "“How about *your* backstory first?”", "fishChase", [
+          say("passerby", "사연은 무슨! 나는 그런 거 없어!", "My backstory? I don't have one!")
         ]),
         nope("c", "“요나, 내려 줘. 집에 갈래.”", "“Yonah, put me down. I'm going home.”", "yonah", "안 돼! 다 왔는데 어딜 가.", "Nope! We're almost there!"),
         snip("d", "“요나, 사람 없는 뒷길로 가자.”", "“Yonah, take the back way. Away from people.”", "longWay", [
