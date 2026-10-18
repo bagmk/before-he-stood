@@ -115,6 +115,11 @@ button {
   outline-offset: 2px;
 }
 
+/* The second language of a bilingual pair always sits on its own line. */
+span.en {
+  display: block;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1676,6 +1681,7 @@ body.is-hush .panel {
 }
 
 .gallery-title .en {
+  display: inline;
   font-weight: 400;
   font-size: 0.62em;
   color: var(--limestone-dim);

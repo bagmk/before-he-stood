@@ -12,7 +12,7 @@
   var doc = document;
 
   var SIZE_STEPS = [0.9, 1, 1.12, 1.25, 1.4];
-  var RATES = { slow: 64, normal: 32, instant: 0 };
+  var RATES = { slow: 56, normal: 28, instant: 0 };
 
   var S = {
     lang: "both",
@@ -549,7 +549,8 @@
 
   function rateFor(l, hush) {
     var base = RATES[S.speed] == null ? RATES.normal : RATES[S.speed];
-    var r = l === "en" ? base * 0.55 : base;
+    // Latin letters are narrower; in "both" mode the second language types faster still.
+    var r = l === "en" ? base * (S.lang === "both" ? 0.4 : 0.5) : base;
     return hush ? r * 2.2 : r;
   }
 
@@ -854,7 +855,8 @@
       h("div", { class: "title-actions" }, actions),
       h("div", { class: "title-foot" }, [
         h("a", { class: "teacher-link", href: teacherHref, "data-testid": "teacher-link" }, u("teacherLink").ko + " · " + u("teacherLink").en),
-        meta.bibleNotice ? h("p", { class: "fineprint" }, bi(meta.bibleNotice)) : null
+        // The English notice already carries the Korean credit, so "both" shows it alone.
+        meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
       ])
     ];
     page("title-page", kids);

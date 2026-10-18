@@ -149,15 +149,16 @@
     this.add(full(this.rad("vig", cx || 450, cy || 760, r || 980, [[0, color, 0], [0.55, color, 0], [1, color, alpha]])));
   };
   // Cheap film grain: a deterministic speckle tile instead of feTurbulence.
-  Ctx.prototype.grain = function (alpha) {
+  // light = relative strength of the pale specks (keep low in dark scenes).
+  Ctx.prototype.grain = function (alpha, light) {
     var g = prng(91), dk = "", lt = "";
-    for (var i = 0; i < 64; i++) {
-      var x = ri(g() * 150), y = ri(g() * 150), s = g() < 0.75 ? 2 : 3;
+    for (var i = 0; i < 70; i++) {
+      var x = r1(g() * 150), y = r1(g() * 150), s = r1(1.4 + g() * 1.1);
       var sq = "M" + x + " " + y + "h" + s + "v" + s + "h-" + s + "z";
       if (i % 2) dk += sq; else lt += sq;
     }
     this.def('<pattern id="' + this.id("grain") + '" width="150" height="150" patternUnits="userSpaceOnUse">' +
-      path(dk, "#000", op(0.55)) + path(lt, "#fff", op(0.4)) + "</pattern>");
+      path(dk, "#000", op(0.5)) + path(lt, "#fff", op(r2(0.4 * (light === undefined ? 1 : light)))) + "</pattern>");
     this.add(full(this.url("grain"), op(alpha)));
   };
   Ctx.prototype.svg = function () {
@@ -212,19 +213,16 @@
   }
 
   // Herodian-style oil lamp seen from the side, nozzle to the left, flame at the nozzle tip.
-  // (x, y) is the wick point; fh is the flame height. Returns { body, flame } strings.
-  function oilLamp(c, x, y, fh, name) {
+  // (x, y) is the wick point, k the lamp scale, fh the flame height in viewBox units.
+  // Returns { body, flame } strings so the light can be layered between them.
+  function oilLamp(c, x, y, fh, k, name) {
     var w = fh * 0.24, b = y, t = y - fh;
-    var bx = x + 61, by = y + 12; // body center
-    var body =
-      ell(bx, by + 12, 50, 6, "#000", op(0.5)) +
-      path("M" + (x + 30) + " " + (y + 4) + "L" + (x + 7) + " " + (y - 3) + "Q" + (x - 4) + " " + (y - 4) + " " + (x - 3) + " " + (y + 3) +
-        "Q" + (x - 2) + " " + (y + 9) + " " + (x + 8) + " " + (y + 10) + "L" + (x + 33) + " " + (y + 15) + "Z", c.lin(name + "n", x, 0, x + 40, 0, [[0, "#c88a57"], [1, "#7a4b2f"]])) +
-      path("M" + (bx - 34) + " " + (by + 1) + "C" + (bx - 32) + " " + (by - 21) + " " + (bx + 32) + " " + (by - 23) + " " + (bx + 37) + " " + (by - 1) +
-        "C" + (bx + 30) + " " + (by + 11) + " " + (bx - 26) + " " + (by + 12) + " " + (bx - 34) + " " + (by + 1) + "Z",
-        c.lin(name + "b", bx - 36, 0, bx + 38, 0, [[0, "#c98a56"], [0.45, "#94603c"], [1, "#4f3020"]])) +
-      ell(bx, by - 14, 8, 2.6, "#2a180e") +
-      path("M" + (bx + 35) + " " + (by - 6) + "q9-2 10 4q-1 6-9 5z", "#5a3824");
+    var body = '<g transform="translate(' + x + " " + y + ")scale(" + k + ')">' +
+      ell(61, 25, 52, 6, "#000", op(0.5)) +
+      path("M30 4L7-3Q-4-4-3 3Q-2 9 8 10L33 15Z", c.lin(name + "n", 0, 0, 40, 0, [[0, "#c88a57"], [1, "#7a4b2f"]])) +
+      path("M27 13C29-9 93-11 98 11C91 23 35 24 27 13Z", c.lin(name + "b", 25, 0, 99, 0, [[0, "#c98a56"], [0.45, "#94603c"], [1, "#4f3020"]])) +
+      ell(61, -2, 8, 2.6, "#2a180e") +
+      path("M96 6q9-2 10 4q-1 6-9 5z", "#5a3824") + "</g>";
     var flame =
       path("M" + x + " " + b + "C" + r1(x - w) + " " + r1(b - fh * 0.2) + " " + r1(x - w * 0.85) + " " + r1(b - fh * 0.56) + " " + x + " " + t +
         "C" + r1(x + w * 0.85) + " " + r1(b - fh * 0.56) + " " + r1(x + w) + " " + r1(b - fh * 0.2) + " " + x + " " + b + "Z",

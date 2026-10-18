@@ -37,7 +37,7 @@
       {
         type: "choice",
         id: "c1",
-        prompt: { ko: "무엇부터 짚어 줄까?", en: "What to point out first?" },
+        prompt: { ko: "무엇부터 짚어 줄까?", en: "Where to begin?" },
         options: [
           {
             id: "a",
@@ -116,7 +116,7 @@
           {
             id: "d",
             lens: 3,
-            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기까지 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
+            text: { ko: "“속죄는 성전에서 받는데 못 걷는 사람은 거기까지 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
             reaction: [
               { type: "line", speaker: "hanan", text: { ko: "…그건 생각해 본 적이 없어요.", en: "…I've never thought about that." } }
             ]
@@ -325,7 +325,7 @@
           {
             id: "b",
             lens: 2,
-            text: { ko: "소리 내지 않은 생각을 어떻게 알았지? 마음을 아시는 분은 하나님뿐인데. ({{r:KI1_8_39B}})", en: "How did he know a thought I never spoke? Only God knows the heart. ({{r:KI1_8_39B}})" },
+            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데. ({{r:KI1_8_39B}})", en: "How did he know a thought I never spoke? Only God knows the heart. ({{r:KI1_8_39B}})" },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "성전을 봉헌하던 솔로몬의 기도가 떠오른다. {{v:KI1_8_39B}}", en: "Solomon's prayer at the temple's dedication comes back to me. {{v:KI1_8_39B}}" } }
             ]
@@ -524,7 +524,7 @@
           {
             id: "c",
             lens: 3,
-            text: { ko: "“그는 그 권한으로 한 사람을 집에 보냈다. 나는 내 권한으로 오늘 무엇을 했나.”", en: "“He used that authority to send one man home. What did I do with mine today?”" },
+            text: { ko: "“그는 권한으로 한 사람을 집에 보냈다. 나는 내 권한으로 오늘 무엇을 했나.”", en: "“He used that authority to send one man home. What did I do with mine today?”" },
             reaction: [
               { type: "line", text: { ko: "마지막 물음까지 적고, 그는 펜을 내려놓는다.", en: "He writes the question out to the end and sets down his pen." } }
             ]

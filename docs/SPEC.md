@@ -252,7 +252,12 @@ Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (s
 `?debug=1` → panel with route, beat index, choices, scores, flags, a "jump to cN" control and an auto-pick button. `#scribe`, `#friend`, `#asher` → start that route directly (bare hash tokens only).
 
 ### 5.6 Look and feel (engine + art agents)
-Committed single look (not a light/dark pair): scene art fills the stage; text sits on a parchment-like panel with dark ink for daylight legibility. Palette from the place: black basalt (Capernaum's houses), limestone, Galilee blue, olive, lamp amber; Jesus' presence = warm white light, never a figure. Korean serif for story text, a clean sans for UI; real fallback stacks. Portrait phones first (360–430px wide), safe-area insets, works on tablets and laptops too. No emoji in UI.
+Committed single look (not a light/dark pair): scene art fills the stage; text sits on a parchment-like panel with dark ink for daylight legibility. Palette from the place: black basalt (Capernaum's houses), limestone, Galilee blue, olive, lamp amber; Jesus' presence = warm white light, never a figure. Korean serif for story text, a clean sans for UI; real fallback stacks. No emoji in UI.
+
+**Two first-class displays (updated 2026-10-18):**
+1. **TV (primary for class):** the game is shown on a TV connected to a computer, 16:9 landscape (1920×1080 and 1280×720; may be 4K with devicePixelRatio 2), read from 3–5 m away by the whole class. Requirements: story text ≥ about 3.6vh (≈ 39px at 1080p) in landscape, names/options ≥ 3vh, nothing below 2.2vh; text panel centered with a comfortable max width; choices large with number badges 1–4 (2×2 grid when wide); keyboard and presentation clicker control — Space / Enter / → / PageDown / ↓ advance, 1–4 and A–D pick an option, F toggles fullscreen (also a visible fullscreen button), Esc opens the menu; the mouse cursor hides after a few seconds of inactivity; high contrast. Art must compose well at 16:9 (focal content in the upper-middle; the text panel covers roughly the bottom 30%).
+2. **Phone:** portrait 360–430px wide, safe-area insets, touch.
+Tablets and laptops in between should also look right.
 
 ### 5.7 Builds
 `node tools/build-single.mjs` writes:
