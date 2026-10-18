@@ -106,7 +106,7 @@ Route files do not define titles. The engine reads route titles and ending title
 `BHS.characters[id] = { name: T, role: T, color: "#hex", drawn?: false }`. Speaker ids for `line` beats come from here, plus the pseudo-speakers in §4.5.
 
 ### 4.3 data/scripture.js (scripture agent)
-`BHS.scripture[KEY] = { ref: T, ko: string, en: string, speaker?: "jesus"|"scribes"|"narrator", refOnly?: true }`.
+`BHS.scripture[KEY] = { ref: T, ko: string, en: string, speaker?: "jesus"|"scribes"|"narrator", refOnly?: true, full?: { ko: string, en: string } }`. `full` holds the whole verse for keys that are cuts of a verse (QA checks the cut is an exact substring; the teacher page uses it to print the passage).
 - Korean = 성경전서 개역개정판. English = ESV. Exact wording and punctuation of the published text (partial verses are exact substrings of the verse).
 - `refOnly` keys have empty `ko`/`en` and may only be used with `{{r:KEY}}`.
 - Writers may use ONLY these keys. Need another? Ask in your report; do not invent keys.

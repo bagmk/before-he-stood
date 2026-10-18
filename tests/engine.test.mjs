@@ -487,6 +487,78 @@ test("asher: press via game.press() also works and next() refuses at a press", (
   assert.notEqual(g.step.kind, "press");
 });
 
+// ---------------------------------------------------------------- portrait cast
+
+test("cast: speakers enter stable slots, protagonist and pseudo-speakers never do", () => {
+  const g = E.createGame("scribe");
+  assert.deepEqual(g.view().stage.cast, [], "narration does not add anyone");
+  playTo(g, (s) => s.kind === "line" && s.speaker === "hanan");
+  assert.deepEqual(g.view().stage.cast.map((c) => [c.id, c.slot]), [["hanan", 0]]);
+  assert.equal(g.view().stage.speaking, "hanan");
+  g.next(); // c1
+  assert.equal(g.view().stage.speaking, null, "nobody speaks during a choice");
+  g.choose("b"); // no reaction on b in the fixture
+  assert.equal(g.step.speaker, "thought");
+  assert.equal(g.view().stage.speaking, null);
+  assert.equal(g.view().stage.cast.length, 1, "thought keeps the cast");
+  playTo(g, (s) => s.kind === "line" && s.speaker === "neighbor");
+  assert.deepEqual(g.view().stage.cast.map((c) => [c.id, c.slot]), [["hanan", 0], ["neighbor", 1]]);
+  assert.equal(g.view().stage.speaking, "neighbor");
+  playTo(g, (s) => s.kind === "line" && s.speaker === "passerby");
+  assert.deepEqual(g.view().stage.cast.map((c) => c.id), ["passerby"], "scene change cleared the cast first");
+});
+
+test("cast: a third speaker replaces the least recent one in its slot", () => {
+  const g = E.createSequence(
+    [
+      { type: "scene", bg: "lane" },
+      { type: "line", speaker: "hanan", text: { ko: "1", en: "1" } },
+      { type: "line", speaker: "neighbor", text: { ko: "2", en: "2" } },
+      { type: "line", speaker: "hanan", text: { ko: "3", en: "3" } },
+      { type: "line", speaker: "passerby", text: { ko: "4", en: "4" } },
+      { type: "line", speaker: "jesus", text: { ko: "x", en: "x" } },
+      { type: "line", speaker: "crowd", text: { ko: "5", en: "5" } }
+    ],
+    { routeId: "scribe" }
+  );
+  g.next();
+  g.next();
+  g.next();
+  assert.deepEqual(g.view().stage.cast.map((c) => [c.id, c.slot]), [["hanan", 0], ["passerby", 1]], "neighbor was least recent");
+  g.next();
+  assert.equal(g.view().stage.speaking, null, "jesus is never a portrait");
+  g.next();
+  assert.equal(g.view().stage.speaking, null, "crowd has no portrait");
+  assert.equal(g.view().stage.cast.length, 2);
+});
+
+test("cast: Jesus' verse clears the stage; Asher stands after MT_9_6B; endings clear", () => {
+  const g = E.createGame("friend");
+  playTo(g, (s) => s.kind === "line" && s.speaker === "asher");
+  assert.deepEqual(g.view().stage.cast, [{ id: "asher", slot: 0, pose: "lying", t: g.view().stage.cast[0].t }]);
+  playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_2B");
+  assert.deepEqual(g.view().stage.cast, []);
+  playTo(g, (s) => s.kind === "line" && s.speaker === "yonah");
+  assert.equal(g.view().stage.speaking, null, "the friend route never shows Yonah");
+  assert.ok(!g.view().stage.cast.some((c) => c.id === "yonah"));
+  playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_6B");
+  assert.equal(g.view().stage.risen, true);
+  const seq = E.createSequence(
+    [
+      { type: "verse", key: "MT_9_6B" },
+      { type: "line", speaker: "asher", text: { ko: "a", en: "a" } }
+    ],
+    { routeId: "friend" }
+  );
+  seq.next();
+  assert.equal(seq.view().stage.cast[0].pose, "standing");
+  const e = E.createGame("asher");
+  playTo(e, (s) => s.kind === "line" && s.speaker === "yonah");
+  assert.equal(e.view().stage.cast[0].id, "yonah", "Yonah appears in Asher's route");
+  e.fastForward({ until: (s) => s.kind === "endingTitle" });
+  assert.deepEqual(e.view().stage.cast, []);
+});
+
 // ---------------------------------------------------------------- save / restore
 
 test("serialize / restoreGame resumes identically", () => {

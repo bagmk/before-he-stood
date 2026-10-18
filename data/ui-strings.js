@@ -25,6 +25,8 @@
     langShortBoth: T("함께", "Both"),
     langGroup: T("언어", "Language"),
     settingsOpen: T("글자 설정", "Text settings"),
+    fullscreenEnter: T("전체 화면", "Full screen"),
+    fullscreenExit: T("전체 화면 끝내기", "Exit full screen"),
 
     // Settings
     settingsTitle: T("글자 설정", "Text settings"),

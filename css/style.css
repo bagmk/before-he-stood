@@ -336,6 +336,84 @@ body.is-last .veil {
   }
 }
 
+/* ------------------------------------------------------------------ portraits
+   Busts stand on the top edge of the text panel (main.js measures it into --panel-top) and sink a
+   little behind it. They sit under captions, overlays and the whole play layer, so they never
+   cover text or choices. Slots 0/1 are the left and right thirds, clear of the central light. */
+
+.cast {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  overflow: hidden;
+  --cast-h: 26vh;
+  --cast-x: 1.5vw;
+  --cast-sink: 9vh;
+}
+
+.figure {
+  position: absolute;
+  bottom: calc(var(--panel-top, 30vh) - var(--cast-sink));
+  height: var(--cast-h);
+  aspect-ratio: 2 / 3;
+  transition: opacity 0.22s ease, transform 0.22s ease, filter 0.22s ease;
+}
+
+.figure svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0.6vh 1.2vh rgba(0, 0, 0, 0.45));
+}
+
+.figure[data-slot="0"] {
+  left: var(--cast-x);
+}
+
+.figure[data-slot="1"] {
+  right: var(--cast-x);
+}
+
+.figure.is-dim {
+  filter: brightness(0.55) saturate(0.85);
+}
+
+.figure.is-in {
+  animation: figure-in 0.22s ease-out both;
+}
+
+.figure[data-slot="1"].is-in {
+  animation-name: figure-in-right;
+}
+
+.figure.is-out {
+  opacity: 0;
+  transform: translateY(1.5vh);
+}
+
+@keyframes figure-in {
+  from {
+    opacity: 0;
+    transform: translateX(-2vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes figure-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(2vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ------------------------------------------------------------------ top bar */
 
 .topbar {
@@ -2109,6 +2187,12 @@ body.is-last .veil {
   .app {
     max-width: none;
     box-shadow: none;
+  }
+
+  .cast {
+    --cast-h: 58vh;
+    --cast-x: 5vw;
+    --cast-sink: 5vh;
   }
 
   /* A focus ring that reads from across the room: light ring with a dark halo. */

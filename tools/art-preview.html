@@ -6,10 +6,10 @@
 <title>Art preview</title>
 <!--
   Dev tool for js/art.js (owner: art agent).
-  Gallery:      tools/art-preview.html            every scene at 390x844 and 1280x720 (shown at 50%)
+  Gallery:      tools/art-preview.html            every scene at 390x844 (phone) and 1920x1080 (TV, shown at 1/3)
   Single scene: tools/art-preview.html?id=lane    the scene fills the viewport (used for screenshots)
-  Options:      &panel=1  shades the bottom 35% where the text panel sits
-                &pov=lying|standing|normal
+  Options:      &panel=1  shades where the text panel sits (bottom 35% portrait, 30% landscape)
+                &pov=lying|standing|normal   &time=day|evening|night
 -->
 <style>
   :root {
@@ -36,9 +36,11 @@
   .frame svg { position: absolute; inset: 0; display: block; }
   .phone { width: 390px; height: 844px; }
   .land-wrap { width: 640px; height: 360px; overflow: hidden; }
-  .land { width: 1280px; height: 720px; transform: scale(0.5); transform-origin: 0 0; }
+  .land { width: 1920px; height: 1080px; transform: scale(0.3333); transform-origin: 0 0; }
   .panel-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 35%; background: var(--panel); opacity: 0.86;
     border-top: 2px solid #9a7a4a; display: none; }
+  @media (min-aspect-ratio: 1/1) { body.single .panel-shade { height: 30%; } }
+  .land .panel-shade { height: 30%; }
   body.show-panel .panel-shade { display: block; }
   /* Single-scene mode fills the viewport exactly. */
   body.single { overflow: hidden; }
@@ -49,7 +51,7 @@
 <body>
 <header>
   <h1>Before He Stood: scene art</h1>
-  <p>Every background from js/art.js at phone size (390x844) and landscape (1280x720, shown at half size).</p>
+  <p>Every background from js/art.js at phone size (390x844) and TV size (1920x1080, shown at one third).</p>
   <label><input type="checkbox" id="panelToggle"> Shade the text panel area (bottom 35%)</label>
 </header>
 <main id="gallery"></main>
@@ -73,7 +75,7 @@
     var box = document.getElementById("single");
     box.hidden = false;
     box.className = "frame";
-    box.innerHTML = art.render(single, { pov: q.get("pov") || undefined }) + shade;
+    box.innerHTML = art.render(single, { pov: q.get("pov") || undefined, time: q.get("time") || undefined }) + shade;
     return;
   }
 
@@ -86,7 +88,7 @@
     var a = art.render(id), b = art.render(id);
     html += '<section><h2>' + id + '<small>' + (a.length / 1024).toFixed(1) + ' KB</small></h2>' +
       '<figure><div class="frame phone">' + a + shade + '</div><figcaption>390 x 844</figcaption></figure>' +
-      '<figure><div class="land-wrap"><div class="frame land">' + b + shade + '</div></div><figcaption>1280 x 720 (50%)</figcaption></figure>' +
+      '<figure><div class="land-wrap"><div class="frame land">' + b + shade + '</div></div><figcaption>1920 x 1080 (1/3)</figcaption></figure>' +
       '</section>';
   });
   document.getElementById("gallery").innerHTML = html;

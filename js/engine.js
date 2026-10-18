@@ -40,6 +40,9 @@
   var LIGHT_LEVELS = { off: true, soft: true, bright: true };
   var POVS = { normal: true, lying: true, standing: true };
   var TIMES = { day: true, evening: true, night: true };
+  // Speakers that may appear as portraits (never Jesus; the protagonist is excluded per route).
+  var PORTRAIT_IDS = { menahem: true, hanan: true, yonah: true, asher: true, mother: true, brother: true, neighbor: true, passerby: true, partners: true, scribes: true };
+  var MAX_CAST = 2;
   var STATE_VERSION = 1;
 
   var warnings = [];
@@ -370,7 +373,11 @@
         actionsVisible: routeActions(route).length > 0,
         actionReplies: {},
         actionCounts: {},
-        sceneSeq: 0
+        sceneSeq: 0,
+        cast: [],
+        speaking: null,
+        castSeq: 0,
+        risen: false
       },
       pending: { hush: false, echo: null },
       now: { hush: false, echo: null },
@@ -503,10 +510,12 @@
       }
       case "@mismatch":
         st.at = { list: "@mismatch", index: 0 };
+        st.stage.speaking = null;
         this._setStep({ kind: "line", speaker: "narrator", text: BHS.common.mismatchLine, mismatch: true });
         return true;
       case "@title": {
         var lens = st.ending.lens;
+        this._castClear();
         var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
         var titles = (meta.endings && meta.endings[st.routeId]) || {};
         st.at = { list: "@title", index: 0 };
@@ -524,11 +533,13 @@
         var e = route.endings[String(st.ending.lens)];
         if (!e || !e.last) return false;
         st.at = { list: "@last", index: 0 };
+        this._castClear();
         this._setStep({ kind: "last", text: e.last });
         return true;
       }
       case "@final":
         st.at = { list: "@final", index: 0 };
+        this._castClear();
         this._setStep({ kind: "final", routeId: st.routeId, lens: st.ending ? st.ending.lens : null });
         return true;
       case "@end":
@@ -541,6 +552,48 @@
     }
   };
 
+  // ---- portrait cast (who stands on stage)
+
+  Game.prototype._protagonist = function () {
+    var meta = BHS.meta || {};
+    var r = meta.routes && meta.routes[this.state.routeId];
+    return (r && r.protagonist) || null;
+  };
+
+  Game.prototype._castClear = function () {
+    this.state.stage.cast = [];
+    this.state.stage.speaking = null;
+  };
+
+  // A character line puts the speaker on stage (most recent two, stable left/right slots).
+  Game.prototype._castLine = function (speaker) {
+    var stage = this.state.stage;
+    if (!stage.cast) stage.cast = [];
+    if (!PORTRAIT_IDS[speaker] || speaker === this._protagonist()) {
+      stage.speaking = null;
+      return;
+    }
+    var pose = speaker === "asher" ? (stage.risen ? "standing" : "lying") : null;
+    var t = (stage.castSeq = (stage.castSeq || 0) + 1);
+    var cast = stage.cast;
+    var found = null;
+    for (var i = 0; i < cast.length; i++) if (cast[i].id === speaker) found = cast[i];
+    if (found) {
+      found.t = t;
+      found.pose = pose;
+    } else if (cast.length < MAX_CAST) {
+      var used = cast.length ? cast[0].slot : 1;
+      cast.push({ id: speaker, slot: cast.length ? 1 - used : 0, pose: pose, t: t });
+    } else {
+      var oldest = cast[0];
+      for (var j = 1; j < cast.length; j++) if (cast[j].t < oldest.t) oldest = cast[j];
+      oldest.id = speaker;
+      oldest.pose = pose;
+      oldest.t = t;
+    }
+    stage.speaking = speaker;
+  };
+
   Game.prototype._apply = function (beat) {
     var st = this.state;
     switch (beat.type) {
@@ -551,19 +604,28 @@
         st.stage.time = TIMES[beat.time] ? beat.time : "day";
         if (beat.pov && POVS[beat.pov]) st.stage.pov = beat.pov;
         st.stage.sceneSeq++;
+        this._castClear();
         return false;
       case "line":
+        this._castLine(beat.speaker || "narrator");
         this._setStep({ kind: "line", speaker: beat.speaker || "narrator", text: beat.text, id: beat.id || null });
         return true;
-      case "verse":
+      case "verse": {
+        var vsp = beat.speaker || verseSpeaker(beat.key);
+        // When Jesus speaks, the light takes the stage.
+        if (vsp === "jesus") this._castClear();
+        st.stage.speaking = null;
+        if (beat.key === "MT_9_6B") st.stage.risen = true;
         this._setStep({
           kind: "verse",
           key: beat.key,
-          speaker: beat.speaker || verseSpeaker(beat.key),
+          speaker: vsp,
           id: beat.id || null
         });
         return true;
+      }
       case "choice":
+        st.stage.speaking = null;
         this._setStep({
           kind: "choice",
           id: beat.id,
@@ -574,6 +636,7 @@
         });
         return true;
       case "press":
+        st.stage.speaking = null;
         this._setStep({
           kind: "press",
           action: beat.action || null,
@@ -844,6 +907,7 @@
     debug: false,
     warnings: warnings,
     LENSES: LENSES,
+    PORTRAIT_IDS: PORTRAIT_IDS,
     getRoute: getRoute,
     choiceBeats: choiceBeats,
     findChoice: findChoice,

@@ -637,15 +637,11 @@
 
   /* ---------- 9. Notices ---------- */
 
-  function renderNotices() {
-    var host = byId("notices");
-    if (!host) return;
-    clear(host);
+  function noticeBlocks() {
     var m = meta();
-    var any = false;
+    var blocks = [];
     if (m && isT(m.bibleNotice)) {
-      any = true;
-      host.appendChild(
+      blocks.push(
         el("div", { class: "notice" }, [
           el("p", { class: "notice-label" }, "본문 출처"),
           el("p", null, m.bibleNotice.ko),
@@ -654,8 +650,7 @@
       );
     }
     if (m && isT(m.disclaimer)) {
-      any = true;
-      host.appendChild(
+      blocks.push(
         el("div", { class: "notice" }, [
           el("p", { class: "notice-label" }, "창작 안내"),
           el("p", null, m.disclaimer.ko),
@@ -663,9 +658,25 @@
         ])
       );
     }
-    if (!any) {
-      noteMissing("data/meta.js");
-      host.appendChild(placeholder("출처 정보를 불러오지 못했어요.", "data/meta.js"));
+    return blocks;
+  }
+
+  function renderNotices() {
+    var host = byId("notices");
+    if (host) {
+      clear(host);
+      var blocks = noticeBlocks();
+      if (blocks.length) append(host, blocks);
+      else {
+        noteMissing("data/meta.js");
+        host.appendChild(placeholder("출처 정보를 불러오지 못했어요.", "data/meta.js"));
+      }
+    }
+    // Compact copy that prints on page 1 when only the core pages are printed.
+    var printHost = byId("notices-print");
+    if (printHost) {
+      clear(printHost);
+      append(printHost, noticeBlocks());
     }
   }
 

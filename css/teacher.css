@@ -180,6 +180,11 @@ main:focus {
   display: none !important;
 }
 
+/* Blocks that exist only on paper. */
+.print-only {
+  display: none;
+}
+
 .sr {
   position: absolute;
   width: 1px;
@@ -1931,6 +1936,56 @@ kbd {
     display: none !important;
   }
 
+  /* Core printout: notices go on page 1 instead of a page of their own. */
+  .print-only {
+    display: block;
+  }
+
+  html.print-all .print-only,
+  html:not(.print-all) #sources {
+    display: none !important;
+  }
+
+  .print-notices {
+    margin-top: 8pt;
+    padding-top: 4pt;
+    border-top: 0.75pt solid #999999;
+    font-size: 7.5pt;
+    line-height: 1.45;
+    color: #333333;
+    break-inside: avoid;
+  }
+
+  .print-notices .notice {
+    margin: 0 0 3pt;
+  }
+
+  .print-notices .notice-label {
+    margin: 0;
+    font-size: 7.5pt;
+  }
+
+  .print-notices p {
+    margin: 0;
+  }
+
+  /* The TV guide starts on its own page. */
+  #tv {
+    break-before: page;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  #tv h3 {
+    margin: 6pt 0 2pt;
+  }
+
+  #tv .prose {
+    font-size: 8.75pt;
+    line-height: 1.45;
+  }
+
   /* Masthead becomes a plain title block. */
   .masthead {
     background: none;
@@ -2073,16 +2128,21 @@ kbd {
   /* 3. Link and QR. */
   .linkcard {
     max-width: none;
-    grid-template-columns: 27mm minmax(0, 1fr);
-    gap: 7mm;
-    margin-top: 4pt;
-    padding: 3mm 4mm;
+    grid-template-columns: 24mm minmax(0, 1fr);
+    gap: 6mm;
+    margin-top: 3pt;
+    padding: 2.5mm 4mm;
     box-shadow: none;
     break-inside: avoid;
   }
 
   .qr {
-    max-width: 27mm;
+    max-width: 24mm;
+  }
+
+  .link-body h3,
+  .link-body h3 + p {
+    display: none;
   }
 
   .qr figcaption {
@@ -2282,11 +2342,15 @@ kbd {
   }
 
   .step {
-    padding: 6pt 0 7pt;
+    padding: 4pt 0 5pt;
     border: 0;
     border-top: 0.75pt solid #999999;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .step-head {
+    break-after: avoid;
   }
 
   .step:first-child {
@@ -2308,17 +2372,19 @@ kbd {
   .do,
   .aside {
     max-width: none;
-    margin-top: 3pt;
-    font-size: 9pt;
+    margin-top: 2pt;
+    font-size: 8.75pt;
+    line-height: 1.45;
   }
 
   .say,
   .read-together {
-    margin-top: 4pt;
-    padding: 2pt 0 2pt 8pt;
+    margin-top: 3pt;
+    padding: 1pt 0 1pt 7pt;
     background: none;
     border-left: 1.5pt solid #000000;
     border-radius: 0;
+    break-inside: avoid;
   }
 
   .read-together {
@@ -2331,13 +2397,14 @@ kbd {
   }
 
   .say-ko {
-    font-size: 10.5pt;
-    line-height: 1.5;
+    font-size: 10pt;
+    line-height: 1.45;
   }
 
   .say-en {
-    margin-top: 1pt;
-    font-size: 9pt;
+    margin-top: 0;
+    font-size: 8.75pt;
+    line-height: 1.4;
   }
 
   .verse-quote {
@@ -2358,17 +2425,19 @@ kbd {
   }
 
   .read-verse-ko {
-    font-size: 10pt;
-    line-height: 1.6;
+    font-size: 9.5pt;
+    line-height: 1.5;
   }
 
   .read-verse-en {
-    font-size: 9pt;
+    margin-top: 1pt;
+    font-size: 8.75pt;
+    line-height: 1.4;
   }
 
   .frame {
-    margin-top: 5pt;
-    padding: 7pt;
+    margin-top: 4pt;
+    padding: 5pt;
     background: none;
     border: 1.25pt solid #000000;
     border-radius: 6pt;
@@ -2543,8 +2612,9 @@ kbd {
   }
 
   .variant-label {
-    margin-top: 5pt;
+    margin-top: 4pt;
     font-size: 8pt;
+    break-after: avoid;
   }
 
   .h3-note {
@@ -2555,7 +2625,6 @@ kbd {
   /* Keep blocks whole. */
   .runsheet li,
   .tips li,
-  .step,
   .say,
   .frame,
   .notes li,
@@ -2568,10 +2637,7 @@ kbd {
   }
 
   .site-footer {
-    background: none;
-    border-top: 1pt solid #000000;
-    color: #000000;
-    font-size: 8pt;
+    display: none;
   }
 
   .footer-inner {

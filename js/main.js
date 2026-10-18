@@ -182,13 +182,17 @@
     doc.body.setAttribute("data-screen", name);
     V.showLayer(name);
     V.closeSettings();
+    if (!PLAY_SCREENS[name]) doc.body.classList.remove("is-idle");
   }
 
   function headerHandlers() {
     return {
       onHome: askHome,
       onLang: setLang,
-      onSettings: toggleSettings
+      onSettings: toggleSettings,
+      onFullscreen: toggleFullscreen,
+      canFullscreen: canFullscreen(),
+      isFullscreen: !!fullscreenElement()
     };
   }
 
@@ -392,15 +396,12 @@
     }
   }
 
+  // After a pick the chosen button disappears; hand focus back to the page so the
+  // story keys (Space, Enter, arrows, PageDown) keep working without a stray ring.
   function focusAdvance() {
-    var adv = doc.getElementById("advance");
-    if (adv && !adv.closest("[hidden]")) {
-      try {
-        adv.focus({ preventScroll: true });
-      } catch (err) {
-        adv.focus();
-      }
-    }
+    var el = doc.activeElement;
+    if (el && el !== doc.body && typeof el.blur === "function" && !doc.getElementById("play").contains(el)) return;
+    if (el && el !== doc.body && typeof el.blur === "function") el.blur();
   }
 
   function onChoose(optId) {
@@ -435,32 +436,147 @@
     refreshDebug();
   }
 
+  // Keyboard and presentation-clicker control (SPEC 5.6, TV display).
+  var ADVANCE_KEYS = { " ": true, Spacebar: true, Enter: true, ArrowRight: true, ArrowDown: true, PageDown: true };
+  var INERT_KEYS = { ArrowLeft: true, ArrowUp: true, PageUp: true };
+
+  function choiceIndexForKey(key) {
+    if (/^[1-4]$/.test(key)) return Number(key) - 1;
+    var i = "abcd".indexOf(String(key).toLowerCase());
+    return key && key.length === 1 && i >= 0 ? i : -1;
+  }
+
+  function moveChoiceFocus(dir) {
+    var opts = Array.prototype.slice.call(doc.querySelectorAll("#choices .opt"));
+    if (!opts.length) return;
+    var cur = opts.indexOf(doc.activeElement);
+    var next = cur < 0 ? (dir < 0 ? opts.length - 1 : 0) : dir === 0 ? cur : (cur + dir + opts.length) % opts.length;
+    try {
+      opts[next].focus({ preventScroll: false });
+    } catch (err) {
+      opts[next].focus();
+    }
+  }
+
+  function handleEscape(ev) {
+    if (!doc.getElementById("settings").hidden) {
+      ev.preventDefault();
+      V.closeSettings();
+      return;
+    }
+    if (!doc.getElementById("modal").hidden) {
+      ev.preventDefault();
+      V.closeModal();
+      return;
+    }
+    if (PLAY_SCREENS[app.screen] || app.screen === "final") {
+      ev.preventDefault();
+      askHome();
+    }
+  }
+
   function onKey(ev) {
     if (ev.defaultPrevented || ev.altKey || ev.ctrlKey || ev.metaKey) return;
-    if (ev.key === "Escape") {
-      if (!doc.getElementById("settings").hidden) {
-        V.closeSettings();
-        ev.preventDefault();
-      } else if (!doc.getElementById("modal").hidden) {
-        V.closeModal();
-        ev.preventDefault();
-      }
+    var key = ev.key;
+    var target = ev.target || {};
+    var tag = target.tagName || "";
+    var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!target.isContentEditable;
+    if (key === "Escape" || key === "Esc") {
+      handleEscape(ev);
+      return;
+    }
+    if (typing) return;
+    if ((key === "f" || key === "F") && !ev.repeat) {
+      ev.preventDefault();
+      toggleFullscreen();
       return;
     }
     if (V.isModalOpen()) return;
-    var tag = (ev.target && ev.target.tagName) || "";
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON" || tag === "A") return;
-    if (!PLAY_SCREENS[app.screen] || !app.game) return;
-    if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") {
-      ev.preventDefault();
-      onAdvance();
-    } else if (/^[1-4]$/.test(ev.key) && app.game.step && app.game.step.kind === "choice") {
-      var o = app.game.step.options[Number(ev.key) - 1];
-      if (o) {
+    // Space/Enter on a focused button or link keep their native meaning.
+    var nativeActivate = (key === " " || key === "Enter" || key === "Spacebar") && (tag === "BUTTON" || tag === "A");
+
+    if (app.screen === "title") {
+      if (ADVANCE_KEYS[key] && !nativeActivate && !ev.repeat) {
         ev.preventDefault();
-        onChoose(o.id);
+        startPrologue();
       }
+      return;
     }
+    if (!PLAY_SCREENS[app.screen] || !app.game) return;
+    var step = app.game.step;
+    var kind = step && step.kind;
+
+    if (kind === "choice") {
+      var idx = choiceIndexForKey(key);
+      if (idx >= 0 && step.options[idx]) {
+        ev.preventDefault();
+        if (!ev.repeat) onChoose(step.options[idx].id);
+        return;
+      }
+      if (key === "ArrowDown" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowLeft") {
+        ev.preventDefault();
+        moveChoiceFocus(key === "ArrowDown" || key === "ArrowRight" ? 1 : -1);
+        return;
+      }
+      if (nativeActivate) return;
+      if (ADVANCE_KEYS[key] || INERT_KEYS[key]) {
+        // Never pick an option by accident: an advance key only shows where focus is.
+        ev.preventDefault();
+        if (ADVANCE_KEYS[key]) moveChoiceFocus(0);
+      }
+      return;
+    }
+
+    if (ADVANCE_KEYS[key]) {
+      if (nativeActivate) return;
+      ev.preventDefault();
+      if (ev.repeat) return;
+      if (kind === "press") onPress();
+      else onAdvance();
+      return;
+    }
+    if (INERT_KEYS[key]) ev.preventDefault();
+  }
+
+  // ------------------------------------------------------------------ fullscreen + idle cursor
+
+  function fullscreenElement() {
+    return doc.fullscreenElement || doc.webkitFullscreenElement || null;
+  }
+
+  function canFullscreen() {
+    var el = doc.documentElement;
+    var api = el.requestFullscreen || el.webkitRequestFullscreen;
+    var enabled = doc.fullscreenEnabled !== undefined ? doc.fullscreenEnabled : doc.webkitFullscreenEnabled;
+    return !!api && enabled !== false;
+  }
+
+  function toggleFullscreen() {
+    function quiet(p) {
+      if (p && typeof p.catch === "function") p.catch(function () {});
+    }
+    try {
+      if (fullscreenElement()) {
+        var exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+        if (exit) quiet(exit.call(doc));
+      } else if (canFullscreen()) {
+        var el = doc.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        quiet(req.call(el));
+      }
+    } catch (err) {
+      /* fullscreen refused (for example inside a sandboxed frame) */
+    }
+  }
+
+  var idleTimer = 0;
+
+  function wakeCursor() {
+    doc.body.classList.remove("is-idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      if (PLAY_SCREENS[app.screen]) doc.body.classList.add("is-idle");
+    }, 3000);
   }
 
   // ------------------------------------------------------------------ header actions
@@ -711,6 +827,10 @@
     renderHeader();
     exposeHooks();
     doc.addEventListener("keydown", onKey);
+    doc.addEventListener("mousemove", wakeCursor, { passive: true });
+    doc.addEventListener("mousedown", wakeCursor, { passive: true });
+    doc.addEventListener("fullscreenchange", renderHeader);
+    doc.addEventListener("webkitfullscreenchange", renderHeader);
     window.addEventListener("hashchange", function () {
       var rid = routeFromHash();
       if (rid) startRoute(rid);

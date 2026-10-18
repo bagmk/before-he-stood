@@ -494,6 +494,85 @@
     doc.body.classList.toggle("is-hush", !!on);
   }
 
+  // ------------------------------------------------------------------ portraits (VN-style busts)
+
+  var portraitCache = {};
+
+  function portraitMarkup(id, pose) {
+    var key = id + "|" + (pose || "");
+    if (Object.prototype.hasOwnProperty.call(portraitCache, key)) return portraitCache[key];
+    var m = null;
+    try {
+      if (BHS.portraits && typeof BHS.portraits.render === "function") m = BHS.portraits.render(id, pose ? { pose: pose } : {});
+    } catch (err) {
+      if (window.console) console.warn("[BHS.view] portraits.render failed for " + id, err);
+      m = null;
+    }
+    if (typeof m !== "string" || m.indexOf("<svg") < 0) m = null;
+    portraitCache[key] = m;
+    return m;
+  }
+
+  function dropFigure(fig) {
+    fig.removeAttribute("data-testid");
+    fig.classList.add("is-out");
+    fig.setAttribute("data-slot", "gone");
+    setTimeout(
+      function () {
+        if (fig.parentNode) fig.parentNode.removeChild(fig);
+      },
+      S.test || S.reduced ? 0 : 260
+    );
+  }
+
+  function makeFigure(entry, key, markup) {
+    var fig = h("div", { class: "figure is-in", "data-slot": String(entry.slot), "data-key": key, "data-testid": "portrait-" + entry.id, "data-id": entry.id });
+    fig.innerHTML = namespaceSvg(markup, "p" + ++S.artSeq + "-");
+    var svg = fig.querySelector("svg");
+    if (svg) {
+      svg.setAttribute("preserveAspectRatio", "xMidYMax meet");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("focusable", "false");
+    }
+    return fig;
+  }
+
+  function setCast(stage) {
+    var layer = $("cast");
+    if (!layer) return;
+    var cast = (stage && stage.cast) || [];
+    [0, 1].forEach(function (slot) {
+      var entry = null;
+      for (var i = 0; i < cast.length; i++) if (cast[i].slot === slot) entry = cast[i];
+      var fig = layer.querySelector('.figure[data-slot="' + slot + '"]');
+      var markup = entry ? portraitMarkup(entry.id, entry.pose) : null;
+      var key = entry ? entry.id + "|" + (entry.pose || "") : "";
+      if (!entry || !markup) {
+        if (fig) dropFigure(fig);
+        return;
+      }
+      if (!fig || fig.getAttribute("data-key") !== key) {
+        if (fig) dropFigure(fig);
+        fig = makeFigure(entry, key, markup);
+        layer.appendChild(fig);
+      }
+      fig.classList.toggle("is-dim", stage.speaking !== entry.id);
+    });
+  }
+
+  // Portraits stand on the top edge of the text panel; remember where that edge is.
+  function anchorCast() {
+    var panel = $("panel");
+    var app = $("app");
+    if (!panel || panel.hidden || $("play").hidden || $("play").classList.contains("play--sign") || $("play").classList.contains("play--last")) return;
+    var pr = panel.getBoundingClientRect();
+    var ar = app.getBoundingClientRect();
+    if (!pr.height) return;
+    app.style.setProperty("--panel-top", Math.max(0, Math.round(ar.bottom - pr.top)) + "px");
+  }
+
   function updateStage(v, state) {
     var st = v.stage;
     setArt(st.bg, st.pov, st.time);
@@ -503,6 +582,7 @@
     setPinned(st.pinned, state);
     setEcho(v.now && v.now.echo);
     setHush(v.now && v.now.hush);
+    setCast(st);
   }
 
   // A page screen keeps scene art behind it but clears all play overlays.
@@ -514,6 +594,7 @@
     setPinned(null);
     setEcho(null);
     setHush(false);
+    setCast(null);
   }
 
   // ------------------------------------------------------------------ play layer
@@ -665,6 +746,7 @@
     }
 
     renderActions(v.actions || [], step);
+    anchorCast();
 
     if (!panel.hidden) {
       panel.classList.remove("is-ready");
@@ -681,8 +763,11 @@
     var pid = "prompt-" + step.id;
     if (step.prompt) box.appendChild(h("p", { class: "choices__prompt", id: pid }, biRich(step.prompt, state)));
     var list = h("div", { class: "choices__list", role: "group", "aria-labelledby": step.prompt ? pid : null, "aria-label": step.prompt ? null : flat(u("choiceGroup")) });
-    step.options.forEach(function (o) {
-      var b = h("button", { type: "button", class: "opt", "data-testid": "choice-" + o.id, "data-option": o.id }, biRich(o.text, state));
+    step.options.forEach(function (o, idx) {
+      var b = h("button", { type: "button", class: "opt", "data-testid": "choice-" + o.id, "data-option": o.id, "aria-keyshortcuts": String(idx + 1) + " " + o.id.toUpperCase() }, [
+        h("span", { class: "opt__num", "aria-hidden": "true" }, String(idx + 1)),
+        h("span", { class: "opt__body" }, biRich(o.text, state))
+      ]);
       b.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (S.handlers.onChoose) S.handlers.onChoose(o.id);
@@ -846,17 +931,19 @@
         h("h1", { class: "title-main", lang: "ko" }, titleLines),
         h("p", { class: "title-en", lang: "en" }, title.en || "")
       ]),
-      meta.disclaimer ? h("p", { class: "title-disclaimer" }, bi(meta.disclaimer)) : null,
-      o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null,
-      h("div", { class: "langpick" }, [
-        h("p", { class: "langpick__label", id: "langpick-label" }, flat(u("langPrompt"))),
-        h("div", { class: "langpick__row", role: "group", "aria-labelledby": "langpick-label" }, [langBtn("ko", u("langKo"), "lang-ko"), langBtn("en", u("langEn"), "lang-en"), langBtn("both", u("langBoth"), "lang-both")])
-      ]),
-      h("div", { class: "title-actions" }, actions),
-      h("div", { class: "title-foot" }, [
-        h("a", { class: "teacher-link", href: teacherHref, "data-testid": "teacher-link" }, u("teacherLink").ko + " · " + u("teacherLink").en),
-        // The English notice already carries the Korean credit, so "both" shows it alone.
-        meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
+      h("div", { class: "title-side" }, [
+        meta.disclaimer ? h("p", { class: "title-disclaimer" }, bi(meta.disclaimer)) : null,
+        o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null,
+        h("div", { class: "langpick" }, [
+          h("p", { class: "langpick__label", id: "langpick-label" }, flat(u("langPrompt"))),
+          h("div", { class: "langpick__row", role: "group", "aria-labelledby": "langpick-label" }, [langBtn("ko", u("langKo"), "lang-ko"), langBtn("en", u("langEn"), "lang-en"), langBtn("both", u("langBoth"), "lang-both")])
+        ]),
+        h("div", { class: "title-actions" }, actions),
+        h("div", { class: "title-foot" }, [
+          h("a", { class: "teacher-link", href: teacherHref, "data-testid": "teacher-link" }, u("teacherLink").ko + " · " + u("teacherLink").en),
+          // The English notice already carries the Korean credit, so "both" shows it alone.
+          meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
+        ])
       ])
     ];
     page("title-page", kids);
@@ -974,11 +1061,9 @@
     });
 
     page("final-page", [
-      h("p", { class: "final-kicker" }, flat(u("finalHeading"))),
-      verse,
+      h("div", { class: "final-top" }, [h("p", { class: "final-kicker" }, flat(u("finalHeading"))), verse]),
       h("ol", { class: "blanks" }, items),
-      fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null,
-      fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null,
+      h("div", { class: "final-mid" }, [fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null, fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null]),
       closing,
       btn("btn--primary", u("finalNext"), "final-next", o.onNext)
     ]);
@@ -1066,7 +1151,30 @@
       { type: "button", class: "iconbtn", "data-testid": "settings-open", "aria-label": flat(u("settingsOpen")), title: flat(u("settingsOpen")), "aria-expanded": "false", "aria-controls": "settings", on: { click: o.onSettings } },
       svgIcon([{ d: "M4 7h9" }, { d: "M17 7h3" }, { tag: "circle", cx: "15", cy: "7", r: "2" }, { d: "M4 17h3" }, { d: "M11 17h9" }, { tag: "circle", cx: "9", cy: "17", r: "2" }])
     );
-    append(bar, [home, h("span", { class: "topbar__spacer" }), seg, gear]);
+    var kids = [home, h("span", { class: "topbar__spacer" }), seg];
+    if (o.canFullscreen) {
+      var fs = !!o.isFullscreen;
+      var label = flat(u(fs ? "fullscreenExit" : "fullscreenEnter"));
+      kids.push(
+        h(
+          "button",
+          { type: "button", class: "iconbtn", "data-testid": "fullscreen", "aria-pressed": fs ? "true" : "false", "aria-label": label, title: label + " (F)", on: { click: o.onFullscreen } },
+          svgIcon(
+            fs
+              ? [{ d: "M9 4v5H4" }, { d: "M15 4v5h5" }, { d: "M9 20v-5H4" }, { d: "M15 20v-5h5" }]
+              : [{ d: "M4 9V4h5" }, { d: "M20 9V4h-5" }, { d: "M4 15v5h5" }, { d: "M20 15v5h-5" }]
+          )
+        )
+      );
+    }
+    kids.push(gear);
+    append(bar, kids);
+    // After a pointer click, give focus back so Space/Enter keep driving the story.
+    Array.prototype.forEach.call(bar.querySelectorAll("button"), function (b) {
+      b.addEventListener("click", function (ev) {
+        if (ev.detail > 0 && typeof b.blur === "function") b.blur();
+      });
+    });
   }
 
   function renderSettings(o) {
@@ -1176,6 +1284,16 @@
     adv.addEventListener("click", function () {
       if (S.handlers.onAdvance) S.handlers.onAdvance();
     });
+    var resizeTimer = 0;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(anchorCast, 120);
+    });
+    try {
+      if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(anchorCast);
+    } catch (err) {
+      /* font loading API unavailable */
+    }
   }
 
   BHS.view = {
@@ -1203,6 +1321,7 @@
     isModalOpen: isModalOpen,
     showReply: showReply,
     shake: shake,
+    anchorCast: anchorCast,
     completeTyping: completeTyping,
     isTyping: isTyping
   };
