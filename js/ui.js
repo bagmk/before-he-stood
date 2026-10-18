@@ -1704,7 +1704,8 @@
         el.removeAttribute("style");
       });
     });
-    sec.classList.toggle("tree--placed", !!(n && branches.length));
+    // A tree that is not displayed keeps the CSS rows (nothing to measure); a resize places it later.
+    sec.classList.toggle("tree--placed", !!(n && branches.length && sec.offsetWidth));
   }
 
   function layoutTree(sec) {

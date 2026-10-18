@@ -685,7 +685,15 @@ export async function runInputChecks(chromium) {
 
   // ---------------------------------------------------------------- N5 (b): the scold animation plays once
   await run("scold animation", async () => {
-    const { ctx, page, errors } = await open(index + "#scribe", { settings: INSTANT });
+    // The save as the page finds it at document start, before the game runs (see the reload below).
+    const bootSave = () => {
+      try {
+        window.__bootSave = localStorage.getItem("bhs.v1.save");
+      } catch (e) {
+        window.__bootSave = null;
+      }
+    };
+    const { ctx, page, errors } = await open(index + "#scribe", { settings: INSTANT, init: bootSave });
     const sc = await firstOf(page, "scribe", "scold");
     await move(page, { kind: "choice", id: sc.choice }, null, true);
     await page.waitForTimeout(500);
@@ -728,13 +736,30 @@ export async function runInputChecks(chromium) {
     const again = await page.evaluate(() => document.querySelectorAll(".opt--leaving").length);
     check(again === 0, `N5: a language switch at the re-ask does not replay the exit (${again})`);
     const savedAt = await page.evaluate(() => window.__t.stored());
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.body.dataset.screen === "title");
-    // The title ignores clicks for a moment after it appears (the guard).
-    await page.waitForTimeout(450);
-    if (!(await page.locator('[data-testid="continue"]').count())) {
+    // Headless Chromium can hand a file:// page reloaded right after a burst of writes an empty
+    // localStorage (the writes of the page before reach the store a moment later); a class reloading
+    // seconds into a lesson still finds its earlier saves. So the writes settle first, and when the
+    // reloaded page still starts without the save, the browser lost it, not the game: it is put back
+    // once. A save the page did start with and the game then dropped fails the check.
+    const reload = async () => {
+      await page.waitForTimeout(2500);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => document.body.dataset.screen === "title");
+      // The title ignores clicks for a moment after it appears (the guard).
+      await page.waitForTimeout(450);
+      return page.locator('[data-testid="continue"]').count();
+    };
+    let cont = await reload();
+    let boot = await page.evaluate(() => window.__bootSave);
+    if (!cont && !boot) {
+      notes.push("scold animation: the browser started the reloaded page without the save; put back once");
+      await page.evaluate((s) => localStorage.setItem("bhs.v1.save", JSON.stringify(s)), savedAt);
+      cont = await reload();
+      boot = await page.evaluate(() => window.__bootSave);
+    }
+    if (!cont) {
       const now = await page.evaluate(() => ({ save: localStorage.getItem("bhs.v1.save"), url: location.href }));
-      throw new Error(`no Continue after the reload: save before ${JSON.stringify(savedAt).slice(0, 200)}; now ${JSON.stringify(now).slice(0, 300)}`);
+      throw new Error(`no Continue after the reload (${boot ? "the game dropped the save it started with" : "the page started without the save"}): save before ${JSON.stringify(savedAt).slice(0, 200)}; now ${JSON.stringify(now).slice(0, 300)}`);
     }
     await page.click('[data-testid="continue"]');
     const resumed = await page.evaluate(() => ({ leaving: document.querySelectorAll(".opt--leaving").length, step: window.BHS_DEBUG.state().stepId }));
