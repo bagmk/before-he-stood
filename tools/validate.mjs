@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 /*
- * tools/validate.mjs - data validator for "Before He Stood".
- * Owner: QA agent. Node 22+, no npm dependencies.
+ * tools/validate.mjs - data validator for "Before He Stood" (SPEC version 3: short routes).
+ * Owner: engine + tools agent. Node 22+, no npm dependencies.
+ *
+ * Route rules checked (SPEC 4.5, 5.1, 8): exactly 4 choices c1-c4, the last counts double; lens balance;
+ * cut options (scribe and friend: exactly one, in c2 or c3, lens null, endings.cut required; asher: none);
+ * all 4^4 = 256 paths enumerated for the ending shares (cut <= 25%, each lens 20-50% of the non-cut paths),
+ * the screen budget (<= 32 screens on every path), the crowd order (every non-cut path), the passerby
+ * line, ending lengths and reading time; the engine (js/engine.js) is cross-checked against the
+ * reference scoring and, step by step, against the reference simulation on every path.
  *
  * Usage:
  *   node tools/validate.mjs [--route scribe|friend|asher] [--json] [--partial]
@@ -30,8 +37,20 @@ export const DEFAULT_ROOT = path.resolve(HERE, '..');
 
 export const ROUTE_IDS = ['scribe', 'friend', 'asher'];
 export const OPTION_IDS = ['a', 'b', 'c', 'd'];
-export const CHOICE_IDS = Array.from({ length: 10 }, (_, i) => 'c' + (i + 1));
+// SPEC 4.5 (version 3): exactly four choices, c1-c4; the last one (c4) counts double.
+export const CHOICE_COUNT = 4;
+export const CHOICE_IDS = Array.from({ length: CHOICE_COUNT }, (_, i) => 'c' + (i + 1));
+export const LAST_CHOICE = CHOICE_IDS[CHOICE_COUNT - 1];
+export const PATH_COUNT = 4 ** CHOICE_COUNT;
 const LENSES = [1, 2, 3];
+// Cut endings (SPEC 4.5): these routes have exactly one cut option, in one of CUT_CHOICES; the others none.
+export const CUT_ROUTES = ['scribe', 'friend'];
+const CUT_CHOICES = ['c2', 'c3'];
+// Budgets (SPEC 3.3 / 8): screens per path, ending shares over the 256 paths.
+const SCREENS = { max: 32, warn: 30, target: [24, 30] };
+const SHARE = { cutMax: 0.25, warn: [0.20, 0.45], error: [0.15, 0.55] };
+// Ending lengths in screens (SPEC 4.5): lens endings 1-3 beats, cut endings 2-4 beats, each plus the last line.
+const ENDING_BEATS = { lens: [1, 3], cut: [2, 4] };
 const BEAT_TYPES = ['scene', 'line', 'verse', 'choice', 'fx', 'press'];
 const PSEUDO_SPEAKERS = ['narrator', 'thought', 'sign'];
 const VERSE_SPEAKERS = ['jesus', 'scribes', 'narrator'];
@@ -83,7 +102,7 @@ const BEAT_KEYS = {
   fx: ['type', 'fx', 'when', 'id'],
   press: ['type', 'action', 'label', 'hint', 'when', 'id']
 };
-const OPTION_KEYS = ['id', 'text', 'lens', 'set', 'reaction'];
+const OPTION_KEYS = ['id', 'text', 'lens', 'set', 'reaction', 'cut'];
 const ROUTE_KEYS = ['id', 'actions', 'beats', 'endingPreface', 'endings', 'endingCoda'];
 
 // The fixed crowd sequence (SPEC 6.4). Each key maps to an event group; sub-order is checked separately.
@@ -521,6 +540,7 @@ export function loadProject(root, rep, opts = {}) {
   return {
     files,
     status,
+    bhs: sandbox.BHS || null,
     data: {
       meta: B.meta, characters: B.characters, scripture: B.scripture, common: B.common, ui: B.ui,
       routes: B.routes || {}, engine
@@ -531,83 +551,129 @@ export function loadProject(root, rep, opts = {}) {
 // ---------------------------------------------------------------------------------------------
 // Lens scoring (SPEC 5.1) - the reference implementation shared with tools/playtest.mjs
 
-export function lensTable(route) {
-  // Returns { table: [10][4] of lens|null, ok } where table[i][j] = lens of option j at choice c(i+1).
-  const byId = {};
-  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
-    if (isObj(b) && b.type === 'choice' && typeof b.id === 'string') byId[b.id] = b;
-  }
-  let ok = true;
-  const table = CHOICE_IDS.map((cid) => {
-    const b = byId[cid];
-    if (!b || !Array.isArray(b.options)) { ok = false; return [null, null, null, null]; }
-    return OPTION_IDS.map((oid) => {
-      const o = b.options.find((x) => isObj(x) && x.id === oid);
-      if (!o) { ok = false; return null; }
-      return LENSES.includes(o.lens) ? o.lens : null;
-    });
-  });
-  return { table, ok };
+function choiceNum(id) {
+  const m = /^c(\d+)$/.exec(String(id));
+  return m ? Number(m[1]) : -1;
 }
 
-export function computeLensFor(route, choices) {
-  const scores = { 1: 0, 2: 0, 3: 0 };
-  let c10Lens = null;
+// The double-weight choice: the highest cN among the route's choice beats.
+export function lastChoiceOf(route) {
+  let best = null;
   for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
     if (!isObj(b) || b.type !== 'choice') continue;
-    const pick = choices ? choices[b.id] : undefined;
-    const o = Array.isArray(b.options) ? b.options.find((x) => isObj(x) && x.id === pick) : null;
-    const lens = o && LENSES.includes(o.lens) ? o.lens : null;
-    const w = b.id === 'c10' ? 2 : 1;
-    if (lens) scores[lens] += w;
-    if (b.id === 'c10') c10Lens = lens;
+    if (best === null || choiceNum(b.id) > choiceNum(best)) best = b.id;
   }
-  const max = Math.max(scores[1], scores[2], scores[3]);
-  const tied = LENSES.filter((l) => scores[l] === max);
-  const lens = c10Lens && tied.includes(c10Lens) ? c10Lens : tied[0];
-  return { lens, scores, c10Lens, mismatch: c10Lens !== null && lens !== c10Lens };
+  return best;
 }
 
-function lensFromTable(table, picks) {
+export function isCutOption(o) { return isObj(o) && o.cut === true; }
+
+export function lensTable(route) {
+  // Returns { table, cuts, ok }: table[i][j] = lens of option j at choice c(i+1) (null if none),
+  // cuts[i][j] = true when that option ends the route early (cut: true).
+  const byId = {};
+  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
+    if (isObj(b) && b.type === 'choice' && typeof b.id === 'string' && !byId[b.id]) byId[b.id] = b;
+  }
+  let ok = true;
+  const cuts = [];
+  const table = CHOICE_IDS.map((cid) => {
+    const b = byId[cid];
+    const row = [];
+    const cutRow = [];
+    if (!b || !Array.isArray(b.options)) { ok = false; cuts.push([false, false, false, false]); return [null, null, null, null]; }
+    for (const oid of OPTION_IDS) {
+      const o = b.options.find((x) => isObj(x) && x.id === oid);
+      if (!o) ok = false;
+      row.push(o && LENSES.includes(o.lens) ? o.lens : null);
+      cutRow.push(isCutOption(o));
+    }
+    cuts.push(cutRow);
+    return row;
+  });
+  if (Object.keys(byId).length !== CHOICE_COUNT) ok = false;
+  return { table, cuts, ok };
+}
+
+// Reference for BHS.engine.computeLens: each pick adds its weight (1; 2 for the last choice) to its
+// lens; highest score wins; a tie goes to the last choice's lens if it is tied, else the smallest lens.
+// A picked cut option gives the cut outcome: no lens, no mismatch.
+export function computeLensFor(route, choices) {
+  const scores = { 1: 0, 2: 0, 3: 0 };
+  const lastId = lastChoiceOf(route);
+  let lastLens = null;
+  let cut = false;
+  const seen = new Set();
+  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
+    if (!isObj(b) || b.type !== 'choice' || seen.has(b.id)) continue;
+    seen.add(b.id);
+    const pick = choices ? choices[b.id] : undefined;
+    const o = Array.isArray(b.options) ? b.options.find((x) => isObj(x) && x.id === pick) : null;
+    if (!o) continue;
+    if (isCutOption(o)) cut = true;
+    const lens = LENSES.includes(o.lens) ? o.lens : null;
+    if (b.id === lastId) lastLens = lens;
+    if (lens) scores[lens] += b.id === lastId ? 2 : 1;
+  }
+  if (cut) return { lens: null, scores, lastLens: null, c10Lens: null, mismatch: false, cut: true };
+  const max = Math.max(scores[1], scores[2], scores[3]);
+  const tied = LENSES.filter((l) => scores[l] === max);
+  const lens = lastLens && tied.includes(lastLens) ? lastLens : tied[0];
+  return { lens, scores, lastLens, c10Lens: lastLens, mismatch: lastLens !== null && lens !== lastLens, cut: false };
+}
+
+function lensFromTable(table, cuts, picks) {
+  const L = table.length - 1;
+  let cut = false;
   let s1 = 0;
   let s2 = 0;
   let s3 = 0;
-  for (let c = 0; c < 10; c++) {
+  for (let c = 0; c <= L; c++) {
+    if (cuts && cuts[c][picks[c]]) cut = true;
     const l = table[c][picks[c]];
-    const w = c === 9 ? 2 : 1;
+    const w = c === L ? 2 : 1;
     if (l === 1) s1 += w; else if (l === 2) s2 += w; else if (l === 3) s3 += w;
   }
-  const c10 = table[9][picks[9]];
+  if (cut) return { lens: null, last: null, tie: false, cut: true };
+  const last = table[L][picks[L]];
   const max = Math.max(s1, s2, s3);
   const tied = [];
   if (s1 === max) tied.push(1);
   if (s2 === max) tied.push(2);
   if (s3 === max) tied.push(3);
-  const lens = c10 && tied.includes(c10) ? c10 : tied[0];
-  return { lens, c10, tie: tied.length > 1 };
+  const lens = last && tied.includes(last) ? last : tied[0];
+  return { lens, last, tie: tied.length > 1, cut: false };
 }
 
-export function enumerateEndings(table, opts = {}) {
-  const res = { total: 0, counts: { 1: 0, 2: 0, 3: 0 }, mismatch: 0, ties: 0, byC10: [0, 1, 2, 3].map(() => ({ 1: 0, 2: 0, 3: 0, n: 0 })), sub: null };
-  if (opts.subChoice != null) res.sub = { total: 0, counts: { 1: 0, 2: 0, 3: 0 }, mismatch: 0 };
-  const picks = new Array(10).fill(0);
-  const N = 1 << 20;
-  for (let n = 0; n < N; n++) {
-    let m = n;
-    for (let c = 0; c < 10; c++) { picks[c] = m & 3; m >>= 2; }
-    const r = lensFromTable(table, picks);
+// Every combination of picks (4^4 = 256). A path that picks a cut option counts as a cut path even if
+// later picks exist in the combination (they are never asked in play).
+export function* allPicks(n = CHOICE_COUNT) {
+  const picks = new Array(n).fill(0);
+  const N = 4 ** n;
+  for (let k = 0; k < N; k++) {
+    let m = k;
+    for (let c = 0; c < n; c++) { picks[c] = m & 3; m >>= 2; }
+    yield picks;
+  }
+}
+
+export function picksToChoices(picks) {
+  return Object.fromEntries(CHOICE_IDS.map((c, i) => [c, OPTION_IDS[picks[i]]]));
+}
+
+export function enumerateEndings(table, cuts) {
+  const res = { total: 0, counts: { 1: 0, 2: 0, 3: 0 }, cut: 0, mismatch: 0, ties: 0, byLast: [0, 1, 2, 3].map(() => ({ 1: 0, 2: 0, 3: 0, cut: 0, n: 0 })) };
+  const L = table.length - 1;
+  for (const picks of allPicks(table.length)) {
+    const r = lensFromTable(table, cuts, picks);
     res.total++;
+    const bl = res.byLast[picks[L]];
+    bl.n++;
+    if (r.cut) { res.cut++; bl.cut++; continue; }
     res.counts[r.lens]++;
-    if (r.c10 && r.lens !== r.c10) res.mismatch++;
+    bl[r.lens]++;
+    if (r.last && r.lens !== r.last) res.mismatch++;
     if (r.tie) res.ties++;
-    const bc = res.byC10[picks[9]];
-    bc[r.lens]++;
-    bc.n++;
-    if (res.sub && picks[opts.subChoice] === opts.subOption) {
-      res.sub.total++;
-      res.sub.counts[r.lens]++;
-      if (r.c10 && r.lens !== r.c10) res.sub.mismatch++;
-    }
   }
   return res;
 }
@@ -638,7 +704,8 @@ export function evalCond(c, st) {
     if ('lt' in c) return n < Number(c.lt);
     return n !== 0;
   }
-  if ('c10lens' in c) return st.c10Lens === c.c10lens;
+  if ('lastLens' in c) return (st.lastLens != null ? st.lastLens : st.c10Lens != null ? st.c10Lens : null) === c.lastLens;
+  if ('c10lens' in c) return (st.lastLens != null ? st.lastLens : st.c10Lens != null ? st.c10Lens : null) === c.c10lens;
   if ('all' in c) return Array.isArray(c.all) && c.all.every((x) => evalCond(x, st));
   if ('any' in c) return Array.isArray(c.any) && c.any.some((x) => evalCond(x, st));
   if ('not' in c) return !evalCond(c.not, st);
@@ -655,9 +722,10 @@ function checkCond(cond, cx, w) {
   if ('choice' in cond) {
     const ex = extra(['choice', 'is', 'in']);
     if (ex.length) rep.error('cond', w, `unknown key(s) in choice condition: ${ex.join(', ')}`);
-    if (!CHOICE_IDS.includes(cond.choice)) rep.error('cond', w, `unknown choice id "${cond.choice}"`);
+    if (!CHOICE_IDS.includes(cond.choice)) rep.error('cond', w, `unknown choice id "${cond.choice}" (choices are ${CHOICE_IDS.join(', ')})`);
     else if (!cx.seen.has(cond.choice)) {
-      rep.error('cond', w, `references ${cond.choice}, which does not appear earlier in the beat order`);
+      if (cx.inCutEnding) rep.error('cond', w, `references ${cond.choice}, which is never asked on a cut path (endings.cut follows the cut at ${cx.cutChoice})`);
+      else rep.error('cond', w, `references ${cond.choice}, which does not appear earlier in the beat order`);
     }
     if ('is' in cond && 'in' in cond) rep.error('cond', w, 'use either "is" or "in", not both');
     else if ('is' in cond) { if (!OPTION_IDS.includes(cond.is)) rep.error('cond', w, `"is" must be one of a-d, got ${JSON.stringify(cond.is)}`); }
@@ -699,11 +767,14 @@ function checkCond(cond, cx, w) {
     if (!cx.counters.has(cond.var)) rep.error('cond', w, `var "${cond.var}" is not an action counter of this route`);
     return;
   }
-  if ('c10lens' in cond) {
-    const ex = extra(['c10lens']);
-    if (ex.length) rep.error('cond', w, `unknown key(s) in c10lens condition: ${ex.join(', ')}`);
-    if (!LENSES.includes(cond.c10lens)) rep.error('cond', w, `c10lens must be 1, 2 or 3, got ${JSON.stringify(cond.c10lens)}`);
-    if (!cx.allowC10) rep.error('cond', w, 'c10lens may only be used inside endings, endingPreface or endingCoda');
+  for (const k of ['lastLens', 'c10lens']) {
+    if (!(k in cond)) continue;
+    const ex = extra([k]);
+    if (ex.length) rep.error('cond', w, `unknown key(s) in ${k} condition: ${ex.join(', ')}`);
+    if (!LENSES.includes(cond[k])) rep.error('cond', w, `${k} must be 1, 2 or 3, got ${JSON.stringify(cond[k])}`);
+    if (!cx.allowLast) rep.error('cond', w, `${k} may only be used inside endings, endingPreface or endingCoda`);
+    else if (cx.inCutEnding) rep.warn('cond', w, `${k} is never true inside endings.cut (a cut path has no last choice)`);
+    if (k === 'c10lens') rep.info('cond', w, 'c10lens is the old name of lastLens (the lens of the last, double-weight choice)');
     return;
   }
   for (const k of ['all', 'any']) {
@@ -1166,15 +1237,19 @@ function checkChoice(b, cx, w) {
 
 // ---------------------------------------------------------------------------------------------
 // Path simulation (SPEC 4.5 ending order); used for screens, crowd order and passerby coverage.
+// A cut option plays its reaction, then the route's remaining beats are skipped and the cut ending runs:
+// card -> endings.cut beats -> last -> endingCoda (no mismatch line, no endingPreface; light off).
 
 export function simulate(route, data, choices) {
-  const st = { choices: {}, flags: {}, vars: {}, c10Lens: null, lens: null };
+  const st = { choices: {}, flags: {}, vars: {}, lastLens: null, c10Lens: null, lens: null };
   const out = [];
   let bg = null;
   let light = 'off';
+  let cutAt = null;
   const runList = (list, phase) => {
     if (!Array.isArray(list)) return;
     for (const b of list) {
+      if (cutAt && /^main/.test(phase)) return;
       if (!isObj(b)) continue;
       if (b.when !== undefined && !evalCond(b.when, st)) continue;
       if (b.type === 'scene') bg = b.bg;
@@ -1187,6 +1262,7 @@ export function simulate(route, data, choices) {
         if (o && isObj(o.set)) Object.assign(st.flags, o.set);
         out.push({ kind: 'choice', beat: b, opt: o, phase, bg, light });
         if (o) runList(o.reaction, phase + '/reaction');
+        if (isCutOption(o)) cutAt = { choice: b.id, option: o.id };
       } else {
         out.push({ kind: b.type, beat: b, phase, bg, light });
       }
@@ -1194,20 +1270,32 @@ export function simulate(route, data, choices) {
   };
   runList(route && route.beats, 'main');
   const lr = computeLensFor(route, st.choices);
-  st.c10Lens = lr.c10Lens;
+  if (cutAt) {
+    light = 'off';
+    out.push({ kind: 'card', lens: null, cut: true, phase: 'card', bg, light });
+    const end = route && isObj(route.endings) ? route.endings.cut : null;
+    if (isObj(end)) {
+      runList(end.beats, 'ending');
+      if (isT(end.last)) out.push({ kind: 'line', beat: { type: 'line', text: end.last }, phase: 'last', bg, light });
+    }
+    runList(route && route.endingCoda, 'coda');
+    return { out, lens: lr, state: st, cut: cutAt };
+  }
+  st.lastLens = lr.lastLens;
+  st.c10Lens = lr.lastLens;
   st.lens = lr.lens;
   if (lr.mismatch && data && data.common && isT(data.common.mismatchLine)) {
     out.push({ kind: 'line', beat: { type: 'line', text: data.common.mismatchLine }, phase: 'mismatch', bg, light });
   }
   runList(route && route.endingPreface, 'preface');
-  out.push({ kind: 'card', lens: lr.lens, phase: 'card', bg, light });
+  out.push({ kind: 'card', lens: lr.lens, cut: false, phase: 'card', bg, light });
   const end = route && isObj(route.endings) ? route.endings[String(lr.lens)] : null;
   if (end) {
     runList(end.beats, 'ending');
     if (isT(end.last)) out.push({ kind: 'line', beat: { type: 'line', text: end.last }, phase: 'last', bg, light });
   }
   runList(route && route.endingCoda, 'coda');
-  return { out, lens: lr, state: st };
+  return { out, lens: lr, state: st, cut: null };
 }
 
 function textsOfItem(it, lang, data) {
@@ -1231,6 +1319,7 @@ function textsOfItem(it, lang, data) {
     }
     case 'card': {
       const m = data.meta;
+      if (it.cut) return [m && isObj(m.cut) ? r(m.cut.label) : ''];
       const lab = m && m.lenses && m.lenses[it.lens] ? r(m.lenses[it.lens].label) : '';
       return [lab];
     }
@@ -1272,10 +1361,15 @@ function readingStats(items, data) {
   return { screens, choices, koChars, enWords };
 }
 
+// Reading time. Silent: ko 450 chars/min, en 200 words/min, +4 s per choice. Read aloud on a TV with
+// the class (SPEC 3.3, about 5 minutes per route): ko 260 chars/min, en 150 words/min, +10 s per choice
+// (the class decides) and +1 s per screen (the tap and the scene change).
 function minutes(st) {
   return {
     ko: (st.koChars / 450 * 60 + st.choices * 4) / 60,
-    en: (st.enWords / 200 * 60 + st.choices * 4) / 60
+    en: (st.enWords / 200 * 60 + st.choices * 4) / 60,
+    koAloud: (st.koChars / 260 * 60 + st.choices * 10 + st.screens) / 60,
+    enAloud: (st.enWords / 150 * 60 + st.choices * 10 + st.screens) / 60
   };
 }
 
@@ -1286,7 +1380,7 @@ function makeCx(rep, data, spec, canon, files, extra) {
   return Object.assign({
     rep, data, spec, canon, files,
     rid: null, file: null, path: '', story: false, phase: 'global', inReaction: false, egg: false,
-    seen: new Set(), flags: new Map(), allFlags: new Map(), allowC10: false, counters: new Set(), actions: new Set(),
+    seen: new Set(), flags: new Map(), allFlags: new Map(), allowLast: false, counters: new Set(), actions: new Set(),
     ids: new Set(), choiceList: [], lastChoice: null, allTexts: [], usage: null, cursor: { pos: 0 },
     forbiddenRes: canon.forbidden.map((n) => (/^[A-Za-z]+$/.test(n) ? new RegExp('\\b' + n + '\\b') : new RegExp(n))),
     scrIndex: buildScriptureIndex(data.scripture)
