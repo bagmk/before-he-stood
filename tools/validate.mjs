@@ -51,7 +51,7 @@ const SCREENS = { trueWarn: 28, trueMax: 30, trueTarget: [24, 28], cutMax: 20 };
 // Ending lengths in screens before the last line: the true ending 1-3 beats, a cut branch 2-3.
 const ENDING_BEATS = { good: [1, 3], bad: [2, 3] };
 // The memory verse of each route (SPEC 4.6).
-const MEMORY_VERSE = { scribe: 'MT_9_6A', friend: 'MT_9_2A', asher: 'MT_9_2B' };
+const MEMORY_VERSE = { scribe: 'MT_9_6A', friend: 'MT_9_2', asher: 'MT_9_2B' };
 // A cut branch's title labels its branch in the story tree: short and funny (2-8 Korean characters).
 const BAD_TITLE_KO = [2, 8];
 // Option voice (SPEC 4.5): aim at 24 Korean / 48 English characters (INFO above; SPEC 3.3 limits apply).
