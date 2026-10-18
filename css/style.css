@@ -1663,10 +1663,16 @@ body.is-last .veil {
 }
 
 .final-verse .en {
+  display: block;
   margin-top: 0.2em;
   font-weight: 400;
   font-size: 0.6em;
   color: var(--ink-soft);
+}
+
+/* The heading verse is a cut that starts mid-sentence; capitalize it for display only. */
+.final-verse .en::first-letter {
+  text-transform: uppercase;
 }
 
 .final-verse__ref {

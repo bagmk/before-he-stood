@@ -8,6 +8,14 @@ A bilingual (Korean/English) visual novel on Matthew 9:1–8, made for a 20-minu
 - **선생님용 안내:** https://bagmk.github.io/before-he-stood/teacher.html
 - **오프라인:** 폴더의 `index.html`을 더블클릭하면 인터넷 없이 실행돼요. 파일 하나로 공유하려면 `dist/before-he-stood.html`을 보내면 돼요.
 
+## TV로 함께 할 때
+
+- 컴퓨터에서 주소를 열고 `F`(또는 오른쪽 위 전체 화면 버튼)로 전체 화면을 켜요. 언어는 「함께 보기」를 고르면 한국어와 영어가 같이 나와요.
+- 다음으로: `Space` · `Enter` · `→` · `↓` · `PageDown` (프레젠테이션 리모컨도 돼요)
+- 보기 고르기: `1`–`4` (또는 `A`–`D`)
+- 메뉴: `Esc`
+- 자세한 진행 방법은 선생님용 안내를 보세요.
+
 ## 어떤 게임인가요
 
 학생마다 한 인물을 골라 자기 폰으로 약 9분 동안 플레이해요.

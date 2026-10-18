@@ -543,12 +543,29 @@
 
   var portraitCache = {};
 
-  function portraitMarkup(id, pose) {
-    var key = id + "|" + (pose || "");
+  // Scene light washes for portraits so figures sit in lamp, dusk, or night light.
+  function portraitLight(stage) {
+    if (!stage) return "";
+    var bg = stage.bg, time = stage.time;
+    if (bg === "dawn_lamp") return "lamp";
+    if (bg === "lamp_night") return "night";
+    if (bg === "doorway_evening") return "dusk";
+    if (bg === "asher_home" || bg === "asher_ceiling") {
+      if (time === "night") return "night";
+      if (time === "evening") return "dusk";
+    }
+    return "";
+  }
+
+  function portraitMarkup(id, pose, light) {
+    var key = id + "|" + (pose || "") + "|" + (light || "");
     if (Object.prototype.hasOwnProperty.call(portraitCache, key)) return portraitCache[key];
     var m = null;
     try {
-      if (BHS.portraits && typeof BHS.portraits.render === "function") m = BHS.portraits.render(id, pose ? { pose: pose } : {});
+      var opts = {};
+      if (pose) opts.pose = pose;
+      if (light) opts.light = light;
+      if (BHS.portraits && typeof BHS.portraits.render === "function") m = BHS.portraits.render(id, opts);
     } catch (err) {
       if (window.console) console.warn("[BHS.view] portraits.render failed for " + id, err);
       m = null;
@@ -595,8 +612,9 @@
       var entry = null;
       for (var i = 0; i < cast.length; i++) if (cast[i].slot === slot) entry = cast[i];
       var fig = layer.querySelector('.figure[data-slot="' + slot + '"]');
-      var markup = entry ? portraitMarkup(entry.id, entry.pose) : null;
-      var key = entry ? entry.id + "|" + (entry.pose || "") : "";
+      var light = portraitLight(stage);
+      var markup = entry ? portraitMarkup(entry.id, entry.pose, light) : null;
+      var key = entry ? entry.id + "|" + (entry.pose || "") + "|" + light : "";
       if (!entry || !markup) {
         if (fig) dropFigure(fig);
         return;

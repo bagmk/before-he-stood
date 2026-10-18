@@ -13,7 +13,7 @@
            all characters on a neutral backdrop; fills the viewport (screenshot at 1920x1080).
   Stage:   tools/portraits-preview.html?view=stage&id=menahem&bg=dawn_lamp
            one portrait over a scene with a mock text panel; fills the viewport.
-           Options: &pose=lying|standing (asher)  &mirror=1  &pov=lying|standing|normal
+           Options: &pose=lying|standing (asher)  &light=lamp|dusk|night  &mirror=1  &pov=lying|standing|normal
 -->
 <style>
   :root {
@@ -124,12 +124,12 @@
     { id: "asher", bg: "asher_home", pose: "lying" },
     { id: "asher", bg: "crowd", pose: "standing" },
     { id: "mother", bg: "asher_home" },
-    { id: "brother", bg: "doorway_evening" },
+    { id: "brother", bg: "doorway_evening", light: "dusk" },
     { id: "neighbor", bg: "dawn_lamp" },
     { id: "passerby", bg: "lane" },
     { id: "partners", bg: "lane" },
     { id: "scribes", bg: "crowd" },
-    { id: "menahem", bg: "lamp_night" },
+    { id: "menahem", bg: "lamp_night", light: "night" },
     { id: "yonah", bg: "crowd" }
   ];
   var LINEUP = [
@@ -143,7 +143,7 @@
 
   function stage(kind, p) {
     var ch = chars[p.id] || {}, nm = name(p.id), role = ch.role || { ko: "", en: "" };
-    var fig = P.render(p.id, { pose: p.pose }) || "";
+    var fig = P.render(p.id, { pose: p.pose, light: p.light }) || "";
     return '<div class="stage ' + kind + '"><div class="bg">' + bgSvg(p.bg) + '</div>' +
       '<div class="fig' + (p.mirror ? " mirror" : "") + '">' + fig + "</div>" +
       '<div class="panel"><div class="plate" style="background:' + esc(ch.color || "#3a3631") + '">' + esc(nm.ko) + ' <span>' + esc(nm.en) + "</span></div>" +
@@ -171,7 +171,8 @@
     box.hidden = false;
     if (view === "lineup") box.innerHTML = lineup();
     else box.innerHTML = stage(q.get("kind") === "phone" ? "phone" : "tv",
-      { id: q.get("id") || "menahem", bg: q.get("bg") || "dawn_lamp", pose: q.get("pose") || undefined, mirror: q.get("mirror") === "1" });
+      { id: q.get("id") || "menahem", bg: q.get("bg") || "dawn_lamp", pose: q.get("pose") || undefined, light: q.get("light") || undefined,
+        mirror: q.get("mirror") === "1" });
     if (view === "stage") {
       // Fill the viewport whatever its size.
       var st = box.firstChild;
@@ -187,7 +188,7 @@
     '<div style="width:960px;height:540px;overflow:hidden"><div style="transform:scale(.5);transform-origin:0 0">' + lineup() + "</div></div></section>";
   PAIRS.forEach(function (p) {
     var svg = P.render(p.id, { pose: p.pose }) || "";
-    html += "<section><h2>" + esc(p.id) + (p.pose ? " (" + esc(p.pose) + ")" : "") + " over " + esc(p.bg) +
+    html += "<section><h2>" + esc(p.id) + (p.pose ? " (" + esc(p.pose) + ")" : "") + " over " + esc(p.bg) + (p.light ? ", light " + esc(p.light) : "") +
       "<small>" + (svg.length / 1024).toFixed(1) + " KB</small></h2>" +
       '<figure><div class="tv-wrap">' + stage("tv", p) + "</div><figcaption>1920 x 1080 (40%)</figcaption></figure>" +
       "<figure>" + stage("phone", p) + "<figcaption>390 x 844</figcaption></figure></section>";

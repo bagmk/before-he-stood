@@ -1666,10 +1666,16 @@ body.is-last .veil {
 }
 
 .final-verse .en {
+  display: block;
   margin-top: 0.2em;
   font-weight: 400;
   font-size: 0.6em;
   color: var(--ink-soft);
+}
+
+/* The heading verse is a cut that starts mid-sentence; capitalize it for display only. */
+.final-verse .en::first-letter {
+  text-transform: uppercase;
 }
 
 .final-verse__ref {
@@ -3322,6 +3328,17 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       ko: "주의 진노로 말미암아 내 살에 성한 곳이 없사오며 나의 죄로 말미암아 내 뼈에 평안함이 없나이다",
       en: "There is no soundness in my flesh because of your indignation; there is no health in my bones because of my sin.",
       speaker: "narrator"
+    },
+    // Second half of Ps 38:3, for a character praying it (exact substring of PS_38_3).
+    PS_38_3B: {
+      ref: r("시 38:3", "Ps 38:3"),
+      ko: "나의 죄로 말미암아 내 뼈에 평안함이 없나이다",
+      en: "there is no health in my bones because of my sin.",
+      speaker: "narrator",
+      full: {
+        ko: "주의 진노로 말미암아 내 살에 성한 곳이 없사오며 나의 죄로 말미암아 내 뼈에 평안함이 없나이다",
+        en: "There is no soundness in my flesh because of your indignation; there is no health in my bones because of my sin."
+      }
     },
     PS_41_4: {
       ref: r("시 41:4", "Ps 41:4"),
@@ -5557,7 +5574,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         id: "c1",
         prompt: t("오늘은 어느 기도로 시작할까?", "Which prayer do I start with today?"),
         options: [
-          opt("a", "{{v:PS_38_3}}", "{{v:PS_38_3}}", 2, [
+          opt("a", "{{v:PS_38_3B}}", "{{v:PS_38_3B}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
           ]),
           opt("b", "{{v:PS_41_4Q}}", "{{v:PS_41_4Q}}", 3, [
@@ -8243,7 +8260,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function rn(v) { var n = Math.round(v * PREC) / PREC; return n === 0 ? 0 : n; }
   function r1(v) { var n = Math.round(v * 10) / 10; return n === 0 ? 0 : n; }
-  function op(o) { return o !== undefined && o !== 1 ? ' opacity="' + o + '"' : ""; }
+  function op(o) { return o !== undefined && o !== 1 ? ' opacity="' + String(o).replace(/^0\./, ".") + '"' : ""; }
 
   // Number without a leading zero (0.5 -> .5, -0.5 -> -.5).
   function fmt(n) {
@@ -8343,7 +8360,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     this.sil = [];
     this.refs = {};
     this.n = 0;
-    this.tint = null;
+    this.tints = [];      // [color, opacity] washes over the whole figure (shade, scene light)
+    this.inner = false;   // true while drawing shapes that never reach the outer outline
   }
   Ctx.prototype.id = function (name) { return this.pre + name; };
   Ctx.prototype.add = function (s) { this.body.push(s); };
@@ -8353,7 +8371,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var a = ' fill="' + color + '"' + op(o) + (extra || "");
     this.refs[d] = { i: this.body.length, a: a };
     this.body.push('<path d="' + d + '"' + a + "/>");
-    if (sil) this.sil.push(this.ref(d));
+    if (sil && !this.inner) this.sil.push(this.ref(d));
     return d;
   };
   // A shape needed again (silhouette, clip) moves into <defs> once; the body then draws it
@@ -8371,7 +8389,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Open smooth stroke through frame-local points.
   Ctx.prototype.line = function (f, list, color, w, o) {
     this.body.push('<path d="' + curve(mapPts(f, list), false) + '" fill="none" stroke="' + color + '" stroke-width="' + r1(w) +
-      '" stroke-linecap="round" stroke-linejoin="round"' + op(o) + "/>");
+      '" stroke-linecap="round"' + op(o) + "/>");
   };
   Ctx.prototype.clip = function (d) {
     var id = this.id("k" + (++this.n));
@@ -8392,26 +8410,76 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     defs += "</g>" +
       // Rim: the silhouette minus itself shifted down-right leaves a thin upper-left edge.
       '<mask id="' + this.id("rim") + '" maskUnits="userSpaceOnUse"' + box + '><use href="' + u + '" fill="#fff"/>' +
-      '<use href="' + u + '" fill="#000" transform="translate(6 5)"/></mask>' +
+      '<use href="' + u + '" fill="#000" transform="translate(4 3.5)"/></mask>' +
       '<mask id="' + this.id("in") + '" maskUnits="userSpaceOnUse"' + box + '><use href="' + u + '" fill="#fff"/></mask>' +
       // Light falls off toward the bottom, where the text panel sits.
       '<linearGradient id="' + this.id("fd") + '" gradientUnits="userSpaceOnUse" x1="0" y1="470" x2="0" y2="900">' +
       '<stop offset="0" stop-color="' + SH + '" stop-opacity="0"/><stop offset="1" stop-color="' + SH + '" stop-opacity=".34"/></linearGradient>';
-    var shadow = '<g opacity=".12"><use href="' + u + '" transform="translate(10 12)" fill="#120904" stroke="#120904" stroke-width="36" stroke-linejoin="round"/></g>' +
-      '<g opacity=".2"><use href="' + u + '" transform="translate(5 6)" fill="#120904" stroke="#120904" stroke-width="10" stroke-linejoin="round"/></g>';
+    // Cast shadow, strictly down-right of the figure (never a band around the head).
+    var shadow = '<g opacity=".14"><use href="' + u + '" transform="translate(14 16)" fill="#120904" stroke="#120904" stroke-width="14" stroke-linejoin="round"/></g>' +
+      '<g opacity=".2"><use href="' + u + '" transform="translate(6 7)" fill="#120904" stroke="#120904" stroke-width="4" stroke-linejoin="round"/></g>';
     var over = '<rect' + box + ' fill="url(#' + this.id("fd") + ')" mask="url(#' + this.id("in") + ')"/>';
-    if (this.tint) over += '<rect' + box + ' fill="' + this.tint[0] + '" opacity="' + this.tint[1] + '" mask="url(#' + this.id("in") + ')"/>';
-    over += '<rect' + box + ' fill="#ffe8c4" opacity="' + (this.tint ? 0.45 : 0.6) + '" mask="url(#' + this.id("rim") + ')"/>';
+    for (i = 0; i < this.tints.length; i++) over += '<rect' + box + ' fill="' + this.tints[i][0] + '"' + op(this.tints[i][1]) + ' mask="url(#' + this.id("in") + ')"/>';
+    over += '<rect' + box + ' fill="#ffe8c4"' + op(this.tints.length ? 0.38 : 0.46) + ' mask="url(#' + this.id("rim") + ')"/>';
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" preserveAspectRatio="xMidYMax meet" width="100%" height="100%"' +
       ' class="bhs-portrait" data-portrait="' + this.cid + '" data-facing="left" aria-hidden="true" focusable="false">' +
-      "<defs>" + defs + this.defs.join("") + "</defs>" + shadow + this.body.join("") + over + "</svg>";
+      "<defs>" + defs + this.defs.join("") + "</defs>" + shadow + compact(this.body) + over + "</svg>";
   };
+
+  // Joins consecutive paths that share every attribute into one element (same look: they
+  // were drawn one after another with the same paint), which keeps the markup small.
+  function compact(body) {
+    var out = [], prevA = null, prevD = "";
+    function flush() { if (prevA !== null) out.push('<path d="' + prevD + '"' + prevA + "/>"); prevA = null; prevD = ""; }
+    for (var i = 0; i < body.length; i++) {
+      var m = /^<path d="([^"]*)"([^>]*)\/>$/.exec(body[i]);
+      if (m && (m[2].indexOf("opacity") >= 0 || m[2].indexOf("stroke=") >= 0)) {
+        if (prevA === m[2]) { prevD += m[1]; continue; }
+        flush();
+        prevA = m[2]; prevD = m[1];
+        continue;
+      }
+      flush();
+      out.push(body[i]);
+    }
+    flush();
+    return out.join("");
+  }
 
   // Lens-shaped tapered stroke from a through m to b, t thick at m (frame units).
   function leaf(c, f, a, m, b, t, color, o) {
     var dx = b[0] - a[0], dy = b[1] - a[1], L = Math.sqrt(dx * dx + dy * dy) || 1;
     var nx = (-dy / L) * t * 0.5, ny = (dx / L) * t * 0.5;
     c.shape(f, [[a[0], a[1], 1], [m[0] + nx, m[1] + ny], [b[0], b[1], 1], [m[0] - nx, m[1] - ny]], color, o);
+  }
+
+  // Small deterministic PRNG (mulberry32) so curls and tufts come out the same every time.
+  function prng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Point at fraction t along a polyline (by segment index).
+  function along(pts, t) {
+    var x = Math.max(0, Math.min(1, t)) * (pts.length - 1), i = Math.min(Math.floor(x), pts.length - 2), k = x - i;
+    return [lerp(pts[i][0], pts[i + 1][0], k), lerp(pts[i][1], pts[i + 1][1], k)];
+  }
+  // Irregular edge along a base polyline: n bumps pushed away from the point ctr by about
+  // amp, with uneven sizes and spacing. tips makes the bumps pointed (tufts).
+  function lumpy(base, n, amp, seed, ctr, tips) {
+    var rnd = prng(seed), out = [], N = n * 2;
+    for (var i = 1; i < N; i++) {
+      var p = along(base, (i + (rnd() - 0.5) * 0.6) / N);
+      var dx = p[0] - ctr[0], dy = p[1] - ctr[1], L = Math.sqrt(dx * dx + dy * dy) || 1;
+      var r = i % 2 ? amp * (0.5 + rnd()) : amp * 0.15 * rnd();
+      out.push([p[0] + (dx / L) * r, p[1] + (dy / L) * r, tips && i % 2 ? 1 : 0]);
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------- face kit
@@ -8423,7 +8491,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     eye: 1, open: 1, gaze: -0.2, crinkle: 0, tired: 0,    // eyes
     browIn: 0, browUp: 0, browT: 1, arch: 1,              // brows (browIn > 0 lifts the inner ends)
     smile: 0, part: 0, mouthW: 1, wry: 0,                 // mouth (wry lifts the near corner and brow)
-    age: 0, nose: 1, ear: 1, lash: 1, blush: 0,
+    age: 0, nose: 1, noseW: 1, ear: 1, lash: 1, blush: 0,
+    lite: false,                                          // fewer fine lines (small group faces)
+    soft: 0,                                              // 0..1 lighter shading planes (women, children)
     skin: "#a6744f", lip: "#8a4a36", brow: "#2a1f19", iris: "#3a2416", sclera: "#d9ccb4"
   };
   function withFace(o) { var r = {}, k; for (k in FACE) r[k] = FACE[k]; for (k in o) r[k] = o[k]; return r; }
@@ -8441,8 +8511,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Tapered brow from the inner end a to the outer end b, arched upward.
   function brow(c, f, a, b, arch, t, color) {
     var top = [], bot = [];
-    for (var i = 0; i <= 6; i++) {
-      var s = i / 6, x = lerp(a[0], b[0], s);
+    for (var i = 0; i <= 4; i++) {
+      var s = i / 4, x = lerp(a[0], b[0], s);
       var y = lerp(a[1], b[1], s) - arch * Math.sin(Math.PI * Math.pow(s, 1.36));
       var th = t * (1 - 0.78 * Math.pow(s, 1.4));
       top.push([x, y - th * 0.5]);
@@ -8473,6 +8543,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     // Lash line along the upper lid, a little past the outer corner.
     var t = 0.024 * o.lash, Oe = [O[0] - inner * w * (0.12 + 0.06 * o.lash), O[1] + w * 0.03];
     c.fill(upper + "L" + P(Oe) + "C" + P([u2[0], u2[1] - t * 1.6]) + " " + P([u1[0], u1[1] - t * 1.4]) + " " + P([I[0], I[1] - t * 0.3]) + "Z", INK, 0.92);
+    if (o.lite) return;
     // Upper-lid crease and a faint lower lid.
     var k = 0.035 + h * 0.55;
     c.add('<path d="M' + P([lerp(I[0], O[0], 0.12), lerp(I[1], O[1], 0.12) - k * 0.5]) + "C" + P([u1[0], u1[1] - k]) + " " + P([u2[0], u2[1] - k]) + " " +
@@ -8494,17 +8565,17 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // separate so beards can go between. Returns the head outline path.
   function head(c, f, o) {
     var keep = PREC;
-    PREC = f.s < 100 ? 1 : 10;
-    var hd = c.shape(f, headPts(o), o.skin, 1, true);
     PREC = 1;
+    var hd = c.shape(f, headPts(o), o.skin, 1, true);
     if (o.ear) {
       c.shape(f, [[0.6, -0.05], [0.69, -0.1], [0.8, -0.06], [0.84, 0.1], [0.79, 0.29], [0.69, 0.38], [0.61, 0.33]], mix(o.skin, SH, 0.2), 1, true);
       c.shape(f, [[0.665, 0.0], [0.75, -0.03], [0.785, 0.1], [0.74, 0.25], [0.69, 0.21], [0.72, 0.1], [0.68, 0.06]], SH, 0.32);
     }
     c.inside(hd);
+    var sf = 1 - 0.35 * o.soft;
     // Near side plane, from the temple past the outer eye corner and down the cheek.
     c.shape(f, [[0.33, -1.05], [0.27, -0.55], [0.25, -0.22], [0.27, 0.06], [0.245, 0.3, 1], [0.16, 0.56], [0.03, 0.8], [-0.08, 1.02],
-      [0.6, 1.3, 1], [1.1, 0.4, 1], [1.1, -1.1, 1]], SH, 0.2);
+      [0.6, 1.3, 1], [1.1, 0.4, 1], [1.1, -1.1, 1]], SH, r1(0.2 * sf));
     if (o.hollow) {
       c.shape(f, [[0.245, 0.3], [0.1, 0.42], [0.03, 0.62], [0.18, 0.6]], SH, r1(0.14 * o.hollow));
       c.shape(f, [[-0.66, 0.3], [-0.52, 0.42], [-0.56, 0.64], [-0.64, 0.6]], SH, r1(0.12 * o.hollow));
@@ -8516,96 +8587,130 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     // Eye sockets under the brow ridge.
     c.shape(f, [[-0.12, -0.14], [0.05, -0.17], [0.23, -0.11], [0.21, 0.0], [0.05, -0.07], [-0.11, -0.03]], SH, 0.12);
     c.shape(f, [[-0.38, -0.13], [-0.52, -0.155], [-0.65, -0.11], [-0.63, -0.01], [-0.5, -0.06], [-0.39, -0.03]], SH, 0.1);
-    // Light on the forehead, the far cheekbone and the chin.
-    c.shape(f, [[-0.56, -0.58], [-0.3, -0.74], [0.0, -0.7], [0.06, -0.52], [-0.16, -0.4], [-0.47, -0.4]], HI, 0.08);
-    c.shape(f, [[-0.66, 0.1], [-0.5, 0.14], [-0.42, 0.3], [-0.6, 0.38]], HI, 0.12);
-    c.shape(f, [[-0.36, 0.84], [-0.22, 0.81], [-0.13, 0.9], [-0.3, 0.95]], HI, 0.1);
+    if (!o.lite) {
+      // Light on the far cheekbone and the chin.
+      c.shape(f, [[-0.66, 0.1], [-0.5, 0.14], [-0.42, 0.3], [-0.6, 0.38]], HI, 0.12);
+      c.shape(f, [[-0.34, 0.86], [-0.22, 0.84], [-0.15, 0.9], [-0.3, 0.94]], HI, 0.06);
+    }
     if (o.age > 0) {
       c.line(f, [[-0.5, -0.47], [-0.25, -0.52], [0.0, -0.49]], SH, f.s * 0.012, r1(0.22 * o.age));
-      c.line(f, [[-0.12, 0.43], [-0.06, 0.55], [-0.04, 0.66]], SH, f.s * 0.014, r1(0.3 * o.age));
+      if (!o.lite) c.line(f, [[-0.12, 0.43], [-0.06, 0.55], [-0.04, 0.66]], SH, f.s * 0.014, r1(0.3 * o.age));
     }
     c.end();
     // Eyes and brows.
-    PREC = 10;
+    PREC = f.s < 100 ? 1 : 10;
     var ey = 0.03, es = o.eye;
     eye(c, f, -0.505, ey, 0.115 * es, 1, o);
     eye(c, f, 0.035, ey, 0.146 * es, -1, o);
+    PREC = 1;
     var bu = o.browUp, bi = o.browIn, t = 0.052 * o.browT, ar = 0.035 * o.arch;
     brow(c, f, [-0.37, -0.165 - bu - bi], [-0.655, -0.13 - bu], ar, t * 0.92, o.brow);
     brow(c, f, [-0.125, -0.175 - bu - bi], [0.245, -0.135 - bu - o.wry * 0.05], ar + o.wry * 0.02, t, o.brow);
     // Nose: shadow side plane, wing, nostril, ridge light, cast shadow below.
-    var n = o.nose;
-    c.shape(f, [[-0.228, -0.02], [-0.18, 0.1], [-0.162, 0.28 * n], [-0.112, 0.38 * n, 1], [-0.14, 0.432 * n], [-0.222, 0.44 * n], [-0.2, 0.37 * n], [-0.212, 0.2 * n]], SH, 0.24);
-    c.line(f, [[-0.128, 0.33 * n], [-0.105, 0.39 * n], [-0.135, 0.435 * n]], SH, f.s * 0.016, 0.4);
-    c.shape(f, [[-0.27, 0.425 * n], [-0.235, 0.41 * n], [-0.2, 0.425 * n], [-0.235, 0.44 * n]], SH, 0.6);
-    c.line(f, [[-0.27, 0.0], [-0.3, 0.18 * n], [-0.322, 0.33 * n]], HI, f.s * 0.018, 0.32);
-    c.shape(f, [[-0.37, 0.415 * n], [-0.28, 0.465 * n], [-0.15, 0.462 * n], [-0.11, 0.425 * n], [-0.24, 0.445 * n]], SH, 0.26);
+    PREC = f.s < 100 ? 1 : 10;
+    var n = o.nose, w = o.noseW;
+    c.shape(f, [[-0.228, -0.02], [-0.18, 0.1], [-0.162 + 0.02 * (w - 1), 0.28 * n], [-0.112 + 0.05 * (w - 1), 0.38 * n, 1], [-0.14 + 0.04 * (w - 1), 0.432 * n],
+      [-0.222, 0.44 * n], [-0.2, 0.37 * n], [-0.212, 0.2 * n]], SH, r1(0.24 * sf));
+    if (!o.lite) c.line(f, [[-0.128 + 0.05 * (w - 1), 0.33 * n], [-0.105 + 0.05 * (w - 1), 0.39 * n], [-0.135 + 0.04 * (w - 1), 0.435 * n]], SH, f.s * 0.016, r1(0.4 * sf));
+    c.shape(f, [[-0.27, 0.425 * n], [-0.235, 0.41 * n], [-0.2, 0.425 * n], [-0.235, 0.44 * n]], SH, r1(0.6 * sf));
+    if (!o.lite) c.line(f, [[-0.27, 0.0], [-0.3, 0.18 * n], [-0.322, 0.33 * n]], HI, f.s * 0.018, 0.32);
+    c.shape(f, [[-0.37 - 0.03 * (w - 1), 0.415 * n], [-0.28, 0.465 * n], [-0.15, 0.462 * n], [-0.11 + 0.05 * (w - 1), 0.425 * n], [-0.24, 0.445 * n]], SH, 0.26);
     PREC = keep;
     return hd;
   }
 
-  // Mouth: upper lip, lower lip, the line between, a shadow under the lower lip.
-  function mouth(c, f, o, bearded) {
+  // Mouth: upper lip, lower lip, the line between, a shadow under the lower lip. With a
+  // beard (bd = its options) the upper lip hides under a mustache drawn last.
+  function mouth(c, f, o, bd) {
     var keep = PREC;
     PREC = 10;
     var s = o.smile * 0.035, w = o.mouthW, cx = -0.255, y = 0.628;
     var A = [cx - 0.168 * w, y - s], B = [cx + 0.18 * w, y - s * 1.15 - o.wry * 0.03];
     var mid = [cx, y + 0.01 + s * 0.25];
     var gap = 0.012 + o.part * 0.034;
-    if (!bearded) c.shape(f, [A, [cx - 0.07, y - 0.035], [cx, y - 0.028], [cx + 0.07, y - 0.035], B, mid], o.lip, 0.55);
-    c.shape(f, [[A[0] + 0.02, A[1] + 0.012], [cx, y + 0.07 + s * 0.2 + o.part * 0.02], [B[0] - 0.03, B[1] + 0.012], mid], o.lip, bearded ? 0.9 : 0.55);
-    var line = [A, [cx - 0.08, mid[1] - gap * 0.6], [cx + 0.08, mid[1] - gap * 0.6], B, [cx + 0.08, mid[1] + gap * 0.5], [cx - 0.08, mid[1] + gap * 0.5]];
-    var ld = c.shape(f, line, mix(o.lip, INK, 0.62), 0.95);
+    if (!bd) c.shape(f, [A, [cx - 0.07, y - 0.035], [cx, y - 0.028], [cx + 0.07, y - 0.035], B, mid], o.lip, 0.55);
+    c.shape(f, [[A[0] + 0.02, A[1] + 0.012], [cx, y + 0.07 + s * 0.2 + o.part * 0.02], [B[0] - 0.03, B[1] + 0.012], mid], o.lip, bd ? 0.9 : 0.55);
+    var ld = c.shape(f, [A, [cx - 0.08, mid[1] - gap * 0.6], [cx + 0.08, mid[1] - gap * 0.6], B, [cx + 0.08, mid[1] + gap * 0.5], [cx - 0.08, mid[1] + gap * 0.5]],
+      mix(o.lip, INK, 0.62), 0.95);
     if (o.part > 0.45) {
       c.inside(ld);
       c.shape(f, [[cx - 0.12, mid[1] - gap], [cx + 0.12, mid[1] - gap], [cx + 0.1, mid[1] - gap * 0.2], [cx - 0.1, mid[1] - gap * 0.2]], "#e8dccb", 0.85);
       c.end();
     }
-    if (!bearded) c.shape(f, [[cx - 0.1, y + 0.085], [cx, y + 0.1], [cx + 0.1, y + 0.08], [cx, y + 0.125]], SH, 0.16);
+    if (!bd) c.shape(f, [[cx - 0.1, y + 0.085], [cx, y + 0.1], [cx + 0.1, y + 0.08], [cx, y + 0.125]], SH, 0.16);
     PREC = keep;
+    if (bd && !bd.stubble) {
+      var m = s * 0.6;
+      c.shape(f, [[-0.47, 0.67 - m], [-0.43, 0.56], [-0.34, 0.505], [-0.255, 0.522], [-0.17, 0.505], [-0.05, 0.53], [0.01, 0.64 - m], [-0.08, 0.605 - m],
+        [-0.255, 0.592], [-0.4, 0.607 - m]], mix(bd.color, HI, 0.06));
+      c.shape(f, [[-0.12, 0.5], [0.0, 0.53], [0.01, 0.64 - m], [-0.1, 0.6]], SH, 0.22);
+    }
   }
 
   // ---------------------------------------------------------------- hair, beards, garments
 
-  // Hair cap: hairline across the forehead (line raises it), sideburn in front of the near
-  // ear (side = how low), then around the back of the head. bump > 0 gives curls, spiky
-  // gives tousled points; locks are light leaves inside the hair.
+  var HAIR_OUT = [[-0.75, -0.42], [-0.7, -0.76], [-0.48, -1.02], [-0.14, -1.14], [0.22, -1.13], [0.54, -1.02], [0.78, -0.78], [0.9, -0.44], [0.92, -0.08], [0.88, 0.24]];
+  var HAIR_LINE = [[0.14, -0.58], [-0.1, -0.64], [-0.34, -0.63], [-0.54, -0.57], [-0.64, -0.42]];
+
+  // Hair: from the far temple over the top of the head to the nape, then behind and over the
+  // near ear, down the sideburn and back along the hairline. The top edge is smooth, or
+  // irregular with h.lumps bumps (h.tips for pointed tufts); h.line replaces the hairline,
+  // h.ear the part around the ear. h.curls scatters small curl marks; h.locks adds leaves.
   function hair(c, f, h) {
-    var hl = h.line || 0, bump = h.bump || 0, n = h.n || 8, vol = h.vol || 1, sb = h.side === undefined ? 0.16 : h.side;
-    c.shape(f, [[-0.63, -0.38], [-0.52, -0.5 - hl], [-0.3, -0.56 - hl], [-0.05, -0.57 - hl], [0.16, -0.5 - hl], [0.28, -0.38 - hl], [0.3, -0.62], [0.0, -0.8], [-0.62, -0.62]], SH, 0.16);
-    var p = [[-0.668, -0.14, 1], [-0.63, -0.42], [-0.52, -0.58 - hl], [-0.3, -0.64 - hl], [-0.05, -0.65 - hl], [0.16, -0.58 - hl], [0.27, -0.47 - hl, 1],
-      [0.33, -0.2], [0.4, 0.05], [0.45, sb, 1], [0.54, -0.01], [0.65, -0.1], [0.79, -0.12], [0.87, 0.02], [0.86, 0.3], [0.8, 0.52, 1]];
-    var a0 = 6.38, a1 = 3.4, N = n * 2;
-    for (var i = 0; i <= N; i++) {
-      var t = i / N, a = lerp(a0, a1, t), r = vol * (1 + (i % 2 ? 0 : bump));
-      p.push([0.09 + 0.83 * r * Math.cos(a), -0.22 + 0.9 * r * Math.sin(a), h.spiky && i % 2 === 0 ? 1 : 0]);
-    }
-    if (h.fringe) p.splice(3, 3, h.fringe[0], h.fringe[1], h.fringe[2]);
-    var d = c.shape(f, p, h.color, 1, true);
+    var sb = h.side === undefined ? 0.18 : h.side, v = h.vol || 1, i;
+    var base = [];
+    for (i = 0; i < HAIR_OUT.length; i++) base.push([0.06 + (HAIR_OUT[i][0] - 0.06) * v, -0.25 + (HAIR_OUT[i][1] + 0.25) * v]);
+    var outer = h.lumps ? [base[0]].concat(lumpy(base, h.lumps, h.amp || 0.08, h.seed || 3, [0.06, -0.25], h.tips), [base[base.length - 1]]) : base;
+    var ear = h.ear || [[0.78, 0.44, 1], [0.8, 0.22], [0.8, 0.0], [0.76, -0.1], [0.66, -0.13], [0.56, -0.05], [0.5, 0.08], [0.47, sb, 1], [0.4, 0.04], [0.34, -0.22], [0.3, -0.46, 1]];
+    var line = h.line || HAIR_LINE;
+    // Shadow the hair casts on the forehead.
+    var band = [[0.3, -0.46]].concat(line, [[-0.68, -0.16]]), sh = [];
+    for (i = 0; i < band.length; i++) sh.push([band[i][0], band[i][1]]);
+    for (i = band.length - 1; i >= 0; i--) sh.push([band[i][0], band[i][1] + 0.08]);
+    c.shape(f, sh, SH, 0.15);
+    var d = c.shape(f, [[-0.68, -0.16, 1]].concat(outer, ear, line), h.color, 1, true);
     c.inside(d);
-    c.shape(f, [[0.3, -1.4], [1.3, -1.2], [1.3, 0.8], [0.6, 0.6], [0.42, -0.2]], SH, 0.22);
-    c.shape(f, [[-0.72, -0.6], [-0.42, -1.0], [0.1, -1.13], [0.02, -0.92], [-0.45, -0.74]], HI, 0.1);
-    var L = h.locks || [];
-    for (var j = 0; j < L.length; j++) leaf(c, f, L[j][0], L[j][1], L[j][2], L[j][3] || 0.05, h.hi || HI, L[j][4] || 0.16);
+    c.shape(f, [[0.3, -1.5], [1.4, -1.3], [1.4, 0.8], [0.6, 0.6], [0.42, -0.2]], SH, 0.24);
+    c.shape(f, [[-0.8, -0.6], [-0.46, -1.06], [0.1, -1.2], [0.02, -0.96], [-0.45, -0.76]], HI, 0.1);
+    if (h.curls) {
+      var rnd = prng((h.seed || 3) + 17);
+      for (i = 0; i < h.curls; i++) {
+        var p = along(base, 0.06 + 0.88 * rnd()), k = 0.1 + 0.32 * rnd();
+        var q = [lerp(p[0], 0.06, k), lerp(p[1], -0.25, k)], a = rnd() * 6.28, L = 0.065;
+        leaf(c, f, [q[0] - L * Math.cos(a), q[1] - L * Math.sin(a)], [q[0] + 0.035 * Math.sin(a), q[1] - 0.035 * Math.cos(a)],
+          [q[0] + L * Math.cos(a), q[1] + L * Math.sin(a)], 0.03, h.hi, 0.55);
+      }
+    }
+    var K = h.locks || [];
+    for (i = 0; i < K.length; i++) leaf(c, f, K[i][0], K[i][1], K[i][2], K[i][3] || 0.05, h.hi || HI, K[i][4] || 0.16);
     c.end();
     return d;
   }
 
-  // Beard over the jaw with a mustache; e widens it, len lengthens it. stubble draws it as
-  // a faint shadow instead. locks are leaves in a lighter (gray) or darker color.
+  // Beard over the jaw; e widens it, len lengthens it, tufts roughens its lower edge. A thin
+  // half-tone band softens the cheek line. stubble draws only a faint shadow. locks are
+  // leaves in a lighter (gray) or darker tone. The mustache is drawn by mouth().
   function beard(c, f, b) {
-    var e = b.e || 0, L = b.len || 0;
-    var p = [[0.46, 0.12, 1], [0.58 + e, 0.42], [0.5 + e, 0.8], [0.24 + e * 0.5, 1.0 + L * 0.55], [-0.12, 1.07 + L], [-0.42, 0.99 + L * 0.7],
-      [-0.62 - e * 0.5, 0.74], [-0.69 - e * 0.3, 0.4], [-0.68, 0.08, 1], [-0.6, 0.3], [-0.5, 0.47], [-0.45, 0.58], [-0.37, 0.515],
-      [-0.255, 0.49], [-0.15, 0.51], [-0.05, 0.56], [0.04, 0.5], [0.2, 0.36], [0.35, 0.2]];
+    var e = b.e || 0, L = b.len || 0, i;
+    var low = [[0.6 + e, 0.42], [0.52 + e, 0.8], [0.26 + e * 0.5, 1.0 + L * 0.55], [-0.12, 1.07 + L], [-0.42, 0.99 + L * 0.7], [-0.62 - e * 0.5, 0.74], [-0.69 - e * 0.3, 0.4]];
+    if (b.tufts) low = [low[0]].concat(lumpy(low, b.tufts, b.amp || 0.05, b.seed || 5, [-0.1, 0.45], true), [low[low.length - 1]]);
+    var cheek = [[-0.68, 0.08, 1], [-0.6, 0.3], [-0.5, 0.47], [-0.45, 0.58], [-0.37, 0.515], [-0.255, 0.49], [-0.15, 0.51], [-0.05, 0.56], [0.04, 0.5], [0.2, 0.36], [0.35, 0.2]];
+    var p = [[0.46, 0.12, 1]].concat(low, cheek);
     if (b.stubble) { c.shape(f, p, SH, b.stubble); return null; }
+    if (!b.lite) {
+      var soft = [[0.47, 0.04]];
+      for (i = cheek.length - 1; i >= 0; i--) soft.push([cheek[i][0], cheek[i][1] - 0.075]);
+      for (i = 0; i < cheek.length; i++) soft.push([cheek[i][0], cheek[i][1] + 0.03]);
+      soft.push([0.47, 0.16]);
+      c.shape(f, soft, b.color, 0.3);
+    }
     var d = c.shape(f, p, b.color, 1, true);
     c.inside(d);
-    c.shape(f, [[0.12, 0.45], [0.7, 0.1], [0.8, 1.7], [0.0, 1.7], [0.05, 1.0]], SH, 0.24);
-    c.shape(f, [[-0.6, 0.86 + L * 0.5], [0.4, 0.86 + L * 0.5], [0.4, 1.5 + L], [-0.6, 1.5 + L]], SH, 0.16);
+    c.shape(f, [[0.12, 0.45], [0.7, 0.1], [0.8, 1.8], [0.0, 1.8], [0.05, 1.0]], SH, 0.24);
+    c.shape(f, [[-0.7, 0.86 + L * 0.5], [0.5, 0.86 + L * 0.5], [0.5, 1.6 + L], [-0.7, 1.6 + L]], SH, 0.16);
     c.shape(f, [[-0.68, 0.2], [-0.54, 0.5], [-0.48, 0.78], [-0.64, 0.72]], HI, 0.1);
     var K = b.locks || [];
-    for (var j = 0; j < K.length; j++) leaf(c, f, K[j][0], K[j][1], K[j][2], K[j][3] || 0.05, b.hi || HI, K[j][4] || 0.3);
+    for (i = 0; i < K.length; i++) leaf(c, f, K[i][0], K[i][1], K[i][2], K[i][3] || 0.05, b.hi || HI, K[i][4] || 0.3);
     c.end();
     return d;
   }
@@ -8613,31 +8718,35 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Neck column from the jaw to below the collar, mostly in shadow.
   function neck(c, f, skin, w) {
     var k = w || 1;
-    c.shape(f, [[-0.34 * k, 0.55], [0.42 * k, 0.4], [0.47 * k, 1.05], [0.56 * k, 1.72], [-0.44 * k, 1.76], [-0.36 * k, 1.05]], mix(skin, SH, 0.18), 1, true);
+    c.shape(f, [[-0.34 * k, 0.55], [0.3, 0.3], [0.82, 0.24], [0.7 * k, 1.0], [0.62 * k, 1.72], [-0.44 * k, 1.76], [-0.36 * k, 1.05]], mix(skin, SH, 0.18), 1, true);
     c.shape(f, [[-0.4 * k, 0.72], [0.5 * k, 0.55], [0.5 * k, 1.05], [-0.06, 1.1], [-0.42 * k, 0.98]], SH, 0.2);
   }
 
   // Tunic over shoulders and chest (body frame: head center origin, head units). k scales
-  // the width; nk the depth of the neckline.
-  function tunic(c, b, color, k, nk, bottom) {
+  // the width; nk the depth of the neckline. The arms hang at the sides, set off by shadow.
+  function tunic(c, b, color, k, nk, bottom, plain) {
     var n = nk || 1, B = bottom || bot(b);
-    var d = c.shape(b, [[-1.86 * k, B, 1], [-1.82 * k, 2.6], [-1.7 * k, 1.88], [-1.32 * k, 1.52], [-0.44, 1.32, 1], [0.02, 1.32 + 0.28 * n], [0.5, 1.28, 1],
-      [1.38 * k, 1.46], [1.93 * k, 1.8], [2.04 * k, 2.6], [2.08 * k, B, 1]], color, 1, true);
+    var d = c.shape(b, [[-1.86 * k, B, 1], [-1.84 * k, 2.6], [-1.72 * k, 1.9], [-1.32 * k, 1.52], [-0.44, 1.32, 1], [0.02, 1.32 + 0.28 * n], [0.5, 1.28, 1],
+      [1.38 * k, 1.46], [1.94 * k, 1.8], [2.06 * k, 2.6], [2.08 * k, B, 1]], color, 1, true);
+    if (plain) {
+      c.shape(b, [[-0.44, 1.32], [0.02, 1.32 + 0.28 * n], [0.5, 1.28], [0.5, 1.4], [0.02, 1.43 + 0.28 * n], [-0.44, 1.43]], SH, 0.22);
+      return d;
+    }
     c.inside(d);
     c.shape(b, [[0.95, 1.2], [2.4, 1.5], [2.4, B], [1.25, B], [1.1, 3.0]], SH, 0.15);
     c.shape(b, [[-0.44, 1.32], [0.02, 1.32 + 0.28 * n], [0.5, 1.28], [0.5, 1.4], [0.02, 1.43 + 0.28 * n], [-0.44, 1.43]], SH, 0.22);
-    leaf(c, b, [-1.3 * k, 2.1], [-1.36 * k, 3.6], [-1.36 * k, B], 0.07, SH, 0.2);
-    leaf(c, b, [1.5 * k, 2.1], [1.56 * k, 3.6], [1.58 * k, B], 0.07, SH, 0.22);
-    c.shape(b, [[-1.66 * k, 1.9], [-1.2 * k, 1.56], [-0.6, 1.42], [-0.9, 1.62], [-1.4 * k, 1.9]], HI, 0.14);
+    leaf(c, b, [-1.26 * k, 2.0], [-1.34 * k, 3.4], [-1.36 * k, B], 0.1, SH, 0.24);
+    leaf(c, b, [1.48 * k, 2.0], [1.56 * k, 3.4], [1.58 * k, B], 0.1, SH, 0.26);
+    c.shape(b, [[-1.68 * k, 1.92], [-1.2 * k, 1.56], [-0.6, 1.42], [-0.9, 1.62], [-1.4 * k, 1.94], [-1.62 * k, 2.6]], HI, 0.14);
     c.end();
     return d;
   }
 
   // Mantle drawn over the head (scribes): the part behind the head, then the front.
   function hoodBack(c, b, M) {
-    c.shape(b, [[-0.3, -1.13], [0.25, -1.17], [0.73, -0.98], [0.98, -0.55], [1.04, 0.05], [1.02, 0.6], [0.6, 0.9], [-0.7, 0.6], [-0.86, -0.3], [-0.74, -0.84]], M.inner, 1, true);
+    c.shape(b, [[-0.3, -1.13], [0.25, -1.17], [0.73, -0.98], [0.98, -0.55], [1.04, 0.05], [1.02, 0.6], [0.9, 1.5], [-0.82, 1.5], [-0.88, 0.6], [-0.86, -0.3], [-0.74, -0.84]], M.inner, 1, true);
   }
-  function hoodFront(c, b, M, k) {
+  function hoodFront(c, b, M, k, lite) {
     var B = bot(b);
     var d = c.shape(b, [
       [-0.8, B, 1], [-0.72, 2.3], [-0.78, 1.45], [-0.84, 0.6], [-0.8, 0.0], [-0.72, -0.6, 1], [-0.42, -0.75], [-0.05, -0.78], [0.25, -0.7],
@@ -8654,10 +8763,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.shape(b, [[0.64, -0.3], [1.15, -0.6], [2.5, 1.7], [2.5, B], [1.35, B], [1.1, 3.0], [0.86, 1.7]], SH, 0.14);
     c.shape(b, [[-0.62, -0.96], [-0.1, -1.13], [0.5, -1.02], [0.3, -0.88], [-0.2, -0.92]], HI, 0.3);
     leaf(c, b, [1.2, 1.45], [1.34 * k, 2.3], [1.36 * k, 3.6], 0.1, M.dark, 0.9);
-    leaf(c, b, [1.62 * k, 1.75], [1.74 * k, 2.7], [1.74 * k, 3.8], 0.09, M.dark, 0.9);
     leaf(c, b, [-1.38 * k, 1.7], [-1.48 * k, 2.5], [-1.5 * k, 3.6], 0.09, M.dark, 0.9);
-    leaf(c, b, [-1.02, 1.42], [-1.1, 2.1], [-1.1, 3.0], 0.08, M.dark, 0.8);
-    leaf(c, b, [0.75, -0.92], [0.97, -0.4], [1.0, 0.3], 0.08, M.dark, 0.7);
+    if (!lite) {
+      leaf(c, b, [1.62 * k, 1.75], [1.74 * k, 2.7], [1.74 * k, 3.8], 0.09, M.dark, 0.9);
+      leaf(c, b, [-1.02, 1.42], [-1.1, 2.1], [-1.1, 3.0], 0.08, M.dark, 0.8);
+      leaf(c, b, [0.75, -0.92], [0.97, -0.4], [1.0, 0.3], 0.08, M.dark, 0.7);
+    }
     // Two dark bands across the hanging panels.
     if (M.band) {
       c.shape(b, [[-2.3, 2.62], [-1.3, 2.7], [0, 2.6], [1.4, 2.72], [2.4, 2.64], [2.4, 2.86], [1.4, 2.94], [0, 2.82], [-1.3, 2.92], [-2.3, 2.84]], M.band, 0.92);
@@ -8684,6 +8795,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   // Relaxed hand seen from the back: wrist at the origin, fingers along +u, thumb toward -v.
   // Hand-local frame in head units (a hand is about 1.4 units long, as long as a face).
+  // curl draws the fingers loosely folded.
   function hand(c, h, skin, curl) {
     var d = curl
       ? c.shape(h, [[0, 0.26, 1], [0.4, 0.32], [0.7, 0.31], [0.9, 0.27], [1.0, 0.14], [1.02, -0.04], [0.96, -0.2], [0.8, -0.3], [0.68, -0.34],
@@ -8695,22 +8807,21 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.shape(h, [[0.1, -0.2], [0.7, -0.3], [0.5, -0.1], [0.15, -0.05]], HI, 0.12);
     if (curl) c.shape(h, [[0.74, -0.4], [1.1, -0.3], [1.1, 0.4], [0.74, 0.4], [0.8, 0.0]], SH, 0.12);
     c.end();
-    if (curl) {
-      c.line(h, [[0.78, -0.16], [0.9, -0.14], [0.98, -0.1]], SH, h.s * 0.012, 0.35);
-      c.line(h, [[0.78, 0.0], [0.92, 0.01], [1.0, 0.02]], SH, h.s * 0.012, 0.35);
-      c.line(h, [[0.76, 0.15], [0.88, 0.16], [0.96, 0.15]], SH, h.s * 0.012, 0.35);
-    } else {
-      c.line(h, [[0.82, -0.14], [1.06, -0.13], [1.26, -0.12]], SH, h.s * 0.012, 0.35);
-      c.line(h, [[0.82, 0.02], [1.08, 0.03], [1.3, 0.04]], SH, h.s * 0.012, 0.35);
-      c.line(h, [[0.8, 0.16], [1.0, 0.17], [1.14, 0.17]], SH, h.s * 0.012, 0.35);
-    }
+    var e = curl ? [[0.78, 0.9, 0.98], [0.78, 0.92, 1.0], [0.76, 0.88, 0.96]] : [[0.82, 1.06, 1.26], [0.82, 1.08, 1.3], [0.8, 1.0, 1.14]];
+    var vv = [-0.15, 0.01, 0.16];
+    for (var i = 0; i < 3; i++) c.line(h, [[e[i][0], vv[i]], [e[i][1], vv[i] + 0.01], [e[i][2], vv[i] + 0.02]], SH, h.s * 0.012, 0.35);
     return d;
   }
 
-  // Simple hand as a rounded mitt with finger seams, in a hand-local frame.
-  function mitt(c, h, pts, seams, skin) {
-    var d = c.shape(h, pts, skin, 1, true);
-    for (var i = 0; i < seams.length; i++) c.line(h, seams[i], SH, h.s * 0.014, 0.35);
+  // Fist around a rod (scroll, rope): back of the fingers toward the viewer, thumb over the
+  // top. Hand-local frame: u along the rod, v across it.
+  function fist(c, h, skin) {
+    var d = c.shape(h, [[-0.36, -0.1], [-0.24, -0.26], [0.1, -0.3], [0.34, -0.23], [0.4, 0.0], [0.36, 0.22], [0.14, 0.31], [-0.2, 0.31], [-0.38, 0.14]], skin, 1, true);
+    c.inside(d);
+    c.shape(h, [[-0.5, 0.08], [0.5, 0.08], [0.5, 0.4], [-0.5, 0.4]], SH, 0.16);
+    c.end();
+    for (var i = 0; i < 3; i++) { var x = -0.17 + i * 0.18; c.line(h, [[x, -0.16], [x + 0.01, 0.06], [x, 0.27]], SH, h.s * 0.012, 0.38); }
+    c.shape(h, [[-0.38, -0.02], [-0.26, -0.22], [-0.02, -0.34], [0.17, -0.31], [0.13, -0.24], [-0.1, -0.16], [-0.28, 0.06]], mix(skin, HI, 0.1), 1, true);
     return d;
   }
 
@@ -8722,23 +8833,30 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // head, a tassel on the corner thrown over his shoulder, gray-streaked beard, a small
   // scroll held to his chest, ink-darkened fingertips. Sincere and careful.
   draw.menahem = function (c) {
-    var o = withFace({ skin: "#a6744f", lip: "#86493a", brow: "#3e3630", age: 1, open: 0.88, browIn: 0.022, gaze: -0.2, nose: 1.04, hollow: 0.4, jaw: 1.02 });
+    var o = withFace({ skin: "#a6744f", lip: "#86493a", brow: "#3e3630", age: 1, open: 0.88, browIn: 0.022, gaze: -0.2, nose: 1.06, hollow: 0.4, jaw: 1.02 });
     var f = frame(290, 226, 122, -0.02), b = frame(290, 226, 122, 0);
     var M = { cloth: "#dcd1b6", dark: "#b6a88a", inner: "#8d806a", band: "#363a47" };
+    var TUNIC = "#93703f";
+    var bd = { color: "#5a5047", e: 0.04, len: 0.36, tufts: 5, amp: 0.05, seed: 21, hi: "#b3ac9f", locks: [
+      [[-0.64, 0.42], [-0.6, 0.72], [-0.5, 1.02], 0.07, 0.75], [[-0.4, 0.8], [-0.36, 1.08], [-0.26, 1.36], 0.07, 0.8], [[-0.16, 0.86], [-0.12, 1.14], [-0.1, 1.4], 0.06, 0.65],
+      [[0.04, 0.82], [0.06, 1.06], [0.02, 1.3], 0.06, 0.55], [[-0.5, 0.5], [-0.46, 0.66], [-0.4, 0.8], 0.05, 0.6]
+    ] };
     neck(c, f, o.skin, 1.05);
-    tunic(c, b, "#93703f", 1, 0.6);
+    tunic(c, b, TUNIC, 1, 0.6, 0, true);
     hoodBack(c, b, M);
+    c.inner = true;
     head(c, f, o);
     // Hair at the far temple and along the forehead, gray at the temple.
     c.shape(f, [[-0.72, -0.6], [-0.45, -0.76], [-0.05, -0.79], [0.22, -0.7], [0.12, -0.63], [-0.2, -0.67], [-0.5, -0.61], [-0.63, -0.42], [-0.67, -0.12, 1], [-0.75, -0.25]], "#463e37");
     leaf(c, f, [-0.71, -0.3], [-0.66, -0.5], [-0.5, -0.66], 0.05, "#aaa398", 0.9);
     leaf(c, f, [-0.4, -0.7], [-0.2, -0.73], [0.05, -0.74], 0.03, "#aaa398", 0.6);
-    beard(c, f, { color: "#5a5047", e: 0.04, len: 0.36, hi: "#b3ac9f", locks: [
-      [[-0.64, 0.42], [-0.6, 0.72], [-0.5, 1.02], 0.07, 0.75], [[-0.4, 0.8], [-0.36, 1.08], [-0.26, 1.36], 0.07, 0.8], [[-0.16, 0.86], [-0.12, 1.14], [-0.1, 1.4], 0.06, 0.65],
-      [[0.04, 0.82], [0.06, 1.06], [0.02, 1.3], 0.06, 0.55], [[0.22, 0.66], [0.26, 0.9], [0.2, 1.12], 0.06, 0.5], [[-0.5, 0.5], [-0.46, 0.66], [-0.4, 0.8], 0.05, 0.6],
-      [[-0.42, 0.53], [-0.3, 0.5], [-0.16, 0.53], 0.03, 0.7]
-    ] });
-    mouth(c, f, o, true);
+    beard(c, f, bd);
+    mouth(c, f, o, bd);
+    c.inner = false;
+    leaf(c, f, [-0.42, 0.56], [-0.3, 0.52], [-0.17, 0.54], 0.03, "#b3ac9f", 0.7);
+    // His right arm comes from under the mantle; the sleeve shows at the wrist.
+    var q = b(-0.66, 2.66), h = frame(q[0], q[1], 122, -0.62), skin = mix(o.skin, SH, 0.06);
+    c.shape(h, [[-0.3, -0.06], [-0.2, 0.3], [-0.7, 0.86], [-1.2, 0.5]], mix(TUNIC, SH, 0.15), 1, true);
     hoodFront(c, b, M, 1);
     // Corner thrown over the near shoulder; its tassel (one cord blue) hangs behind.
     c.shape(b, [[1.5, 1.42], [1.98, 1.52], [2.2, 1.78], [2.16, 2.12, 1], [1.82, 1.9], [1.56, 1.66]], mix(M.cloth, SH, 0.1), 1, true);
@@ -8747,27 +8865,25 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     leaf(c, b, [2.17, 2.18], [2.19, 2.47], [2.2, 2.84], 0.045, "#3e5d8a");
     leaf(c, b, [2.2, 2.18], [2.25, 2.44], [2.29, 2.76], 0.05, "#e7ddc5");
     c.sil.push(c.ref(sm(b, [[2.04, 2.1], [2.3, 2.1], [2.32, 2.84], [2.06, 2.82]])));
-    // Small scroll held to the chest; the fist grips its lower end, thumb over the top.
-    var q = b(-0.74, 2.72), h = frame(q[0], q[1], 122, -0.5), skin = mix(o.skin, SH, 0.06);
-    c.shape(h, [[-0.3, -0.1, 1], [1.1, -0.1, 1], [1.1, 0.1, 1], [-0.3, 0.1, 1]], "#d5c096", 1, true);
-    c.shape(h, [[-0.3, -0.1, 1], [1.1, -0.1, 1], [1.1, -0.04, 1], [-0.3, -0.04, 1]], HI, 0.4);
-    c.shape(h, [[-0.3, 0.05, 1], [1.1, 0.05, 1], [1.1, 0.1, 1], [-0.3, 0.1, 1]], SH, 0.2);
-    c.shape(h, [[1.08, -0.1], [1.15, 0], [1.08, 0.1], [1.03, 0]], "#ecdcb5", 1, true);
-    c.shape(h, [[-0.45, 0.12], [-0.2, 0.04], [-0.12, 0.3], [-0.4, 0.46]], mix("#93703f", SH, 0.2), 1, true);
-    mitt(c, h, [[-0.22, -0.1], [-0.02, -0.16], [0.17, -0.14], [0.22, 0.03], [0.2, 0.2], [0.0, 0.25], [-0.17, 0.22], [-0.25, 0.06]],
-      [[[-0.1, 0.0], [-0.1, 0.2]], [[0.0, 0.0], [0.0, 0.22]], [[0.1, 0.0], [0.1, 0.2]]], skin);
-    leaf(c, h, [-0.2, -0.08], [-0.02, -0.17], [0.16, -0.12], 0.07, mix(skin, HI, 0.12));
-    c.shape(h, [[0.1, -0.15], [0.16, -0.16], [0.19, -0.11], [0.13, -0.1]], "#262b38", 0.75);
-    c.shape(h, [[0.12, 0.13], [0.19, 0.12], [0.2, 0.19], [0.13, 0.2]], "#262b38", 0.7);
-    c.shape(h, [[0.02, 0.15], [0.08, 0.15], [0.08, 0.21], [0.02, 0.21]], "#262b38", 0.55);
-    c.shape(h, [[-0.25, 0.1], [0.22, 0.1], [0.2, 0.2], [0.0, 0.25], [-0.17, 0.22]], SH, 0.18);
+    // Small scroll held to his chest in his fist; ink on the thumb and fingertips.
+    c.shape(h, [[-0.78, -0.15, 1], [1.24, -0.15, 1], [1.24, 0.15, 1], [-0.78, 0.15, 1]], "#d8c49b", 1, true);
+    c.shape(h, [[-0.78, -0.15, 1], [1.24, -0.15, 1], [1.24, -0.07, 1], [-0.78, -0.07, 1]], HI, 0.4);
+    c.shape(h, [[-0.78, 0.07, 1], [1.24, 0.07, 1], [1.24, 0.15, 1], [-0.78, 0.15, 1]], SH, 0.2);
+    c.shape(h, [[1.22, -0.15], [1.3, 0], [1.22, 0.15], [1.16, 0]], "#eedfb9", 1, true);
+    c.line(h, [[1.2, -0.05], [1.25, 0.0], [1.21, 0.06]], "#a88a5c", h.s * 0.012, 0.8);
+    c.shape(h, [[-0.76, -0.15], [-0.84, 0], [-0.76, 0.15], [-0.7, 0]], "#b49668");
+    fist(c, h, skin);
+    var INKS = "#2a3040";
+    c.shape(h, [[0.02, -0.33], [0.1, -0.36], [0.17, -0.33], [0.15, -0.27], [0.06, -0.24], [0.0, -0.28]], INKS, 0.45);
+    c.shape(h, [[-0.3, 0.2], [-0.2, 0.22], [-0.12, 0.3], [-0.2, 0.33], [-0.3, 0.3]], INKS, 0.4);
+    c.shape(h, [[-0.11, 0.22], [-0.02, 0.24], [0.04, 0.3], [-0.04, 0.33], [-0.12, 0.3]], INKS, 0.35);
   };
 
   // Hanan: Menahem's student, 17. Barely a beard, bright curious eyes, a wax tablet held
   // up in one hand and a stylus in the other. Undyed tunic, olive mantle over one shoulder.
   draw.hanan = function (c) {
     var o = withFace({ skin: "#b4835b", lip: "#9b5443", brow: "#2a1e17", jaw: 0.95, chin: 0.96, round: 0.18, open: 1.08, gaze: -0.16, browUp: 0.035,
-      browIn: 0.02, browT: 0.85, arch: 1.25, smile: 0.3, part: 0.3, blush: 1, eye: 1.06 });
+      browIn: 0.02, browT: 0.85, arch: 1.25, smile: 0.3, part: 0.3, blush: 1, eye: 1.06, nose: 0.96, noseW: 0.94 });
     var f = frame(294, 238, 116, -0.03), b = frame(300, 238, 116, 0), B = bot(b);
     neck(c, f, o.skin, 0.95);
     tunic(c, b, "#d2c4a3", 0.95, 1);
@@ -8780,39 +8896,46 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.shape(b, [[-1.0, 1.4], [-1.7, 1.86], [-1.5, 2.0], [-0.9, 1.6]], HI, 0.16);
     c.end();
     head(c, f, o);
-    beard(c, f, { stubble: 0.09 });
-    mouth(c, f, o, false);
-    hair(c, f, { color: "#241a14", line: 0.03, bump: 0.05, n: 7, vol: 1.05, side: 0.2,
-      fringe: [[-0.5, -0.52], [-0.32, -0.62], [-0.12, -0.56]],
-      locks: [[[-0.6, -0.7], [-0.3, -0.92], [0.1, -1.0], 0.05, 0.18], [[-0.2, -0.66], [0.1, -0.8], [0.4, -0.86], 0.04, 0.14]] });
+    beard(c, f, { stubble: 0.08 });
+    mouth(c, f, o, null);
+    hair(c, f, { color: "#241a14", lumps: 4, amp: 0.05, seed: 9, vol: 1.04, side: 0.2, hi: "#5e4a3c",
+      line: [[0.14, -0.56], [-0.04, -0.62], [-0.16, -0.5, 1], [-0.24, -0.6], [-0.42, -0.6], [-0.56, -0.53], [-0.64, -0.4]],
+      locks: [[[-0.62, -0.72], [-0.3, -0.96], [0.12, -1.04], 0.05, 0.3], [[-0.2, -0.68], [0.12, -0.84], [0.46, -0.86], 0.045, 0.24], [[0.3, -0.62], [0.6, -0.62], [0.84, -0.34], 0.04, 0.2]] });
     // Wax tablet, tilted, wood frame around dark wax with a few scratched strokes.
-    var t = frame(b(0.05, 2.5)[0], b(0.05, 2.5)[1], 116, -0.1);
+    var tc = b(0.05, 2.5), t = frame(tc[0], tc[1], 116, -0.1);
     c.shape(t, [[-0.66, -0.42, 1], [0.66, -0.42, 1], [0.66, 0.42, 1], [-0.66, 0.42, 1]], "#9c7348", 1, true);
     c.shape(t, [[-0.57, -0.33, 1], [0.57, -0.33, 1], [0.57, 0.33, 1], [-0.57, 0.33, 1]], "#3c3127");
     c.shape(t, [[-0.66, -0.42, 1], [0.66, -0.42, 1], [0.66, -0.36, 1], [-0.66, -0.36, 1]], HI, 0.3);
     c.line(t, [[-0.46, -0.18], [-0.3, -0.21], [-0.12, -0.17], [0.1, -0.2]], "#74624d", t.s * 0.014, 0.8);
-    c.line(t, [[-0.46, -0.04], [-0.22, -0.07], [0.0, -0.03], [0.3, -0.06]], "#74624d", t.s * 0.014, 0.8);
-    c.line(t, [[-0.46, 0.1], [-0.3, 0.08], [-0.1, 0.11]], "#74624d", t.s * 0.014, 0.8);
+    c.line(t, [[-0.46, -0.04], [-0.22, -0.07], [0.0, -0.03], [0.24, -0.06]], "#74624d", t.s * 0.014, 0.8);
+    c.line(t, [[-0.46, 0.1], [-0.3, 0.08], [-0.16, 0.11]], "#74624d", t.s * 0.014, 0.8);
     var skin = mix(o.skin, SH, 0.05);
-    // Near hand holds the right edge, fingers over the front.
-    mitt(c, t, [[0.44, -0.28], [0.62, -0.36], [0.82, -0.3], [0.86, 0.2], [0.7, 0.36], [0.48, 0.3], [0.42, 0.12], [0.44, -0.08]],
-      [[[0.47, -0.12], [0.62, -0.12]], [[0.46, 0.04], [0.62, 0.04]], [[0.46, 0.18], [0.62, 0.19]]], skin);
-    c.shape(t, [[0.66, -0.4], [0.88, -0.3], [0.88, 0.3], [0.66, 0.4]], SH, 0.16);
-    // Far hand pinches a bone stylus resting on the wax.
-    leaf(c, t, [-0.42, 0.2], [-0.3, 0.02], [-0.14, -0.18], 0.035, "#e2d3b0");
-    mitt(c, t, [[-0.54, 0.16], [-0.38, 0.1], [-0.3, 0.22], [-0.34, 0.46], [-0.5, 0.56], [-0.62, 0.4]], [[[-0.5, 0.26], [-0.38, 0.24]]], skin);
+    // Stylus lying across the wax; both hands hold the lower corners, thumbs on the front.
+    leaf(c, t, [-0.36, 0.22], [0.0, 0.12], [0.4, -0.04], 0.045, "#e2d3b0");
+    for (var i = 0; i < 2; i++) {
+      var sx = i ? -1 : 1, hc = t(sx * 0.5, 0.42), h = frame(hc[0], hc[1], 116, -0.1, i === 1);
+      var u = i ? -1 : 1;
+      var fb = c.shape(h, [[-0.26 * u, -0.04], [0.26 * u, -0.06], [0.3 * u, 0.12], [0.22 * u, 0.26], [-0.22 * u, 0.28], [-0.3 * u, 0.12]], skin, 1, true);
+      c.inside(fb);
+      c.shape(h, [[-0.4, 0.14], [0.4, 0.14], [0.4, 0.4], [-0.4, 0.4]], SH, 0.18);
+      c.end();
+      for (var j = 0; j < 3; j++) { var x = (-0.12 + j * 0.12) * u; c.line(h, [[x, 0.0], [x, 0.24]], SH, h.s * 0.012, 0.38); }
+      c.shape(h, [[0.2 * u, -0.02], [0.08 * u, -0.2], [-0.04 * u, -0.26], [-0.1 * u, -0.2], [0.0, -0.06]], mix(skin, HI, 0.08), 1, true);
+    }
   };
 
   // Yonah: fisherman, about 24. Sun-darkened, short beard, sturdy, warm smile, sleeves
   // pushed up on a bare arm, a coil of rope over his far shoulder. Faded indigo tunic.
   draw.yonah = function (c) {
     var o = withFace({ skin: "#8b5a3a", lip: "#743e2d", brow: "#1d1611", jaw: 1.1, chin: 1.0, round: 0.05, open: 0.92, gaze: -0.16, crinkle: 0.8, smile: 0.7,
-      browT: 1.18, arch: 0.8, browIn: 0.008, blush: 0.4 });
+      browT: 1.18, arch: 0.8, browIn: 0.008, blush: 0.4, noseW: 1.15 });
     var f = frame(300, 230, 124, -0.015), b = frame(306, 230, 124, 0), B = bot(b);
+    var bd = { color: "#221a14", e: 0.02, len: -0.03, tufts: 5, amp: 0.035, seed: 33, hi: "#5b4a3d",
+      locks: [[[-0.5, 0.62], [-0.44, 0.8], [-0.34, 0.94], 0.04, 0.4], [[0.1, 0.7], [0.14, 0.84], [0.1, 0.96], 0.04, 0.3]] };
     neck(c, f, o.skin, 1.2);
     tunic(c, b, "#3d5b74", 1.08, 0.9);
     // Near arm: sleeve bunched above the elbow, bare forearm below.
-    var arm = c.shape(b, [[1.6, 2.2], [2.16, 2.24], [2.22, 3.4], [2.26, B, 1], [1.58, B, 1], [1.56, 3.3]], o.skin, 1, true);
+    var arm = c.shape(b, [[1.6, 2.2], [2.16, 2.24], [2.24, 3.4], [2.27, B, 1], [1.58, B, 1], [1.56, 3.3]], o.skin, 1, true);
     c.inside(arm);
     c.shape(b, [[1.98, 2.2], [2.4, 2.2], [2.4, B], [2.04, B]], SH, 0.24);
     leaf(c, b, [1.66, 3.0], [1.74, 3.6], [1.72, 4.4], 0.06, SH, 0.2);
@@ -8821,21 +8944,21 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     leaf(c, b, [1.6, 2.22], [1.9, 2.18], [2.22, 2.3], 0.06, "#2c4458", 0.9);
     leaf(c, b, [1.62, 2.44], [1.92, 2.4], [2.2, 2.46], 0.05, "#2c4458", 0.8);
     head(c, f, o);
-    beard(c, f, { color: "#1f1813", e: 0.02, len: -0.04, hi: "#5b4a3d", locks: [[[-0.5, 0.62], [-0.44, 0.8], [-0.34, 0.94], 0.04, 0.4], [[0.1, 0.7], [0.14, 0.84], [0.1, 0.96], 0.04, 0.3]] });
-    mouth(c, f, o, true);
-    hair(c, f, { color: "#1e1712", bump: 0.07, n: 10, line: 0.05, vol: 1.0, side: 0.12, hi: "#6b5646",
-      locks: [[[-0.55, -0.8], [-0.3, -0.98], [0.0, -1.06], 0.05, 0.3]] });
-    // Rope coil over the far shoulder, twisted strands marked along the ring.
-    var rc = b(-1.2, 2.56), r = frame(rc[0], rc[1], 124, 0.22);
-    var outer = curve(mapPts(r, ellPts(0, 0, 0.66, 0.98, 16)), true), inner = curve(mapPts(r, ellPts(0, 0, 0.44, 0.76, 16)), true);
-    c.fill(outer + inner, "#b39462", 1, false, ' fill-rule="evenodd"');
-    c.sil.push(c.ref(outer));
-    c.inside(outer + inner);
-    c.add('<path d="' + outer + inner + '" fill="none" stroke="#6f5636" stroke-width="3" stroke-dasharray="6 9" opacity=".6" clip-rule="evenodd"/>');
-    c.shape(r, [[0.1, -1.2], [1.0, -0.4], [0.9, 1.2], [-0.3, 1.2]], SH, 0.2);
-    c.shape(r, [[-0.8, -0.6], [-0.2, -1.1], [-0.1, -0.85], [-0.6, -0.4]], HI, 0.25);
-    c.end();
-    c.fill(curve(mapPts(r, ellPts(0, 0, 0.55, 0.87, 16)), true), "none", 1, false, ' stroke="#7d6440" stroke-width="2" opacity=".45"');
+    beard(c, f, bd);
+    mouth(c, f, o, bd);
+    hair(c, f, { color: "#1e1712", lumps: 9, amp: 0.085, seed: 4, vol: 1.0, side: 0.12, hi: "#5d4a3c", curls: 10,
+      line: [[0.14, -0.56], [0.02, -0.6], [-0.1, -0.56], [-0.22, -0.62], [-0.36, -0.58], [-0.5, -0.6], [-0.62, -0.46]] });
+    // Coil of rope over the far shoulder: a bundle of loops, bound where it hangs.
+    var rc = b(-1.4, 2.4), ring = "", mid = frame(rc[0], rc[1], 124, 0.3);
+    for (var k = 0; k < 5; k++) {
+      var r = frame(rc[0] + k * 4 - 8, rc[1] + k * 2.8 - 6, 124, 0.22 + k * 0.035);
+      ring += curve(mapPts(r, ellPts(0, 0, 0.64 - k * 0.04, 0.94 - k * 0.045, 12, k * 0.5)), true);
+    }
+    var core = curve(mapPts(mid, ellPts(0, 0, 0.56, 0.85, 12)), true);
+    c.add('<path d="' + core + '" fill="none" stroke="#4d3b24" stroke-width="34" opacity=".45"/>');
+    c.add('<path d="' + ring + '" fill="none" stroke="#9c7d4f" stroke-width="10"/>');
+    c.add('<path d="' + ring + '" fill="none" stroke="#c4a571" stroke-width="5"/>');
+
   };
 
   // Asher's face, shared by both poses: about 24, thinner, wry, guarded but kind eyes.
@@ -8843,13 +8966,16 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return withFace({ skin: "#a87b5c", lip: "#8a5141", brow: "#241b16", jaw: 0.94, chin: 1.0, hollow: 1, open: 0.84, gaze: -0.12, wry: 0.6,
       smile: 0.2, browIn: 0.012, browT: 0.95, arch: 0.9, tired: 0.3 });
   }
+  var ASHER_BEARD = { color: "#2b211b", e: -0.01, len: -0.02, tufts: 6, amp: 0.04, seed: 12, hi: "#5d4c40",
+    locks: [[[-0.55, 0.5], [-0.5, 0.7], [-0.4, 0.86], 0.04, 0.35], [[0.2, 0.5], [0.24, 0.66], [0.2, 0.84], 0.04, 0.3]] };
   function asherHead(c, f, o) {
     head(c, f, o);
-    beard(c, f, { color: "#2b211b", e: -0.01, len: -0.03, hi: "#5d4c40", locks: [[[-0.55, 0.5], [-0.5, 0.7], [-0.4, 0.86], 0.04, 0.35], [[0.2, 0.5], [0.24, 0.66], [0.2, 0.84], 0.04, 0.3]] });
-    mouth(c, f, o, true);
-    hair(c, f, { color: "#251b16", vol: 1.04, bump: 0.05, n: 8, line: 0.0, side: 0.24, hi: "#6a5444",
-      fringe: [[-0.5, -0.5], [-0.34, -0.56], [-0.08, -0.6]],
-      locks: [[[-0.6, -0.76], [-0.3, -0.95], [0.05, -1.02], 0.05, 0.25], [[-0.46, -0.5], [-0.3, -0.62], [-0.1, -0.7], 0.04, 0.2]] });
+    beard(c, f, ASHER_BEARD);
+    mouth(c, f, o, ASHER_BEARD);
+    hair(c, f, { color: "#251b16", lumps: 6, amp: 0.07, seed: 27, vol: 1.06, hi: "#6a5444",
+      ear: [[0.96, 0.5], [0.92, 0.66, 1], [0.84, 0.52], [0.8, 0.64, 1], [0.74, 0.46], [0.8, 0.28], [0.8, 0.12], [0.72, 0.04], [0.6, 0.06], [0.5, 0.14], [0.47, 0.26, 1], [0.4, 0.06], [0.34, -0.2], [0.3, -0.44, 1]],
+      line: [[0.16, -0.52], [0.02, -0.5], [-0.1, -0.38, 1], [-0.2, -0.52], [-0.34, -0.5], [-0.45, -0.4, 1], [-0.52, -0.54], [-0.64, -0.46]],
+      locks: [[[-0.6, -0.76], [-0.3, -0.98], [0.05, -1.06], 0.05, 0.25], [[-0.46, -0.5], [-0.3, -0.64], [-0.1, -0.72], 0.04, 0.2], [[0.5, -0.8], [0.76, -0.56], [0.9, -0.2], 0.04, 0.16]] });
   }
   var ASHER_TUNIC = "#93604b", CLOAK = "#6b4f3b", CLOAK_HI = "#866650", CLOAK_FOLD = "#4e392b";
 
@@ -8865,7 +8991,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.shape(b, [[-2.3, -1.5], [2.3, -1.5], [2.3, -1.12], [-2.3, -1.12]], HI, 0.4);
     var bands = [-1.42, -1.26, 1.34, 1.5];
     for (var i = 0; i < 4; i++) c.shape(b, [[bands[i], -1.5, 1], [bands[i] + 0.08, -1.5, 1], [bands[i] + 0.08, 1.0, 1], [bands[i], 1.0, 1]], "#7a5a44", 0.8);
-    // The head presses into the pillow: a soft shadow beside and below it.
+    // The head presses into the pillow: a soft shadow below and to the right of it.
     c.shape(b, [[0.5, -1.2], [1.04, -0.6], [1.12, 0.4], [0.86, 0.9], [0.2, 0.96], [0.62, 0.3], [0.8, -0.4]], SH, 0.2);
     c.end();
     c.shape(b, [[-1.92, -0.26], [-1.8, -1.0], [-1.66, -1.3], [-1.5, -0.26], [-1.62, 0.76], [-1.76, 0.6]], mix(PIL, SH, 0.16));
@@ -8922,40 +9048,27 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   // Asher's mother: head covering, tired and tender, a clay water jar held at her side.
   draw.mother = function (c) {
-    var o = withFace({ skin: "#9f6d4b", lip: "#87493b", brow: "#2a201b", jaw: 0.9, chin: 0.95, round: 0.2, open: 0.8, gaze: -0.14, tired: 0.9,
-      browIn: 0.03, browT: 0.75, arch: 1.1, smile: 0.2, lash: 1.15, age: 0.4, blush: 0.5 });
+    var o = withFace({ skin: "#a3714f", lip: "#9e5a52", brow: "#2e231d", jaw: 0.84, chin: 0.92, round: 0.32, open: 0.82, gaze: -0.14, tired: 0.7,
+      browIn: 0.04, browT: 0.6, arch: 1.25, smile: 0.32, lash: 1.45, age: 0.3, blush: 0.7, nose: 0.94, noseW: 0.88, mouthW: 0.92, soft: 1 });
     var f = frame(296, 248, 112, -0.07), b = frame(300, 248, 112, 0), B = bot(b);
-    var VE = "#6d4a58", VD = "#4f3441";
+    var VE = "#6d4a58", VD = "#4f3441", WRAP = "#c7b896";
     // Veil behind the head.
-    c.shape(b, [[-0.34, -1.12], [0.3, -1.16], [0.8, -0.95], [1.06, -0.5], [1.14, 0.2], [1.1, 0.8], [0.6, 1.0], [-0.7, 0.7], [-0.9, -0.3], [-0.76, -0.86]], VD, 1, true);
-    neck(c, f, o.skin, 0.88);
-    tunic(c, b, "#86705a", 0.9, 0.8);
+    c.shape(b, [[-0.34, -1.12], [0.3, -1.16], [0.8, -0.95], [1.06, -0.5], [1.14, 0.2], [1.1, 0.8], [0.96, 1.62], [-0.86, 1.62], [-0.92, 0.7], [-0.9, -0.3], [-0.76, -0.86]], VD, 1, true);
+    c.inner = true;
+    neck(c, f, o.skin, 0.86);
+    c.inner = false;
+    tunic(c, b, "#86705a", 0.9, 0.8, 0, true);
+    c.inner = true;
     head(c, f, o);
-    mouth(c, f, o, false);
+    mouth(c, f, o, null);
+    c.inner = false;
     // Hair under the wrap: dark, one gray strand at the far temple.
-    c.shape(f, [[-0.72, -0.58], [-0.4, -0.72], [0.1, -0.72], [0.3, -0.6], [0.36, -0.3], [0.2, -0.5], [-0.2, -0.6], [-0.56, -0.52], [-0.665, -0.2, 1], [-0.74, -0.3]], "#2b211b");
-    leaf(c, f, [-0.7, -0.3], [-0.64, -0.46], [-0.48, -0.58], 0.04, "#958a7e", 0.85);
-    // Undyed inner wrap across the forehead.
-    c.shape(f, [[-0.8, -0.62], [-0.4, -0.78], [0.1, -0.8], [0.48, -0.66], [0.5, -0.86], [0.1, -1.0], [-0.4, -0.98], [-0.82, -0.8]], "#cdbf9f");
-    c.shape(f, [[-0.8, -0.62], [-0.4, -0.78], [0.1, -0.8], [0.48, -0.66], [0.48, -0.7], [0.1, -0.85], [-0.4, -0.83], [-0.8, -0.67]], SH, 0.18);
-    // Veil front: over the crown, down both sides of the face, over the shoulders.
-    var vd = c.shape(b, [
-      [-0.9, B, 1], [-0.86, 2.6], [-0.78, 1.7], [-0.86, 0.9], [-0.86, 0.1], [-0.76, -0.66, 1], [-0.44, -0.84], [0.0, -0.9], [0.4, -0.78], [0.52, -0.5],
-      [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7], [1.0, 2.6], [1.0, B, 1], [2.0, B, 1], [1.98, 2.6], [1.86, 1.84], [1.5, 1.5], [1.16, 1.2],
-      [1.1, 0.5], [1.12, -0.1], [1.02, -0.66], [0.72, -1.04], [0.2, -1.22], [-0.36, -1.18], [-0.8, -0.92], [-0.98, -0.3], [-1.0, 0.5], [-1.08, 1.2],
-      [-1.4, 1.52], [-1.64, 1.9], [-1.74, 2.6], [-1.78, B, 1]
-    ], VE, 1, true);
-    c.inside(vd);
-    c.shape(b, [[-0.76, -0.66], [-0.44, -0.84], [0.0, -0.9], [0.4, -0.78], [0.52, -0.5], [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7],
-      [0.96, 1.66], [0.7, 1.2], [0.62, 0.6], [0.6, 0.0], [0.62, -0.5], [0.46, -0.88], [0.0, -0.98], [-0.46, -0.92], [-0.82, -0.7]], VD, 0.7);
-    c.shape(b, [[0.66, -0.3], [1.2, -0.6], [2.4, 1.7], [2.4, B], [1.5, B], [1.2, 3.0], [0.9, 1.7]], SH, 0.18);
-    c.shape(b, [[-0.66, -1.0], [-0.1, -1.18], [0.5, -1.06], [0.3, -0.94], [-0.2, -0.98]], HI, 0.2);
-    leaf(c, b, [0.8, -0.95], [1.0, -0.4], [1.04, 0.4], 0.08, VD, 0.8);
-    leaf(c, b, [-1.2, 1.6], [-1.36, 2.6], [-1.4, 3.8], 0.1, VD, 0.85);
-    leaf(c, b, [1.3, 1.6], [1.5, 2.4], [1.56, 3.6], 0.1, VD, 0.85);
-    c.end();
-    // Clay water jar held against her side, her hand over its shoulder.
-    var jc = b(1.42, 3.0), j = frame(jc[0], jc[1], 112, 0.08);
+    c.shape(f, [[-0.74, -0.62], [-0.4, -0.76], [0.1, -0.76], [0.36, -0.64], [0.38, -0.3], [0.2, -0.5], [-0.04, -0.58], [-0.14, -0.66, 1], [-0.26, -0.58], [-0.56, -0.5], [-0.665, -0.2, 1], [-0.75, -0.32]], "#3a2c24");
+    leaf(c, f, [-0.7, -0.3], [-0.64, -0.46], [-0.48, -0.58], 0.04, "#9a8f83", 0.85);
+    leaf(c, f, [-0.16, -0.7], [-0.38, -0.66], [-0.6, -0.56], 0.035, "#6b5646", 0.8);
+    leaf(c, f, [-0.12, -0.7], [0.1, -0.66], [0.3, -0.56], 0.035, "#6b5646", 0.7);
+    // Clay water jar held against her side, tucked under the edge of her veil.
+    var jc = b(0.92, 3.02), j = frame(jc[0], jc[1], 120, 0.06);
     var jar = c.shape(j, [[-0.17, -0.9, 1], [0.17, -0.9, 1], [0.15, -0.66], [0.48, -0.5], [0.58, -0.1], [0.52, 0.4], [0.3, 0.8], [0.0, 0.92], [-0.3, 0.8], [-0.52, 0.4], [-0.58, -0.1], [-0.48, -0.5], [-0.15, -0.66]], "#a6603c", 1, true);
     c.inside(jar);
     c.shape(j, [[0.1, -0.9], [0.8, -0.6], [0.8, 1.0], [0.0, 1.0], [0.24, 0.2]], SH, 0.26);
@@ -8963,30 +9076,49 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add('<path d="' + curve(mapPts(j, [[-0.56, -0.2], [0.0, -0.12], [0.56, -0.2]]), false) + '" fill="none" stroke="#6e3a22" stroke-width="3" opacity=".5"/>');
     c.end();
     c.shape(j, [[-0.22, -0.96, 1], [0.22, -0.96, 1], [0.22, -0.86, 1], [-0.22, -0.86, 1]], "#b97350", 1, true);
-    var skin = mix(o.skin, SH, 0.05);
-    mitt(c, j, [[-0.62, -0.52], [-0.36, -0.62], [-0.12, -0.56], [-0.04, -0.36], [-0.2, -0.26], [-0.48, -0.24], [-0.66, -0.34]],
-      [[[-0.3, -0.5], [-0.12, -0.42]], [[-0.34, -0.42], [-0.14, -0.34]]], skin);
+    // Veil front: over the crown, down both sides of the face, over the shoulders. Its
+    // undyed lining shows as a soft band along the face opening.
+    var opening = [[-0.76, -0.62], [-0.44, -0.78], [0.0, -0.82], [0.4, -0.72], [0.52, -0.48], [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7]];
+    var vd = c.shape(b, [
+      [-0.9, B, 1], [-0.86, 2.6], [-0.78, 1.7], [-0.86, 0.9], [-0.86, 0.1], [-0.76, -0.62, 1], [-0.44, -0.78], [0.0, -0.82], [0.4, -0.72], [0.52, -0.48],
+      [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7], [1.0, 2.6], [1.0, B, 1], [2.0, B, 1], [1.98, 2.6], [1.86, 1.84], [1.5, 1.5], [1.16, 1.2],
+      [1.1, 0.5], [1.12, -0.1], [1.02, -0.66], [0.72, -1.04], [0.2, -1.22], [-0.36, -1.18], [-0.8, -0.92], [-0.98, -0.3], [-1.0, 0.5], [-1.08, 1.2],
+      [-1.4, 1.52], [-1.64, 1.9], [-1.74, 2.6], [-1.78, B, 1]
+    ], VE, 1, true);
+    c.inside(vd);
+    var lining = opening.slice();
+    for (var i = opening.length - 1; i >= 0; i--) lining.push([opening[i][0] + (i > 3 ? 0.09 : 0.03), opening[i][1] - (i > 3 ? 0.0 : 0.09)]);
+    c.shape(b, lining, WRAP);
+    c.shape(b, opening.concat([[0.98, 1.66], [0.72, 1.2], [0.66, 0.6], [0.64, 0.0], [0.66, -0.5], [0.5, -0.9], [0.0, -1.02], [-0.46, -0.96], [-0.84, -0.72]]), VD, 0.45);
+    c.shape(b, [[0.66, -0.3], [1.2, -0.6], [2.4, 1.7], [2.4, B], [1.5, B], [1.2, 3.0], [0.9, 1.7]], SH, 0.18);
+    c.shape(b, [[-0.66, -1.0], [-0.1, -1.18], [0.5, -1.06], [0.3, -0.94], [-0.2, -0.98]], HI, 0.2);
+    leaf(c, b, [0.8, -0.95], [1.0, -0.4], [1.04, 0.4], 0.08, VD, 0.8);
+    leaf(c, b, [-1.2, 1.6], [-1.36, 2.6], [-1.4, 3.8], 0.1, VD, 0.85);
+    leaf(c, b, [1.3, 1.6], [1.5, 2.4], [1.56, 3.6], 0.1, VD, 0.85);
+    c.end();
   };
 
   // Asher's little brother: about 10, tousled hair, lively grin.
   draw.brother = function (c) {
     var o = withFace({ skin: "#ad7650", lip: "#9b5644", brow: "#2a1f18", jaw: 0.86, chin: 0.9, round: 0.45, open: 1.12, gaze: -0.2, browUp: 0.04,
-      browIn: 0.012, browT: 0.8, arch: 1.2, smile: 0.85, part: 0.7, eye: 1.14, blush: 1.2, nose: 0.88, mouthW: 0.95 });
+      browIn: 0.012, browT: 0.8, arch: 1.2, smile: 0.85, part: 0.7, eye: 1.14, blush: 1.2, nose: 0.88, noseW: 0.9, mouthW: 0.95, soft: 0.6 });
     var f = frame(312, 352, 100, 0.07), b = frame(314, 352, 100, 0);
     neck(c, f, o.skin, 0.85);
     tunic(c, b, "#ad8a50", 0.82, 0.9);
     head(c, f, o);
-    mouth(c, f, o, false);
-    hair(c, f, { color: "#2a1f18", spiky: true, bump: 0.13, n: 9, vol: 1.06, line: -0.02, side: 0.14, hi: "#7a604a",
-      fringe: [[-0.54, -0.44, 1], [-0.36, -0.6], [-0.2, -0.46, 1]],
+    mouth(c, f, o, null);
+    hair(c, f, { color: "#2a1f18", lumps: 7, amp: 0.1, seed: 44, tips: true, vol: 1.04, side: 0.14, hi: "#7a604a",
+      line: [[0.16, -0.5], [0.04, -0.38, 1], [-0.06, -0.52], [-0.2, -0.4, 1], [-0.3, -0.54], [-0.44, -0.42, 1], [-0.52, -0.56], [-0.64, -0.44]],
       locks: [[[-0.6, -0.7], [-0.3, -0.96], [0.1, -1.04], 0.05, 0.3]] });
   };
 
   // Neighbor: an ordinary townsman, middle-aged, bringing news; head cloth, gray in the beard.
   draw.neighbor = function (c) {
     var o = withFace({ skin: "#9b6a45", lip: "#80463a", brow: "#2b231e", jaw: 1.06, round: 0.3, open: 1.04, gaze: -0.18, browUp: 0.045,
-      browIn: 0.026, part: 0.5, smile: 0.05, age: 0.6, nose: 1.08 });
+      browIn: 0.026, part: 0.5, smile: 0.05, age: 0.6, nose: 1.1, noseW: 1.2 });
     var f = frame(296, 236, 120, -0.02), b = frame(302, 236, 120, 0), B = bot(b);
+    var bd = { color: "#2e2620", e: 0.04, len: 0.1, tufts: 5, amp: 0.045, seed: 52, hi: "#9b948a",
+      locks: [[[-0.6, 0.5], [-0.56, 0.72], [-0.46, 0.92], 0.05, 0.6], [[-0.3, 0.8], [-0.26, 1.0], [-0.2, 1.12], 0.04, 0.5], [[0.16, 0.66], [0.2, 0.86], [0.14, 1.02], 0.04, 0.4]] };
     neck(c, f, o.skin, 1.1);
     tunic(c, b, "#7a5c44", 1.05, 0.8);
     // Gray-brown mantle over both shoulders, open in front.
@@ -8999,25 +9131,30 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.shape(b, [[-1.7, 1.9], [-1.2, 1.5], [-0.6, 1.36], [-0.9, 1.6], [-1.4, 1.9]], HI, 0.16);
     c.end();
     head(c, f, o);
-    hair(c, f, { color: "#2c241e", line: 0.0, side: 0.18 });
-    beard(c, f, { color: "#2e2620", e: 0.04, len: 0.08, hi: "#9b948a", locks: [[[-0.6, 0.5], [-0.56, 0.72], [-0.46, 0.92], 0.05, 0.6], [[-0.3, 0.8], [-0.26, 1.0], [-0.2, 1.12], 0.04, 0.5], [[0.16, 0.66], [0.2, 0.86], [0.14, 1.02], 0.04, 0.4]] });
-    mouth(c, f, o, true);
+    hair(c, f, { color: "#2c241e", side: 0.18 });
+    beard(c, f, bd);
+    mouth(c, f, o, bd);
     headcloth(c, f, { color: "#c4b28c" });
   };
 
   // Passerby: an ordinary person in the lane, a little in shadow, glancing sideways while
   // muttering. Still human and plain, never villainous.
   draw.passerby = function (c) {
-    var o = withFace({ skin: "#976b4b", lip: "#7a473b", brow: "#262019", open: 0.86, gaze: -0.4, browIn: 0.006, smile: -0.12, part: 0.12, age: 0.5, sclera: "#d2c4aa" });
+    var o = withFace({ skin: "#976b4b", lip: "#7a473b", brow: "#262019", open: 0.86, gaze: -0.4, browIn: 0.006, smile: -0.12, part: 0.12, age: 0.5, sclera: "#d2c4aa", nose: 1.04 });
     var f = frame(300, 240, 118, -0.03), b = frame(304, 240, 118, 0), B = bot(b);
-    var CL = "#5d554a";
-    c.shape(b, [[-0.36, -1.1], [0.3, -1.15], [0.78, -0.94], [1.02, -0.5], [1.08, 0.2], [1.04, 0.8], [0.6, 1.0], [-0.7, 0.7], [-0.88, -0.3], [-0.76, -0.84]], mix(CL, SH, 0.4), 1, true);
+    var CL = "#5b4b3d", CD = "#3f342a";
+    var bd = { color: "#3a3029", tufts: 4, amp: 0.035, seed: 61, hi: "#8a8076", locks: [[[-0.56, 0.5], [-0.5, 0.7], [-0.4, 0.88], 0.04, 0.4]] };
+    c.shape(b, [[-0.36, -1.1], [0.3, -1.15], [0.78, -0.94], [1.02, -0.5], [1.08, 0.2], [1.04, 0.8], [0.92, 1.56], [-0.84, 1.56], [-0.88, 0.7], [-0.88, -0.3], [-0.76, -0.84]], CD, 1, true);
+    c.inner = true;
     neck(c, f, o.skin, 1.0);
-    tunic(c, b, "#6b5b49", 1.0, 0.8);
+    c.inner = false;
+    tunic(c, b, "#6e604e", 1.0, 0.8, 0, true);
+    c.inner = true;
     head(c, f, o);
-    beard(c, f, { color: "#3a3029", e: 0.0, len: 0.0, hi: "#8a8076", locks: [[[-0.56, 0.5], [-0.5, 0.7], [-0.4, 0.88], 0.04, 0.4]] });
-    mouth(c, f, o, true);
-    // Head cloth pulled forward; its edge shades the eyes.
+    beard(c, f, bd);
+    mouth(c, f, o, bd);
+    c.inner = false;
+    // Head cloth pulled forward; its edge shades the brow.
     var hd = c.shape(b, [
       [-0.86, B, 1], [-0.8, 2.4], [-0.84, 1.4], [-0.84, 0.5], [-0.8, -0.2], [-0.72, -0.48, 1], [-0.4, -0.58], [0.0, -0.6], [0.3, -0.52], [0.44, -0.3],
       [0.5, 0.1], [0.54, 0.6], [0.62, 1.2], [0.8, 1.7], [0.9, 2.4], [0.9, B, 1], [2.04, B, 1], [2.0, 2.6], [1.9, 1.86], [1.5, 1.48], [1.12, 1.2], [1.06, 0.5],
@@ -9026,57 +9163,68 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     ], CL, 1, true);
     c.inside(hd);
     c.shape(b, [[0.6, -0.3], [1.2, -0.6], [2.4, 1.7], [2.4, B], [1.4, B], [1.1, 3.0], [0.86, 1.7]], SH, 0.2);
-    leaf(c, b, [-1.25, 1.7], [-1.4, 2.6], [-1.44, 3.8], 0.1, "#423c34", 0.9);
-    leaf(c, b, [1.36, 1.7], [1.54, 2.5], [1.6, 3.8], 0.1, "#423c34", 0.9);
-    leaf(c, b, [0.78, -0.9], [0.98, -0.4], [1.02, 0.3], 0.08, "#423c34", 0.8);
+    c.shape(b, [[-0.64, -0.92], [-0.1, -1.12], [0.5, -1.0], [0.3, -0.86], [-0.2, -0.9]], HI, 0.16);
+    leaf(c, b, [-1.25, 1.7], [-1.4, 2.6], [-1.44, 3.8], 0.1, CD, 0.9);
+    leaf(c, b, [1.36, 1.7], [1.54, 2.5], [1.6, 3.8], 0.1, CD, 0.9);
+    leaf(c, b, [0.78, -0.9], [0.98, -0.4], [1.02, 0.3], 0.08, CD, 0.8);
     c.end();
     c.shape(f, [[-0.75, -0.5], [-0.4, -0.6], [0.0, -0.62], [0.42, -0.5], [0.46, -0.16], [0.0, -0.24], [-0.4, -0.22], [-0.7, -0.2]], "#10131c", 0.14);
-    c.tint = ["#141824", 0.1];
+    c.tints.push(["#1a1612", 0.1]);
   };
 
-  // One member of a group: neck, tunic, head, beard, mouth, hair or head cloth.
+  // One member of a group: neck, tunic, head, beard, mouth, hair or head cloth. Faces use
+  // the lite kit (fewer fine lines) to keep the file small.
   function member(c, x, y, R, m) {
+    m.face.lite = true;
     var o = withFace(m.face);
     var f = frame(x, y, R, m.tilt || 0), b = frame(x + R * 0.05, y, R, 0);
     if (m.hood) hoodBack(c, b, m.hood);
+    c.inner = !!m.hood;
     neck(c, f, o.skin, m.neck || 1);
-    tunic(c, b, m.tunic, m.k || 0.86, 0.8);
+    c.inner = false;
+    tunic(c, b, m.tunic, m.k || 0.86, 0.8, 0, !!m.hood || m.back);
+    c.inner = !!m.hood;
     head(c, f, o);
     if (!m.hood) hair(c, f, m.hair);
-    if (m.beard) beard(c, f, m.beard);
-    mouth(c, f, o, !!m.beard);
+    if (m.beard) { m.beard.lite = true; beard(c, f, m.beard); }
+    mouth(c, f, o, m.beard);
+    c.inner = false;
     if (m.cloth) headcloth(c, f, m.cloth);
-    if (m.hood) hoodFront(c, b, m.hood, m.k || 0.86);
+    if (m.hood) hoodFront(c, b, m.hood, m.k || 0.86, true);
     if (m.net) {
-      var nd = c.shape(b, [[0.9, 1.3], [1.6, 1.42], [2.02, 1.86], [2.1, 3.6], [1.5, 3.8], [1.2, 2.6]], "#bca77f", 0.92, true);
+      // A fishing net bundled over the shoulder, cork floats along its edge.
+      var nd = c.shape(b, [[0.66, 1.34], [1.3, 1.36], [1.72, 1.64], [1.86, 2.2], [1.84, 3.1], [1.62, 3.5], [1.44, 3.2], [1.26, 3.62], [1.04, 3.24], [0.86, 3.5], [0.74, 2.6]], "#cbb68c", 0.82, true);
       c.inside(nd);
       var g = "";
-      for (var i = -6; i < 12; i++) {
-        var p0 = b(0.8 + i * 0.16, 1.2), p1 = b(0.8 + i * 0.16 + 1.4, 3.9), p2 = b(0.8 + i * 0.16 + 1.4, 1.2), p3 = b(0.8 + i * 0.16, 3.9);
+      for (var i = -8; i < 10; i++) {
+        var p0 = b(0.6 + i * 0.17, 1.2), p1 = b(0.6 + i * 0.17 + 1.5, 3.8), p2 = b(0.6 + i * 0.17 + 1.5, 1.2), p3 = b(0.6 + i * 0.17, 3.8);
         g += "M" + nums(p0) + "L" + nums(p1) + "M" + nums(p2) + "L" + nums(p3);
       }
-      c.add('<path d="' + g + '" stroke="#6e5c40" stroke-width="2" opacity=".55"/>');
-      c.shape(b, [[1.5, 1.3], [2.3, 1.6], [2.3, 4.0], [1.6, 4.0]], SH, 0.2);
+      c.add('<path d="' + g + '" stroke="#6e5c40" stroke-width="2" opacity=".6"/>');
+      c.shape(b, [[1.4, 1.3], [2.2, 1.6], [2.2, 4.0], [1.5, 4.0]], SH, 0.22);
       c.end();
+      c.shape(b, ellPts(0.92, 1.46, 0.11, 0.075, 8), "#a8743c", 1, true);
+      c.shape(b, ellPts(1.44, 1.56, 0.11, 0.075, 8), "#a8743c", 1, true);
+      c.shape(b, ellPts(1.8, 1.98, 0.075, 0.11, 8), "#96652f", 1, true);
     }
   }
 
   // Yonah's net partners, together in one image (number deliberately not emphasized).
   draw.partners = function (c) {
-    member(c, 300, 214, 80, {
-      face: { skin: "#9a6943", lip: "#80463a", brow: "#2b231e", open: 0.9, smile: 0.3, crinkle: 0.5, gaze: -0.2, age: 0.7, jaw: 1.04 },
+    member(c, 300, 214, 80, { back: true,
+      face: { skin: "#9a6943", lip: "#80463a", brow: "#2b231e", open: 0.9, smile: 0.3, crinkle: 0.5, gaze: -0.2, age: 0.7, jaw: 1.04, noseW: 1.1 },
       tunic: "#c4b494", cloth: { color: "#b9a682" }, hair: { color: "#2c241e" },
-      beard: { color: "#3a322b", e: 0.03, len: 0.1, hi: "#a59d92", locks: [[[-0.5, 0.6], [-0.44, 0.8], [-0.34, 0.98], 0.05, 0.7], [[0.1, 0.7], [0.14, 0.9], [0.1, 1.04], 0.05, 0.6]] }
+      beard: { color: "#3a322b", e: 0.03, len: 0.1, tufts: 4, amp: 0.04, seed: 71, hi: "#a59d92", locks: [[[-0.5, 0.6], [-0.44, 0.8], [-0.34, 0.98], 0.05, 0.7], [[0.1, 0.7], [0.14, 0.9], [0.1, 1.04], 0.05, 0.6]] }
     });
     member(c, 172, 322, 88, {
-      face: { skin: "#7c5034", lip: "#6c392b", brow: "#1d1611", open: 0.95, smile: 0.5, crinkle: 0.6, gaze: -0.18, jaw: 1.05, browT: 1.1 },
-      tunic: "#5a7262", hair: { color: "#1c1511", bump: 0.08, n: 10, line: 0.04, hi: "#5b4a3d" },
-      beard: { color: "#1f1813", e: 0.0, len: -0.05 }
+      face: { skin: "#7c5034", lip: "#6c392b", brow: "#1d1611", open: 0.95, smile: 0.5, crinkle: 0.6, gaze: -0.18, jaw: 1.05, browT: 1.1, noseW: 1.15 },
+      tunic: "#5a7262", hair: { color: "#1c1511", lumps: 8, amp: 0.08, seed: 15, line: [[0.14, -0.56], [-0.04, -0.6], [-0.2, -0.56], [-0.36, -0.62], [-0.54, -0.56], [-0.64, -0.44]], hi: "#5b4a3d", curls: 6 },
+      beard: { color: "#1f1813", e: 0.0, len: -0.05, tufts: 4, amp: 0.03, seed: 73 }
     });
     member(c, 432, 330, 88, {
       face: { skin: "#8a5a3a", lip: "#74402f", brow: "#211a15", open: 0.9, smile: 0.25, gaze: -0.2, jaw: 1.1, nose: 1.06, browT: 1.1 },
       tunic: "#6d5440", cloth: { color: "#9c7d57", low: 0.06 }, hair: { color: "#211a15" }, net: true,
-      beard: { color: "#211a15", e: 0.05, len: 0.12, hi: "#5b4a3d", locks: [[[-0.5, 0.6], [-0.44, 0.84], [-0.34, 1.02], 0.05, 0.4]] }
+      beard: { color: "#211a15", e: 0.05, len: 0.12, tufts: 4, amp: 0.045, seed: 75, hi: "#5b4a3d", locks: [[[-0.5, 0.6], [-0.44, 0.84], [-0.34, 1.02], 0.05, 0.4]] }
     });
   };
 
@@ -9084,23 +9232,26 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   draw.scribes = function (c) {
     var M1 = { cloth: "#e0d6be", dark: "#b8aa8d", inner: "#90836c", band: "#2f3442" };
     var M2 = { cloth: "#d6cbb0", dark: "#ae9f81", inner: "#867963", band: "#2f3442" };
-    member(c, 304, 212, 80, {
+    member(c, 304, 212, 80, { back: true,
       face: { skin: "#b07d55", lip: "#8e4c3c", brow: "#2a201a", open: 0.86, gaze: -0.12, browIn: -0.008, smile: -0.06, jaw: 0.98 },
       tunic: "#7d6a4c", hood: M2, k: 0.82, beard: { color: "#2a201a", e: -0.02, len: -0.02 }
     });
     member(c, 176, 320, 90, {
-      face: { skin: "#a6744f", lip: "#86493a", brow: "#4a423b", open: 0.84, gaze: -0.14, browIn: -0.01, smile: -0.08, age: 1, hollow: 0.4 },
+      face: { skin: "#a6744f", lip: "#86493a", brow: "#4a423b", open: 0.84, gaze: -0.14, browIn: -0.01, smile: -0.08, age: 1, hollow: 0.4, nose: 1.06 },
       tunic: "#8a6a3c", hood: M1, k: 0.84,
-      beard: { color: "#6e665d", e: 0.05, len: 0.4, hi: "#c2bbaf", locks: [[[-0.6, 0.5], [-0.54, 0.82], [-0.44, 1.12], 0.07, 0.8], [[-0.3, 0.8], [-0.24, 1.1], [-0.16, 1.38], 0.07, 0.8], [[0.06, 0.78], [0.1, 1.04], [0.06, 1.3], 0.06, 0.6]] }
+      beard: { color: "#6e665d", e: 0.05, len: 0.4, tufts: 4, amp: 0.05, seed: 81, hi: "#c2bbaf", locks: [[[-0.6, 0.5], [-0.54, 0.82], [-0.44, 1.12], 0.07, 0.8], [[-0.3, 0.8], [-0.24, 1.1], [-0.16, 1.38], 0.07, 0.8], [[0.06, 0.78], [0.1, 1.04], [0.06, 1.3], 0.06, 0.6]] }
     });
     member(c, 430, 328, 88, {
-      face: { skin: "#8f6244", lip: "#7a4234", brow: "#211a15", open: 0.84, gaze: -0.14, browIn: -0.012, smile: -0.08, jaw: 1.06, nose: 1.08, age: 0.4 },
+      face: { skin: "#8f6244", lip: "#7a4234", brow: "#211a15", open: 0.84, gaze: -0.14, browIn: -0.012, smile: -0.08, jaw: 1.06, nose: 1.08, noseW: 1.1, age: 0.4 },
       tunic: "#5e5444", hood: M2, k: 0.84,
-      beard: { color: "#221b16", e: 0.04, len: 0.22, hi: "#5f5046", locks: [[[-0.5, 0.6], [-0.44, 0.86], [-0.34, 1.1], 0.05, 0.4]] }
+      beard: { color: "#221b16", e: 0.04, len: 0.22, tufts: 4, amp: 0.045, seed: 83, hi: "#5f5046", locks: [[[-0.5, 0.6], [-0.44, 0.86], [-0.34, 1.1], 0.05, 0.4]] }
     });
   };
 
   // ---------------------------------------------------------------- public API
+
+  // Optional washes so a figure sits in the scene's light: opts.light = "lamp" | "dusk" | "night".
+  var LIGHT = { lamp: ["#4a2810", 0.2], dusk: ["#2c1a3a", 0.2], night: ["#0d1220", 0.3] };
 
   var FACING = {};
   for (var fi = 0; fi < IDS.length; fi++) FACING[IDS[fi]] = "left";
@@ -9109,7 +9260,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     ids: IDS.slice(),
     // Every portrait looks toward screen-left; mirror with CSS scaleX(-1) to face right.
     facing: FACING,
-    // render(id, { pose?: "standing"|"lying" (asher only, default "lying"), uid?: string })
+    // render(id, { pose?: "standing"|"lying" (asher only, default "lying"),
+    //              light?: "lamp"|"dusk"|"night" (optional wash to match the scene), uid?: string })
     // -> SVG string, or null for unknown ids (including "jesus", who is never drawn).
     render: function (id, opts) {
       var o = opts || {};
@@ -9118,6 +9270,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       PREC = 1;
       var c = new Ctx(id, uid);
       draw[id](c, o);
+      if (typeof o.light === "string" && Object.prototype.hasOwnProperty.call(LIGHT, o.light)) c.tints.push(LIGHT[o.light]);
       return c.svg();
     }
   };
@@ -9670,12 +9823,29 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   var portraitCache = {};
 
-  function portraitMarkup(id, pose) {
-    var key = id + "|" + (pose || "");
+  // Scene light washes for portraits so figures sit in lamp, dusk, or night light.
+  function portraitLight(stage) {
+    if (!stage) return "";
+    var bg = stage.bg, time = stage.time;
+    if (bg === "dawn_lamp") return "lamp";
+    if (bg === "lamp_night") return "night";
+    if (bg === "doorway_evening") return "dusk";
+    if (bg === "asher_home" || bg === "asher_ceiling") {
+      if (time === "night") return "night";
+      if (time === "evening") return "dusk";
+    }
+    return "";
+  }
+
+  function portraitMarkup(id, pose, light) {
+    var key = id + "|" + (pose || "") + "|" + (light || "");
     if (Object.prototype.hasOwnProperty.call(portraitCache, key)) return portraitCache[key];
     var m = null;
     try {
-      if (BHS.portraits && typeof BHS.portraits.render === "function") m = BHS.portraits.render(id, pose ? { pose: pose } : {});
+      var opts = {};
+      if (pose) opts.pose = pose;
+      if (light) opts.light = light;
+      if (BHS.portraits && typeof BHS.portraits.render === "function") m = BHS.portraits.render(id, opts);
     } catch (err) {
       if (window.console) console.warn("[BHS.view] portraits.render failed for " + id, err);
       m = null;
@@ -9722,8 +9892,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       var entry = null;
       for (var i = 0; i < cast.length; i++) if (cast[i].slot === slot) entry = cast[i];
       var fig = layer.querySelector('.figure[data-slot="' + slot + '"]');
-      var markup = entry ? portraitMarkup(entry.id, entry.pose) : null;
-      var key = entry ? entry.id + "|" + (entry.pose || "") : "";
+      var light = portraitLight(stage);
+      var markup = entry ? portraitMarkup(entry.id, entry.pose, light) : null;
+      var key = entry ? entry.id + "|" + (entry.pose || "") + "|" + light : "";
       if (!entry || !markup) {
         if (fig) dropFigure(fig);
         return;
