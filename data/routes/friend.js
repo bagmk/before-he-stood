@@ -38,16 +38,16 @@
         type: "line",
         id: "home-arrive",
         text: {
-          ko: "요나가 어릴 적 친구의 집에 뛰어든다. “아셀! 그분이 오신대. 같이 가자!”",
-          en: "Yonah bursts into his childhood friend's house. “Asher! Jesus is coming. Come with me!”"
+          ko: "요나가 네 해째 누워 지내는 친구 아셀의 집에 뛰어든다. “아셀! 그분이 배로 돌아오신대. 같이 가자!”",
+          en: "Yonah bursts into the house of Asher, his childhood friend, bedridden four years now. “Asher! Jesus is coming back by boat. Come with me!”"
         }
       },
       {
         type: "choice",
         id: "c1",
         prompt: {
-          ko: "네 해째 걷지 못하는 아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
-          en: "Four years unable to walk, Asher stares at the ceiling. “What did I do wrong to end up like this?”"
+          ko: "아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
+          en: "Asher stares at the ceiling. “What did I do wrong to end up like this?”"
         },
         options: [
           {
@@ -59,8 +59,8 @@
           {
             id: "b",
             text: {
-              ko: "“내 도움을 받으려고 네 고통을 해명할 필요는 없어.”",
-              en: "“You don't have to explain your pain to get my help.”"
+              ko: "“왜 아픈지 나한테 설명 안 해도 돼. 그래도 도울 거야.”",
+              en: "“You don't have to explain why you're hurting. I'm helping anyway.”"
             },
             lens: 3,
             reaction: [
@@ -79,7 +79,7 @@
             id: "d",
             text: { ko: "“왜 이렇게 됐는지는 나도 몰라.”", en: "“I don't know why this happened either.”" },
             lens: 1,
-            reaction: [{ type: "line", speaker: "asher", text: { ko: "…그래. 아무도 모르지.", en: "…Yeah. Nobody does." } }]
+            reaction: [{ type: "line", speaker: "asher", text: { ko: "그래. 아무도 모르지.", en: "Yeah. Nobody does." } }]
           }
         ]
       },
@@ -131,7 +131,7 @@
             },
             lens: 1,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…이제 나를 폭풍이랑 비교하는 거야?", en: "…So now I'm being compared to a storm?" } }
+              { type: "line", speaker: "asher", text: { ko: "이제 나를 폭풍이랑 비교하는 거야?", en: "So now I'm being compared to a storm?" } }
             ]
           },
           {
@@ -139,7 +139,7 @@
             text: { ko: "아셀에게 속삭인다. “신경 쓰지 마. 끝까지 간다.”", en: "Whisper to Asher, “Don't listen. We're going all the way.”" },
             lens: 2,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…알았어. 근데 네 손이 떨려.", en: "…Okay. But your hands are shaking." } }
+              { type: "line", speaker: "asher", text: { ko: "알았어. 근데 네 손이 떨려.", en: "Okay. But your hands are shaking." } }
             ]
           },
           {
@@ -147,13 +147,14 @@
             text: { ko: "“그걸 어떻게 아세요?” 행인 앞을 막아선다.", en: "“How would you know that?” Block the passerby's way." },
             lens: 3,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…고마워. 근데 침상은 똑바로 들어.", en: "…Thanks. But keep the bed level." } }
+              { type: "line", speaker: "asher", text: { ko: "고마워. 근데 침상은 똑바로 들어.", en: "Thanks. But keep the bed level." } }
             ]
           },
           {
             // Cut option (SPEC v3 section 3): the route ends after this reaction; endings.cut follows.
             id: "d",
-            text: { ko: "침상을 내려놓는다. “…오늘은 안 되겠어.”", en: "Set the bed down. “…I can't do this today.”" },
+            // A real motive from the lane (the stares, the remark), not a quit button.
+            text: { ko: "침상을 내려놓는다. “…다들 쳐다보잖아. 오늘은 안 되겠어.”", en: "Set the bed down. “…Everyone's staring. I can't do this today.”" },
             lens: null,
             cut: true,
             reaction: [
@@ -196,7 +197,7 @@
         options: [
           {
             id: "a",
-            text: { ko: "“저 말은 하나님만 하실 수 있는 말인데.”", en: "“Only God can say that.”" },
+            text: { ko: "저 말은 하나님만 하실 수 있는 말인데.", en: "But only God can say that…" },
             lens: 1,
             reaction: [
               {
@@ -211,7 +212,7 @@
           },
           {
             id: "b",
-            text: { ko: "“왜 그 말부터 하셨지?”", en: "“Why did he say that first?”" },
+            text: { ko: "왜 그 말부터 하셨지?", en: "Why did he say that first?" },
             lens: 2,
             reaction: [
               {
@@ -240,7 +241,7 @@
           },
           {
             id: "d",
-            text: { ko: "“하지만 우리는 걷게 해 달라고 왔는데.”", en: "“But we came so he could walk.”" },
+            text: { ko: "하지만 우리는 걷게 해 달라고 왔는데.", en: "But we came so he could walk." },
             lens: 3,
             reaction: [
               {
@@ -293,7 +294,7 @@
             id: "b",
             text: {
               ko: "“먼저 죄 사함을 말씀하셨어. 일어나라는 건 그다음이었어.”",
-              en: "“He spoke of forgiveness of sins first. Telling him to get up came after.”"
+              en: "“He talked about forgiveness of sins first. Getting up came after.”"
             },
             lens: 2
           },
@@ -301,7 +302,7 @@
             id: "c",
             text: {
               ko: "“못 걷던 애가 걷잖아! 우리가 데려갔다고!”",
-              en: "“He couldn't walk, and look at him now! We're the ones who brought him!”"
+              en: "“He couldn't walk—now look at him! And we brought him!”"
             },
             lens: 3
           },
@@ -362,7 +363,7 @@
           }
         ],
         last: {
-          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그 전의 첫마디도 기억한다.",
+          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그가 일어나기 전의 첫마디도 기억한다.",
           en: "Everyone remembers that Asher walked. I remember the first words too, the ones before he stood."
         }
       },
@@ -396,18 +397,15 @@
               en: "Yonah stays where he is in the lane. The bed disappears into the crowd."
             }
           },
-          {
-            type: "line",
-            id: "cut-shout",
-            speaker: "sign",
-            text: { ko: "― 골목 아래에서 터지는 함성 ―", en: "— A great shout from below —" }
-          },
+          // The event happens without him. This path never reached the crowd, so the verse the
+          // last line turns on ("their faith") is shown here; it breaks off before the words to Asher.
+          { type: "verse", id: "cut-9-2a", key: "MT_9_2A" },
           {
             type: "line",
             id: "cut-walks-up",
             text: {
-              ko: "한참 뒤, 누군가 골목을 걸어 올라온다. 자기 침상을 든 아셀이다.",
-              en: "Much later, someone comes walking up the lane. It's Asher, carrying his own bed."
+              ko: "함성이 잦아들고 한참 뒤, 누군가 골목을 걸어 올라온다. 자기 침상을 든 아셀이다.",
+              en: "Long after the shout from below dies down, someone comes walking up the lane. It's Asher, carrying his own bed."
             }
           },
           {
@@ -418,7 +416,7 @@
         ],
         last: {
           ko: "그분은 *그들의* 믿음을 보셨다. 그날 침상을 든 손들 가운데 네 손은 없었다.",
-          en: "He saw *their* faith. That day, your hands were not among those that carried the bed."
+          en: "He saw *their* faith. That day, your hands weren't among the ones carrying the bed."
         }
       }
     }

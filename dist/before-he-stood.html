@@ -2974,7 +2974,7 @@ html.is-test .echo mark {
         tagline: { ko: "한 사람을 예수님께 데려가는 사람", en: "He carries a friend to Jesus." },
         firstLine: {
           ko: "그가 다시 걸을 수 있다면, 오늘 내가 할 수 있는 건 뭐든 하겠다.",
-          en: "If he could walk again, I'd do whatever I can today."
+          en: "If it means he can walk again, I'll do whatever I can today."
         },
         lensDesc: {
           1: { ko: "그분이 누구시고 무엇을 하실 수 있는지", en: "who he is and what he can do" },
@@ -3440,9 +3440,10 @@ html.is-test .echo mark {
       { type: "line", text: { ko: "가버나움. 예수라는 사람이 배를 타고 돌아온다.", en: "Capernaum. A man named Jesus is coming back by boat." } },
       {
         type: "line",
+        // Both rumors point to the sermon text (Matt 8:23-27 and 8:28-34) before the game's own story (9:1-8).
         text: {
-          ko: "폭풍이 그의 말 한마디에 잠잠해졌다는 소문이 그보다 먼저 도착했다.",
-          en: "A rumor got here before he did: a storm went still at a single word from him."
+          ko: "폭풍이 그의 말 한마디에 잠잠해졌다는 소문, 건너편에서 귀신들이 쫓겨났다는 소문이 그보다 먼저 도착했다.",
+          en: "Rumors got here before he did: a storm went still at a single word from him, and demons were driven out across the lake."
         }
       },
       {
@@ -3455,13 +3456,15 @@ html.is-test .echo mark {
     ],
 
     routeSelect: {
-      prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" }
+      prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" },
+      // The scribe's unspoken thought (route 1) is answered in routes 2 and 3; Asher standing up comes last.
+      hint: { ko: "추천 순서: 서기관 → 친구 → 아셀", en: "Suggested order: scribe → friend → Asher" }
     },
 
     // Shown before the ending when the ending lens differs from the lens of the last (double-weight) pick.
     mismatchLine: {
-      ko: "마지막 말은 다른 데로 가려 했다. 그런데 네 눈이 계속 머문 곳은 따로 있었다.",
-      en: "Your last words leaned one way. But your eyes kept resting somewhere else."
+      ko: "끝에서는 한쪽으로 기울었다. 그런데 오늘 내내 네 눈이 머문 곳은 따로 있었다.",
+      en: "At the end, you leaned one way. But all day, your eyes kept going somewhere else."
     }
   };
 })();
@@ -3939,16 +3942,16 @@ html.is-test .echo mark {
         type: "line",
         id: "home-arrive",
         text: {
-          ko: "요나가 어릴 적 친구의 집에 뛰어든다. “아셀! 그분이 오신대. 같이 가자!”",
-          en: "Yonah bursts into his childhood friend's house. “Asher! Jesus is coming. Come with me!”"
+          ko: "요나가 네 해째 누워 지내는 친구 아셀의 집에 뛰어든다. “아셀! 그분이 배로 돌아오신대. 같이 가자!”",
+          en: "Yonah bursts into the house of Asher, his childhood friend, bedridden four years now. “Asher! Jesus is coming back by boat. Come with me!”"
         }
       },
       {
         type: "choice",
         id: "c1",
         prompt: {
-          ko: "네 해째 걷지 못하는 아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
-          en: "Four years unable to walk, Asher stares at the ceiling. “What did I do wrong to end up like this?”"
+          ko: "아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
+          en: "Asher stares at the ceiling. “What did I do wrong to end up like this?”"
         },
         options: [
           {
@@ -3960,8 +3963,8 @@ html.is-test .echo mark {
           {
             id: "b",
             text: {
-              ko: "“내 도움을 받으려고 네 고통을 해명할 필요는 없어.”",
-              en: "“You don't have to explain your pain to get my help.”"
+              ko: "“왜 아픈지 나한테 설명 안 해도 돼. 그래도 도울 거야.”",
+              en: "“You don't have to explain why you're hurting. I'm helping anyway.”"
             },
             lens: 3,
             reaction: [
@@ -3980,7 +3983,7 @@ html.is-test .echo mark {
             id: "d",
             text: { ko: "“왜 이렇게 됐는지는 나도 몰라.”", en: "“I don't know why this happened either.”" },
             lens: 1,
-            reaction: [{ type: "line", speaker: "asher", text: { ko: "…그래. 아무도 모르지.", en: "…Yeah. Nobody does." } }]
+            reaction: [{ type: "line", speaker: "asher", text: { ko: "그래. 아무도 모르지.", en: "Yeah. Nobody does." } }]
           }
         ]
       },
@@ -4032,7 +4035,7 @@ html.is-test .echo mark {
             },
             lens: 1,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…이제 나를 폭풍이랑 비교하는 거야?", en: "…So now I'm being compared to a storm?" } }
+              { type: "line", speaker: "asher", text: { ko: "이제 나를 폭풍이랑 비교하는 거야?", en: "So now I'm being compared to a storm?" } }
             ]
           },
           {
@@ -4040,7 +4043,7 @@ html.is-test .echo mark {
             text: { ko: "아셀에게 속삭인다. “신경 쓰지 마. 끝까지 간다.”", en: "Whisper to Asher, “Don't listen. We're going all the way.”" },
             lens: 2,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…알았어. 근데 네 손이 떨려.", en: "…Okay. But your hands are shaking." } }
+              { type: "line", speaker: "asher", text: { ko: "알았어. 근데 네 손이 떨려.", en: "Okay. But your hands are shaking." } }
             ]
           },
           {
@@ -4048,13 +4051,14 @@ html.is-test .echo mark {
             text: { ko: "“그걸 어떻게 아세요?” 행인 앞을 막아선다.", en: "“How would you know that?” Block the passerby's way." },
             lens: 3,
             reaction: [
-              { type: "line", speaker: "asher", text: { ko: "…고마워. 근데 침상은 똑바로 들어.", en: "…Thanks. But keep the bed level." } }
+              { type: "line", speaker: "asher", text: { ko: "고마워. 근데 침상은 똑바로 들어.", en: "Thanks. But keep the bed level." } }
             ]
           },
           {
             // Cut option (SPEC v3 section 3): the route ends after this reaction; endings.cut follows.
             id: "d",
-            text: { ko: "침상을 내려놓는다. “…오늘은 안 되겠어.”", en: "Set the bed down. “…I can't do this today.”" },
+            // A real motive from the lane (the stares, the remark), not a quit button.
+            text: { ko: "침상을 내려놓는다. “…다들 쳐다보잖아. 오늘은 안 되겠어.”", en: "Set the bed down. “…Everyone's staring. I can't do this today.”" },
             lens: null,
             cut: true,
             reaction: [
@@ -4097,7 +4101,7 @@ html.is-test .echo mark {
         options: [
           {
             id: "a",
-            text: { ko: "“저 말은 하나님만 하실 수 있는 말인데.”", en: "“Only God can say that.”" },
+            text: { ko: "저 말은 하나님만 하실 수 있는 말인데.", en: "But only God can say that…" },
             lens: 1,
             reaction: [
               {
@@ -4112,7 +4116,7 @@ html.is-test .echo mark {
           },
           {
             id: "b",
-            text: { ko: "“왜 그 말부터 하셨지?”", en: "“Why did he say that first?”" },
+            text: { ko: "왜 그 말부터 하셨지?", en: "Why did he say that first?" },
             lens: 2,
             reaction: [
               {
@@ -4141,7 +4145,7 @@ html.is-test .echo mark {
           },
           {
             id: "d",
-            text: { ko: "“하지만 우리는 걷게 해 달라고 왔는데.”", en: "“But we came so he could walk.”" },
+            text: { ko: "하지만 우리는 걷게 해 달라고 왔는데.", en: "But we came so he could walk." },
             lens: 3,
             reaction: [
               {
@@ -4194,7 +4198,7 @@ html.is-test .echo mark {
             id: "b",
             text: {
               ko: "“먼저 죄 사함을 말씀하셨어. 일어나라는 건 그다음이었어.”",
-              en: "“He spoke of forgiveness of sins first. Telling him to get up came after.”"
+              en: "“He talked about forgiveness of sins first. Getting up came after.”"
             },
             lens: 2
           },
@@ -4202,7 +4206,7 @@ html.is-test .echo mark {
             id: "c",
             text: {
               ko: "“못 걷던 애가 걷잖아! 우리가 데려갔다고!”",
-              en: "“He couldn't walk, and look at him now! We're the ones who brought him!”"
+              en: "“He couldn't walk—now look at him! And we brought him!”"
             },
             lens: 3
           },
@@ -4263,7 +4267,7 @@ html.is-test .echo mark {
           }
         ],
         last: {
-          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그 전의 첫마디도 기억한다.",
+          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그가 일어나기 전의 첫마디도 기억한다.",
           en: "Everyone remembers that Asher walked. I remember the first words too, the ones before he stood."
         }
       },
@@ -4297,18 +4301,15 @@ html.is-test .echo mark {
               en: "Yonah stays where he is in the lane. The bed disappears into the crowd."
             }
           },
-          {
-            type: "line",
-            id: "cut-shout",
-            speaker: "sign",
-            text: { ko: "― 골목 아래에서 터지는 함성 ―", en: "— A great shout from below —" }
-          },
+          // The event happens without him. This path never reached the crowd, so the verse the
+          // last line turns on ("their faith") is shown here; it breaks off before the words to Asher.
+          { type: "verse", id: "cut-9-2a", key: "MT_9_2A" },
           {
             type: "line",
             id: "cut-walks-up",
             text: {
-              ko: "한참 뒤, 누군가 골목을 걸어 올라온다. 자기 침상을 든 아셀이다.",
-              en: "Much later, someone comes walking up the lane. It's Asher, carrying his own bed."
+              ko: "함성이 잦아들고 한참 뒤, 누군가 골목을 걸어 올라온다. 자기 침상을 든 아셀이다.",
+              en: "Long after the shout from below dies down, someone comes walking up the lane. It's Asher, carrying his own bed."
             }
           },
           {
@@ -4319,7 +4320,7 @@ html.is-test .echo mark {
         ],
         last: {
           ko: "그분은 *그들의* 믿음을 보셨다. 그날 침상을 든 손들 가운데 네 손은 없었다.",
-          en: "He saw *their* faith. That day, your hands were not among those that carried the bed."
+          en: "He saw *their* faith. That day, your hands weren't among the ones carrying the bed."
         }
       }
     }
@@ -4415,7 +4416,7 @@ html.is-test .echo mark {
       {
         type: "choice",
         id: "c1",
-        prompt: t("아픈 사람들이 붙들어 온 시편들. 오늘은 어느 기도로 시작할까?", "Psalms that sick people have long held on to. Which prayer do I start with today?"),
+        prompt: t("아침 기도로 드릴 시편. 어느 것이 내 마음에 가장 가까울까?", "A psalm for my morning prayer. Which one sounds most like me?"),
         options: [
           opt("a", "{{v:PS_38_3B}}", "{{v:PS_38_3B}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
@@ -4438,23 +4439,25 @@ html.is-test .echo mark {
       {
         type: "choice",
         id: "c2",
-        prompt: t("요나가 뛰어 들어온다. “그분이 배로 돌아오신대! 가자!” 뭐라고 하지?", "Yonah bursts in. “Jesus is coming back by boat! Let's go!” What do I say?"),
+        // Same words as Yonah's arrival line in the friend route, so the shared moment registers.
+        prompt: t("요나가 뛰어 들어온다. “아셀! 그분이 배로 돌아오신대. 같이 가자!” 뭐라고 하지?", "Yonah bursts in. “Asher! Jesus is coming back by boat. Come with me!” What do I say?"),
         options: [
-          opt("a", "가고 싶어. 근데 겁나.", "I want to go. But I'm scared.", 2),
-          opt("b", "그분이 어떤 분인데?", "Who is he, anyway?", 1),
+          opt("a", "“가고 싶어. 근데 겁나.”", "“I want to go. But I'm scared.”", 2),
+          opt("b", "“그분이 어떤 분인데?”", "“Who is he, anyway?”", 1),
           // A refusal is answered by waiting, not by lifting him anyway: he consents before the lane.
-          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 2, [
+          opt("c", "“싫어. 이 꼴로 사람들 앞에 나가기 싫어.”", "“No. I'm not going out in front of people like this.”", 2, [
             thought("요나는 따지지 않는다. 그냥 기다린다. 한참 뒤, 결국 내가 고개를 끄덕인다.", "Yonah doesn't argue. He just waits. After a long while, I nod.")
           ]),
-          opt("d", "내 겉옷 좀 줘. 그리고 가자.", "Hand me my cloak. Then let's go.", 3)
+          opt("d", "“내 겉옷 좀 줘. 그리고 가자.”", "“Hand me my cloak. Then let's go.”", 3)
         ]
       },
 
       // ---------- 3. THE LANE (SPEC §6.3), carried POV ----------
       scene("sky_carried", "lying", "늦은 아침 · 골목", "Late morning · The lane"),
       fx("actionReply", { action: "goout", text: t("나왔다. 내 발로 나온 건 아니지만.", "I'm out. Not on my own feet, but I'm out.") }),
-      // Skipped after c2 c, whose reaction already shows the wait and his nod (keeps the screen count).
-      when({ not: { choice: "c2", is: "c" } }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
+      // One sign per answer: a and b hesitate; d asked to go; c is skipped (its reaction shows the wait and his nod).
+      when({ any: [{ choice: "c2", is: "a" }, { choice: "c2", is: "b" }] }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
+      when({ choice: "c2", is: "d" }, sign("사람들이 너를 든다. 오늘은 네가 먼저 가자고 했다.", "People lift you. Today, you were the first to say, let's go.")),
       {
         type: "line",
         id: "lane-passerby",
@@ -4465,8 +4468,8 @@ html.is-test .echo mark {
         )
       },
       line(
-        "두 사람이 벽 쪽으로 비켜선다. 회당에서 보던 서기관 므나헴과 젊은 제자다. 잠깐, 서기관과 눈이 마주친다. 아무도 말하지 않는다.",
-        "Two men step aside: Menahem, a scribe Asher knows from the synagogue, and a young student. For a moment the scribe's eyes meet his. No one speaks."
+        "회당에서 보던 서기관 므나헴이 제자와 함께 비켜선다. 잠깐, 그와 아셀의 눈이 마주친다. 서로 아무 말이 없다.",
+        "Menahem, a scribe from the synagogue, steps aside with his student. For a moment, his eyes meet Asher's. Neither says a word."
       ),
 
       // ---------- 4. THE CROWD (SPEC §6.4), lying POV before Jesus ----------
@@ -4477,7 +4480,7 @@ html.is-test .echo mark {
       fx("light", { level: "bright" }),
       verse("MT_9_2B1", "first-words-1"),
       // Route title moment. The word means "child"; paraphrased, never quoted.
-      thought("나를 뭐라고 부르셨지? 꼭 아이를 부르듯이.", "What did he just call me? The way you'd call a child."),
+      thought("나를 뭐라고 부르셨지? 꼭 아이를 부르듯이.", "What did he just call me? Son—the way you'd call a child."),
       fx("hush"),
       verse("MT_9_2B2", "first-words-2"),
       fx("light", { level: "soft" }),
@@ -4517,7 +4520,7 @@ html.is-test .echo mark {
       ),
       verse("MT_9_4N"),
       verse("MT_9_4Q"),
-      thought("누구한테 하시는 말씀이지? 아무도 아무 말 안 했는데.", "Who is he talking to? Nobody said anything."),
+      thought("누구한테 하시는 말씀이지? 누워 있는 내 귀엔 아무 말도 안 들렸는데.", "Who's he talking to? Lying here, I didn't hear anyone say a thing."),
       verse("MT_9_5"),
       verse("MT_9_6A"),
       verse("MT_9_6N"),
@@ -4539,12 +4542,12 @@ html.is-test .echo mark {
       {
         type: "choice",
         id: "c4",
-        prompt: t("네 해 만에, 사람들과 같은 높이에 서 있다. 내 첫마디는?", "For the first time in four years, I'm standing eye to eye with people. What do I say first?"),
+        prompt: t("집으로 가는 길, 네 해 만에 사람들과 같은 높이에 서 있다. 내 첫마디는?", "Heading home, eye to eye with people for the first time in four years. What do I say first?"),
         options: [
-          opt("a", "그분이 나한테 먼저 말을 거셨어. 일어나기도 전에.", "He spoke to me first. Before I even stood up.", 2),
-          opt("b", "요나, 그분이 누구신지 알아야겠어.", "Yonah, I need to find out who he is.", 1),
-          opt("c", "요나, 집까지 달리기 시합이다. 안 봐준다.", "Yonah, race you home. I'm not going easy on you.", 3),
-          opt("d", "이 침상, 생각보다 가볍네.", "This bed's lighter than I thought.", 3)
+          opt("a", "“그분이 나한테 먼저 말을 거셨어. 일어나기도 전에.”", "“He spoke to me first. Before I even stood up.”", 2),
+          opt("b", "“요나, 그분이 누구신지 알아야겠어.”", "“Yonah, I need to find out who he is.”", 1),
+          opt("c", "“요나, 집까지 달리기 시합이다. 안 봐준다.”", "“Yonah, race you home. I'm not going easy on you.”", 3),
+          opt("d", "“이 침상, 생각보다 가볍네.”", "“This bed's lighter than I thought.”", 3)
         ]
       }
     ],
@@ -4559,11 +4562,11 @@ html.is-test .echo mark {
         beats: [
           when(
             { choice: "c2", is: "b" },
-            thought("아침엔 그분이 어떤 분이냐고 물었다. 나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "This morning I asked who he was. The one who got me walking said what only God can say.")
+            thought("아침엔 그분이 어떤 분이냐고 물었다. 나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "This morning I asked who he was. The one who raised me to my feet said what only God can say.")
           ),
           when(
             { not: { choice: "c2", is: "b" } },
-            thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who got me walking said what only God can say.")
+            thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who raised me to my feet said what only God can say.")
           )
         ],
         last: t("다리를 고칠 분을 만나러 갔다. 죄를 사하는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
@@ -4573,8 +4576,8 @@ html.is-test .echo mark {
       "2": {
         beats: [
           thought(
-            "오늘 일을 이야기할 때, ‘걸었다’로 시작하지 않을 거다. 누워 있던 나에게 그분이 먼저 말을 거신 순간부터다.",
-            "When I tell people about today, I won't start with “I walked.” I'll start with the moment he spoke to me first, while I was still lying there."
+            "오늘 일을 말할 때 ‘걸었다’로 시작하지 않겠다. 누워 있던 나에게 그분이 먼저 말을 거신 순간부터다.",
+            "When I tell people about today, I won't start with “I walked.” I'll start with him speaking to me while I was still lying down."
           )
         ],
         last: t("왜 병들었는지는 모른다. 오늘 그분이 나에게 하신 말씀은 안다.", "I don't know why I got sick. I do know what he said to me today.")

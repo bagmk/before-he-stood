@@ -60,7 +60,7 @@
         tagline: { ko: "한 사람을 예수님께 데려가는 사람", en: "He carries a friend to Jesus." },
         firstLine: {
           ko: "그가 다시 걸을 수 있다면, 오늘 내가 할 수 있는 건 뭐든 하겠다.",
-          en: "If he could walk again, I'd do whatever I can today."
+          en: "If it means he can walk again, I'll do whatever I can today."
         },
         lensDesc: {
           1: { ko: "그분이 누구시고 무엇을 하실 수 있는지", en: "who he is and what he can do" },

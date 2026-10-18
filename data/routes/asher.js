@@ -85,7 +85,7 @@
       {
         type: "choice",
         id: "c1",
-        prompt: t("아픈 사람들이 붙들어 온 시편들. 오늘은 어느 기도로 시작할까?", "Psalms that sick people have long held on to. Which prayer do I start with today?"),
+        prompt: t("아침 기도로 드릴 시편. 어느 것이 내 마음에 가장 가까울까?", "A psalm for my morning prayer. Which one sounds most like me?"),
         options: [
           opt("a", "{{v:PS_38_3B}}", "{{v:PS_38_3B}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
@@ -108,23 +108,25 @@
       {
         type: "choice",
         id: "c2",
-        prompt: t("요나가 뛰어 들어온다. “그분이 배로 돌아오신대! 가자!” 뭐라고 하지?", "Yonah bursts in. “Jesus is coming back by boat! Let's go!” What do I say?"),
+        // Same words as Yonah's arrival line in the friend route, so the shared moment registers.
+        prompt: t("요나가 뛰어 들어온다. “아셀! 그분이 배로 돌아오신대. 같이 가자!” 뭐라고 하지?", "Yonah bursts in. “Asher! Jesus is coming back by boat. Come with me!” What do I say?"),
         options: [
-          opt("a", "가고 싶어. 근데 겁나.", "I want to go. But I'm scared.", 2),
-          opt("b", "그분이 어떤 분인데?", "Who is he, anyway?", 1),
+          opt("a", "“가고 싶어. 근데 겁나.”", "“I want to go. But I'm scared.”", 2),
+          opt("b", "“그분이 어떤 분인데?”", "“Who is he, anyway?”", 1),
           // A refusal is answered by waiting, not by lifting him anyway: he consents before the lane.
-          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 2, [
+          opt("c", "“싫어. 이 꼴로 사람들 앞에 나가기 싫어.”", "“No. I'm not going out in front of people like this.”", 2, [
             thought("요나는 따지지 않는다. 그냥 기다린다. 한참 뒤, 결국 내가 고개를 끄덕인다.", "Yonah doesn't argue. He just waits. After a long while, I nod.")
           ]),
-          opt("d", "내 겉옷 좀 줘. 그리고 가자.", "Hand me my cloak. Then let's go.", 3)
+          opt("d", "“내 겉옷 좀 줘. 그리고 가자.”", "“Hand me my cloak. Then let's go.”", 3)
         ]
       },
 
       // ---------- 3. THE LANE (SPEC §6.3), carried POV ----------
       scene("sky_carried", "lying", "늦은 아침 · 골목", "Late morning · The lane"),
       fx("actionReply", { action: "goout", text: t("나왔다. 내 발로 나온 건 아니지만.", "I'm out. Not on my own feet, but I'm out.") }),
-      // Skipped after c2 c, whose reaction already shows the wait and his nod (keeps the screen count).
-      when({ not: { choice: "c2", is: "c" } }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
+      // One sign per answer: a and b hesitate; d asked to go; c is skipped (its reaction shows the wait and his nod).
+      when({ any: [{ choice: "c2", is: "a" }, { choice: "c2", is: "b" }] }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
+      when({ choice: "c2", is: "d" }, sign("사람들이 너를 든다. 오늘은 네가 먼저 가자고 했다.", "People lift you. Today, you were the first to say, let's go.")),
       {
         type: "line",
         id: "lane-passerby",
@@ -135,8 +137,8 @@
         )
       },
       line(
-        "두 사람이 벽 쪽으로 비켜선다. 회당에서 보던 서기관 므나헴과 젊은 제자다. 잠깐, 서기관과 눈이 마주친다. 아무도 말하지 않는다.",
-        "Two men step aside: Menahem, a scribe Asher knows from the synagogue, and a young student. For a moment the scribe's eyes meet his. No one speaks."
+        "회당에서 보던 서기관 므나헴이 제자와 함께 비켜선다. 잠깐, 그와 아셀의 눈이 마주친다. 서로 아무 말이 없다.",
+        "Menahem, a scribe from the synagogue, steps aside with his student. For a moment, his eyes meet Asher's. Neither says a word."
       ),
 
       // ---------- 4. THE CROWD (SPEC §6.4), lying POV before Jesus ----------
@@ -147,7 +149,7 @@
       fx("light", { level: "bright" }),
       verse("MT_9_2B1", "first-words-1"),
       // Route title moment. The word means "child"; paraphrased, never quoted.
-      thought("나를 뭐라고 부르셨지? 꼭 아이를 부르듯이.", "What did he just call me? The way you'd call a child."),
+      thought("나를 뭐라고 부르셨지? 꼭 아이를 부르듯이.", "What did he just call me? Son—the way you'd call a child."),
       fx("hush"),
       verse("MT_9_2B2", "first-words-2"),
       fx("light", { level: "soft" }),
@@ -187,7 +189,7 @@
       ),
       verse("MT_9_4N"),
       verse("MT_9_4Q"),
-      thought("누구한테 하시는 말씀이지? 아무도 아무 말 안 했는데.", "Who is he talking to? Nobody said anything."),
+      thought("누구한테 하시는 말씀이지? 누워 있는 내 귀엔 아무 말도 안 들렸는데.", "Who's he talking to? Lying here, I didn't hear anyone say a thing."),
       verse("MT_9_5"),
       verse("MT_9_6A"),
       verse("MT_9_6N"),
@@ -209,12 +211,12 @@
       {
         type: "choice",
         id: "c4",
-        prompt: t("네 해 만에, 사람들과 같은 높이에 서 있다. 내 첫마디는?", "For the first time in four years, I'm standing eye to eye with people. What do I say first?"),
+        prompt: t("집으로 가는 길, 네 해 만에 사람들과 같은 높이에 서 있다. 내 첫마디는?", "Heading home, eye to eye with people for the first time in four years. What do I say first?"),
         options: [
-          opt("a", "그분이 나한테 먼저 말을 거셨어. 일어나기도 전에.", "He spoke to me first. Before I even stood up.", 2),
-          opt("b", "요나, 그분이 누구신지 알아야겠어.", "Yonah, I need to find out who he is.", 1),
-          opt("c", "요나, 집까지 달리기 시합이다. 안 봐준다.", "Yonah, race you home. I'm not going easy on you.", 3),
-          opt("d", "이 침상, 생각보다 가볍네.", "This bed's lighter than I thought.", 3)
+          opt("a", "“그분이 나한테 먼저 말을 거셨어. 일어나기도 전에.”", "“He spoke to me first. Before I even stood up.”", 2),
+          opt("b", "“요나, 그분이 누구신지 알아야겠어.”", "“Yonah, I need to find out who he is.”", 1),
+          opt("c", "“요나, 집까지 달리기 시합이다. 안 봐준다.”", "“Yonah, race you home. I'm not going easy on you.”", 3),
+          opt("d", "“이 침상, 생각보다 가볍네.”", "“This bed's lighter than I thought.”", 3)
         ]
       }
     ],
@@ -229,11 +231,11 @@
         beats: [
           when(
             { choice: "c2", is: "b" },
-            thought("아침엔 그분이 어떤 분이냐고 물었다. 나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "This morning I asked who he was. The one who got me walking said what only God can say.")
+            thought("아침엔 그분이 어떤 분이냐고 물었다. 나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "This morning I asked who he was. The one who raised me to my feet said what only God can say.")
           ),
           when(
             { not: { choice: "c2", is: "b" } },
-            thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who got me walking said what only God can say.")
+            thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who raised me to my feet said what only God can say.")
           )
         ],
         last: t("다리를 고칠 분을 만나러 갔다. 죄를 사하는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
@@ -243,8 +245,8 @@
       "2": {
         beats: [
           thought(
-            "오늘 일을 이야기할 때, ‘걸었다’로 시작하지 않을 거다. 누워 있던 나에게 그분이 먼저 말을 거신 순간부터다.",
-            "When I tell people about today, I won't start with “I walked.” I'll start with the moment he spoke to me first, while I was still lying there."
+            "오늘 일을 말할 때 ‘걸었다’로 시작하지 않겠다. 누워 있던 나에게 그분이 먼저 말을 거신 순간부터다.",
+            "When I tell people about today, I won't start with “I walked.” I'll start with him speaking to me while I was still lying down."
           )
         ],
         last: t("왜 병들었는지는 모른다. 오늘 그분이 나에게 하신 말씀은 안다.", "I don't know why I got sick. I do know what he said to me today.")
