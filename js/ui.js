@@ -751,7 +751,9 @@
     var card = $("card");
     clear(card);
     card.hidden = true;
+    card.className = "card";
     card.removeAttribute("data-testid");
+    card.removeAttribute("data-cut");
     doc.body.classList.remove("is-last");
   }
 
@@ -922,12 +924,16 @@
   }
 
   var LENS_NUM = { 1: "①", 2: "②", 3: "③" };
+  // The mark of a route that stopped midway (the cut column and the cut ending card).
+  var CUT_MARK = "…";
 
+  // Ending title card. A cut ending shows meta.cut.label over meta.endings[route].cut.
   function renderCard(step) {
     var card = $("card");
     clear(card);
     var ls = langs();
-    card.appendChild(h("span", { class: "card__num", "aria-hidden": "true" }, LENS_NUM[step.lens] || ""));
+    card.className = "card" + (step.cut ? " card--cut" : "");
+    card.appendChild(h("span", { class: "card__num", "aria-hidden": "true" }, step.cut ? CUT_MARK : LENS_NUM[step.lens] || ""));
     card.appendChild(h("p", { class: "card__lens" }, flat(step.lensLabel)));
     var title = h("h2", { class: "card__title" });
     if (ls.length === 1) title.appendChild(doc.createTextNode(pick(step.title, ls[0])));
@@ -938,6 +944,7 @@
     card.appendChild(title);
     card.appendChild(h("p", { class: "card__hint" }, flat(u("endingCardHint"))));
     card.setAttribute("data-testid", "ending-title");
+    card.setAttribute("data-cut", step.cut ? "true" : "false");
     card.setAttribute("aria-live", "polite");
     card.hidden = false;
   }
@@ -1052,47 +1059,82 @@
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
   }
 
+  // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).
+  // A cut cell unlocks with "<route>-cut". A route without a cut ending (Asher) shows its cutNote
+  // there once any of its endings has been seen: a note, not an ending (data-state="note").
+  var GALLERY_COLS = [1, 2, 3, "cut"];
+
+  function galleryCell(meta, rid, col, seen, current) {
+    var titles = (meta.endings && meta.endings[rid]) || {};
+    var id = rid + "-" + col;
+    var state = "locked";
+    var kids = null;
+    if (col === "cut" && !titles.cut) {
+      var seenAny = [1, 2, 3].some(function (l) {
+        return seen.indexOf(rid + "-" + l) >= 0;
+      });
+      if (titles.cutNote && seenAny) {
+        state = "note";
+        kids = bi(titles.cutNote);
+      } else if (!titles.cutNote) {
+        state = "none";
+        kids = ["—"];
+      }
+    } else if (seen.indexOf(id) >= 0 && titles[col]) {
+      state = "seen";
+      kids = bi(titles[col]);
+    }
+    var cell = h("div", {
+      class: "cell" + (col === "cut" ? " cell--cut" : "") + (state === "note" ? " cell--note" : ""),
+      role: "cell",
+      "data-testid": "gallery-cell-" + id,
+      "data-col": String(col),
+      "data-state": state,
+      "data-seen": state === "seen" ? "true" : "false",
+      "data-current": state === "seen" && current === id ? "true" : null
+    });
+    if (kids) append(cell, kids);
+    else append(cell, bi(u("galleryLocked")));
+    if (state === "seen" && current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
+    return cell;
+  }
+
   function renderGallery(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var seen = o.seen || [];
+    var seen = (o.seen || []).filter(function (x) {
+      return typeof x === "string";
+    });
     var grid = h("div", { class: "grid", role: "table", "aria-label": flat(u("galleryTitle")) });
     grid.appendChild(h("div", { class: "grid__corner", role: "presentation" }));
-    [1, 2, 3].forEach(function (lens) {
-      var lm = (meta.lenses && meta.lenses[lens]) || { label: { ko: String(lens), en: String(lens) } };
-      grid.appendChild(h("div", { class: "grid__lens", role: "columnheader" }, [LENS_NUM[lens] + " ", bi(lm.label)]));
+    GALLERY_COLS.forEach(function (col) {
+      if (col === "cut") {
+        var cm = meta.cut || { label: u("galleryCut"), desc: null };
+        grid.appendChild(
+          h("div", { class: "grid__lens grid__lens--cut", role: "columnheader", "data-testid": "gallery-col-cut" }, [
+            h("span", { class: "grid__label" }, [h("span", { class: "grid__mark", "aria-hidden": "true" }, CUT_MARK + " "), bi(cm.label)]),
+            cm.desc ? h("span", { class: "grid__desc" }, bi(cm.desc)) : null
+          ])
+        );
+        return;
+      }
+      var lm = (meta.lenses && meta.lenses[col]) || { label: { ko: String(col), en: String(col) } };
+      grid.appendChild(h("div", { class: "grid__lens", role: "columnheader", "data-testid": "gallery-col-" + col }, h("span", { class: "grid__label" }, [LENS_NUM[col] + " ", bi(lm.label)])));
     });
     order.forEach(function (rid) {
       var r = (meta.routes && meta.routes[rid]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var nm = c.name || r.name || { ko: rid, en: rid };
-      grid.appendChild(h("div", { class: "grid__row", role: "rowheader", style: c.color ? "--plate:" + c.color : null }, [h("span", { class: "grid__swatch", "aria-hidden": "true" }), bi(nm)]));
-      [1, 2, 3].forEach(function (lens) {
-        var id = rid + "-" + lens;
-        var isSeen = seen.indexOf(id) >= 0;
-        var title = meta.endings && meta.endings[rid] && meta.endings[rid][lens];
-        var cell = h("div", {
-          class: "cell",
-          role: "cell",
-          "data-testid": "gallery-cell-" + rid + "-" + lens,
-          "data-seen": isSeen ? "true" : "false",
-          "data-current": o.current === id ? "true" : null
-        });
-        if (isSeen && title) {
-          append(cell, bi(title));
-          if (o.current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
-        } else {
-          append(cell, bi(u("galleryLocked")));
-        }
-        grid.appendChild(cell);
+      grid.appendChild(h("div", { class: "grid__row", role: "rowheader", style: c.color ? "--plate:" + c.color : null }, [h("span", { class: "grid__swatch", "aria-hidden": "true" }), h("span", { class: "grid__name" }, bi(nm))]));
+      GALLERY_COLS.forEach(function (col) {
+        grid.appendChild(galleryCell(meta, rid, col, seen, o.current || null));
       });
     });
     var titleT = u("galleryTitle");
     var heading = h("h2", { class: "gallery-title" }, langs().length > 1 ? [titleT.ko, h("span", { class: "en", lang: "en" }, titleT.en)] : [pick(titleT, langs()[0])]);
     page("gallery-page", [
-      heading,
-      h("p", { class: "gallery-intro" }, bi(u("galleryIntro"))),
-      grid,
+      h("div", { class: "gallery-head" }, [heading, h("p", { class: "gallery-intro" }, bi(u("galleryIntro")))]),
+      h("div", { class: "grid-wrap" }, grid),
       h("div", { class: "gallery-actions" }, [btn("btn--primary", u("galleryReplay"), "gallery-replay", o.onReplay), btn("btn--ghost", u("galleryHome"), "gallery-home", o.onHome)])
     ]);
   }

@@ -3,7 +3,8 @@
   var BHS = (window.BHS = window.BHS || {});
 
   BHS.meta = {
-    version: "1.0.0",
+    // 2.0.0: short routes (4 choices, cut endings), no final screen, no teacher page.
+    version: "2.0.0",
 
     title: { ko: "그가 일어나기 전", en: "Before He Stood" },
     subtitle: { ko: "그날, 가버나움 · 마태복음 9:1–8", en: "Capernaum, That Day · Matthew 9:1–8" },

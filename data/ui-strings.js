@@ -58,8 +58,9 @@
 
     // Gallery
     galleryTitle: T("엔딩 모음", "Endings"),
-    galleryIntro: T("세로는 인물, 가로는 세 가지 눈이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters, columns are the three lenses. Only endings seen on this device appear."),
+    galleryIntro: T("세로는 인물, 가로는 세 가지 눈과 중간에 끝난 길이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters; columns are the three lenses and the path cut short. Only endings seen on this device appear."),
     galleryLocked: T("아직", "Not yet"),
+    galleryCut: T("중간에 끝남", "Cut short"),
     galleryYours: T("방금 본 엔딩", "Just now"),
     galleryReplay: T("다른 인물로 하기", "Play another character"),
     galleryHome: T("처음 화면", "Title screen"),

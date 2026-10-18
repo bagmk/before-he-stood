@@ -1,5 +1,5 @@
 // tests/engine.test.mjs - engine unit tests. Run: node tests/engine.test.mjs
-// Plain Node assert, no dependencies. Uses fixture routes and fixture scripture only.
+// Plain Node assert, no dependencies. Uses fixture routes (version 3 format) and fixture scripture only.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,10 +40,10 @@ function test(name, fn) {
 
 // ---------------------------------------------------------------- helpers
 
-// Synthetic route: option a -> lens 1, b -> lens 2, c -> lens 3, d -> null.
-function scoringRoute() {
+// Synthetic route with n choices: option a -> lens 1, b -> lens 2, c -> lens 3, d -> null.
+function scoringRoute(n = 4) {
   const beats = [];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= n; i++) {
     beats.push({
       type: "choice",
       id: "c" + i,
@@ -59,12 +59,12 @@ function scoringRoute() {
   return { id: "t", beats };
 }
 
+// "abcd" -> { c1: "a", c2: "b", c3: "c", c4: "d" }; "aaaabbbbd|c" -> c1..c9 then c10.
 function picks(str) {
-  // "aaaabbccd|b" -> { c1: "a", ..., c9: "d", c10: "b" }
   const [first, last] = str.split("|");
   const out = {};
   first.split("").forEach((ch, i) => (out["c" + (i + 1)] = ch));
-  if (last) out.c10 = last;
+  if (last) out["c" + (first.length + 1)] = last;
   return out;
 }
 
@@ -85,69 +85,60 @@ function stepsUntilEnd(game, pickMap) {
   return log;
 }
 
-// ---------------------------------------------------------------- computeLens
+const texts = (log) => log.filter((s) => s.text).map((s) => s.text.ko);
+const snapshot = (g) => JSON.parse(JSON.stringify(g.serialize()));
 
-test("computeLens: clear winner, c10 counts double", () => {
-  const r = E.computeLens(scoringRoute(), picks("aaaaaaaaa|a"));
-  assert.deepEqual(r, { lens: 1, scores: { 1: 11, 2: 0, 3: 0 }, c10Lens: 1, mismatch: false });
+// ---------------------------------------------------------------- computeLens (SPEC 5.1)
+
+test("computeLens: clear winner, the last choice (c4) counts double", () => {
+  const r = E.computeLens(scoringRoute(), picks("aaaa"));
+  assert.deepEqual(r, { lens: 1, scores: { 1: 5, 2: 0, 3: 0 }, lastLens: 1, c10Lens: 1, mismatch: false, cut: false });
 });
 
-test("computeLens: tie broken by c10 lens when it is among the tied", () => {
-  // c1-c9: a x4, b x2, c x3 -> {4,2,3}; c10 b (+2) -> {4,4,3}
-  const r = E.computeLens(scoringRoute(), picks("aaaabbccc|b"));
-  assert.deepEqual(r.scores, { 1: 4, 2: 4, 3: 3 });
+test("computeLens: tie broken by the last choice's lens when it is among the tied", () => {
+  // c1 a, c2 a, c3 d -> {2,0,0}; c4 b (+2) -> {2,2,0}
+  const r = E.computeLens(scoringRoute(), picks("aadb"));
+  assert.deepEqual(r.scores, { 1: 2, 2: 2, 3: 0 });
   assert.equal(r.lens, 2);
-  assert.equal(r.c10Lens, 2);
+  assert.equal(r.lastLens, 2);
   assert.equal(r.mismatch, false);
 });
 
-test("computeLens: tie without the c10 lens -> smallest tied lens, mismatch", () => {
+test("computeLens: tie without the last choice's lens -> smallest tied lens, mismatch (10-choice route)", () => {
   // c1-c9: a x4, b x4, d x1 -> {4,4,0}; c10 c (+2) -> {4,4,2}
-  const r = E.computeLens(scoringRoute(), picks("aaaabbbbd|c"));
+  const r = E.computeLens(scoringRoute(10), picks("aaaabbbbd|c"));
   assert.deepEqual(r.scores, { 1: 4, 2: 4, 3: 2 });
   assert.equal(r.lens, 1);
-  assert.equal(r.c10Lens, 3);
+  assert.equal(r.lastLens, 3);
+  assert.equal(r.c10Lens, 3, "c10Lens stays an alias of lastLens");
   assert.equal(r.mismatch, true);
 });
 
-test("computeLens: three-way tie resolved by c10", () => {
-  // c1-c9: a x3, b x3, c x2, d x1 -> {3,3,2}; c10 c (+2) -> {3,3,4}? no: lens 3 wins outright
-  const r1 = E.computeLens(scoringRoute(), picks("aaabbbccd|c"));
-  assert.deepEqual(r1.scores, { 1: 3, 2: 3, 3: 4 });
-  assert.equal(r1.lens, 3);
-  // c1-c9: a x3, b x2, c x1, d x3 -> {3,2,1}; c10 b -> {3,4,1} lens 2
-  const r2 = E.computeLens(scoringRoute(), picks("aaabbcddd|b"));
-  assert.equal(r2.lens, 2);
-  // exact three-way: c1-c9 a x2, b x2, c x4, d x1 -> {2,2,4}; c10 a -> {4,2,4} tie 1/3, c10=1 -> 1
-  const r3 = E.computeLens(scoringRoute(), picks("aabbccccd|a"));
-  assert.deepEqual(r3.scores, { 1: 4, 2: 2, 3: 4 });
-  assert.equal(r3.lens, 1);
-  assert.equal(r3.mismatch, false);
-});
-
-test("computeLens: mismatch when the ending lens differs from the c10 lens", () => {
-  const r = E.computeLens(scoringRoute(), picks("bbbbbbbbb|a"));
+test("computeLens: mismatch when the ending lens differs from the last choice's lens", () => {
+  const r = E.computeLens(scoringRoute(), picks("bbba"));
+  assert.deepEqual(r.scores, { 1: 2, 2: 3, 3: 0 });
   assert.equal(r.lens, 2);
-  assert.equal(r.c10Lens, 1);
+  assert.equal(r.lastLens, 1);
   assert.equal(r.mismatch, true);
 });
 
-test("computeLens: null lens at c10 -> c10Lens null, no mismatch", () => {
-  const r = E.computeLens(scoringRoute(), picks("aaaaaaaaa|d"));
-  assert.equal(r.c10Lens, null);
+test("computeLens: null lens at the last choice -> lastLens null, no mismatch", () => {
+  const r = E.computeLens(scoringRoute(), picks("aaad"));
+  assert.equal(r.lastLens, null);
   assert.equal(r.mismatch, false);
-  assert.deepEqual(r.scores, { 1: 9, 2: 0, 3: 0 });
+  assert.deepEqual(r.scores, { 1: 3, 2: 0, 3: 0 });
 });
 
 test("computeLens: no choices -> lens 1 with zero scores", () => {
   const r = E.computeLens(scoringRoute(), {});
-  assert.deepEqual(r, { lens: 1, scores: { 1: 0, 2: 0, 3: 0 }, c10Lens: null, mismatch: false });
+  assert.deepEqual(r, { lens: 1, scores: { 1: 0, 2: 0, 3: 0 }, lastLens: null, c10Lens: null, mismatch: false, cut: false });
 });
 
-test("computeLens: accepts a route id, ignores unknown option ids", () => {
-  const r = E.computeLens("scribe", { c1: "a", c2: "zz" });
-  assert.equal(r.scores[1], 1);
+test("computeLens: accepts a route id; ignores unknown option ids and choice ids the route lacks (old c5-c10 picks)", () => {
+  const r = E.computeLens("scribe", { c1: "a", c2: "zz", c5: "a", c7: "c", c10: "b" });
+  assert.deepEqual(r.scores, { 1: 1, 2: 0, 3: 0 });
   assert.equal(r.lens, 1);
+  assert.equal(r.lastLens, null, "c10 is not the last choice of a 4-choice route");
 });
 
 test("computeLens: string lens tags are normalised", () => {
@@ -155,6 +146,29 @@ test("computeLens: string lens tags are normalised", () => {
   route.beats[0].options[1].lens = "2";
   const r = E.computeLens(route, { c1: "b" });
   assert.equal(r.scores[2], 1);
+});
+
+test("lastChoiceId: the highest cN, whatever the beat order; falls back to the last choice beat", () => {
+  assert.equal(E.lastChoiceId(scoringRoute(4)), "c4");
+  assert.equal(E.lastChoiceId(scoringRoute(10)), "c10");
+  assert.equal(E.lastChoiceId("asher"), "c4");
+  const shuffled = scoringRoute(3);
+  shuffled.beats.reverse(); // c3, c2, c1
+  assert.equal(E.lastChoiceId(shuffled), "c3");
+  const r = E.computeLens(shuffled, picks("bba"));
+  assert.deepEqual(r.scores, { 1: 2, 2: 2, 3: 0 }, "c3 (option a) is weight 2 even though it comes first");
+  assert.equal(r.lens, 1, "the tie goes to c3's lens");
+  const odd = { id: "x", beats: [{ type: "choice", id: "first", options: [] }, { type: "choice", id: "second", options: [] }] };
+  assert.equal(E.lastChoiceId(odd), "second");
+  assert.equal(E.lastChoiceId({ id: "y", beats: [] }), null);
+});
+
+test("computeLens: a picked cut option gives the cut outcome (no lens, no mismatch)", () => {
+  const r = E.computeLens("scribe", { c1: "b", c2: "b", c3: "d" });
+  assert.deepEqual(r, { lens: null, scores: { 1: 0, 2: 2, 3: 0 }, lastLens: null, c10Lens: null, mismatch: false, cut: true });
+  const f = E.computeLens("friend", { c1: "a", c2: "d" });
+  assert.equal(f.cut, true);
+  assert.equal(E.computeLens("friend", { c1: "a", c2: "c" }).cut, false);
 });
 
 // ---------------------------------------------------------------- evalCond
@@ -169,34 +183,38 @@ test("evalCond: choice is / in", () => {
 });
 
 test("evalCond: flag is / in, unset counts as false", () => {
-  const st = { choices: {}, flags: { item: "rope", far: true } };
-  assert.equal(E.evalCond({ flag: "far", is: true }, st), true);
-  assert.equal(E.evalCond({ flag: "item", in: ["rope", "water"] }, st), true);
-  assert.equal(E.evalCond({ flag: "item", in: ["cloak"] }, st), false);
+  const st = { choices: {}, flags: { mark: "he", stood: true } };
+  assert.equal(E.evalCond({ flag: "stood", is: true }, st), true);
+  assert.equal(E.evalCond({ flag: "mark", in: ["he", "order"] }, st), true);
+  assert.equal(E.evalCond({ flag: "mark", in: ["whole"] }, st), false);
   assert.equal(E.evalCond({ flag: "missing", is: true }, st), false);
   assert.equal(E.evalCond({ flag: "missing", is: false }, st), true);
-  assert.equal(E.evalCond({ flag: "far" }, st), true);
+  assert.equal(E.evalCond({ flag: "stood" }, st), true);
 });
 
 test("evalCond: all / any / not and implicit array", () => {
-  const st = { choices: { c1: "a" }, flags: { far: true } };
-  assert.equal(E.evalCond({ all: [{ choice: "c1", is: "a" }, { flag: "far", is: true }] }, st), true);
-  assert.equal(E.evalCond({ all: [{ choice: "c1", is: "a" }, { flag: "far", is: false }] }, st), false);
-  assert.equal(E.evalCond({ any: [{ choice: "c1", is: "b" }, { flag: "far", is: true }] }, st), true);
+  const st = { choices: { c1: "a" }, flags: { stood: true } };
+  assert.equal(E.evalCond({ all: [{ choice: "c1", is: "a" }, { flag: "stood", is: true }] }, st), true);
+  assert.equal(E.evalCond({ all: [{ choice: "c1", is: "a" }, { flag: "stood", is: false }] }, st), false);
+  assert.equal(E.evalCond({ any: [{ choice: "c1", is: "b" }, { flag: "stood", is: true }] }, st), true);
   assert.equal(E.evalCond({ any: [] }, st), false);
-  assert.equal(E.evalCond({ not: { flag: "far", is: true } }, st), false);
+  assert.equal(E.evalCond({ not: { flag: "stood", is: true } }, st), false);
   assert.equal(E.evalCond({ not: { all: [{ choice: "c1", is: "b" }] } }, st), true);
-  assert.equal(E.evalCond([{ choice: "c1", is: "a" }, { flag: "far" }], st), true);
+  assert.equal(E.evalCond([{ choice: "c1", is: "a" }, { flag: "stood" }], st), true);
   assert.equal(E.evalCond(null, st), true);
 });
 
-test("evalCond: c10lens from state or from the route", () => {
-  assert.equal(E.evalCond({ c10lens: 2 }, { c10Lens: 2 }), true);
-  assert.equal(E.evalCond({ c10lens: 1 }, { c10Lens: 2 }), false);
-  // scribe fixture c10 option b carries lens 2
-  assert.equal(E.evalCond({ c10lens: 2 }, { routeId: "scribe", choices: { c10: "b" } }), true);
-  assert.equal(E.evalCond({ c10lens: 3 }, { routeId: "scribe", choices: { c10: "b" } }), false);
-  assert.equal(E.evalCond({ c10lens: 1 }, { routeId: "scribe", choices: {} }), false);
+test("evalCond: lastLens (and the c10lens alias) from the state or from the route", () => {
+  assert.equal(E.evalCond({ lastLens: 2 }, { lastLens: 2 }), true);
+  assert.equal(E.evalCond({ lastLens: 1 }, { lastLens: 2 }), false);
+  assert.equal(E.evalCond({ c10lens: 2 }, { lastLens: 2 }), true, "c10lens is an alias");
+  assert.equal(E.evalCond({ lastLens: 2 }, { c10Lens: 2 }), true, "older callers may pass c10Lens");
+  // scribe fixture c4 option b carries lens 2
+  assert.equal(E.evalCond({ lastLens: 2 }, { routeId: "scribe", choices: { c4: "b" } }), true);
+  assert.equal(E.evalCond({ c10lens: 2 }, { routeId: "scribe", choices: { c4: "b" } }), true);
+  assert.equal(E.evalCond({ lastLens: 3 }, { routeId: "scribe", choices: { c4: "b" } }), false);
+  assert.equal(E.evalCond({ lastLens: 1 }, { routeId: "scribe", choices: { c10: "a" } }), false, "c10 is not the last choice");
+  assert.equal(E.evalCond({ lastLens: 1 }, { routeId: "scribe", choices: {} }), false);
 });
 
 test("evalCond: unknown condition is false; var extension works", () => {
@@ -278,6 +296,7 @@ test("scribe: reaction plays right after the pick", () => {
   playTo(g, (s) => s.kind === "choice" && s.id === "c1");
   assert.equal(g.step.options.length, 4);
   assert.equal(g.step.options[0].lens, undefined, "choice steps must not expose lens");
+  assert.ok(E.createGame("scribe").fastForward({ until: (s) => s.id === "c3" }).options.every((o) => o.cut === undefined), "choice steps must not expose cut flags");
   g.choose("a");
   assert.equal(g.step.kind, "line");
   assert.equal(g.step.speaker, "thought");
@@ -300,7 +319,7 @@ test("scribe: hush + echoVerse apply to the next beat only, with flag highlights
   assert.equal(g.view().now.echo, null);
 });
 
-test("scribe: echo highlight '*' and missing map entries", () => {
+test("scribe: echo highlight '*' and other map entries", () => {
   const g = E.createGame("scribe");
   playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_2B", (s) => (s.id === "c1" ? "d" : "a"));
   assert.equal(g.view().now.echo.marks, "*");
@@ -313,13 +332,13 @@ test("scribe: pinThought, readReceipt, unpinThought", () => {
   const g = E.createGame("scribe");
   playTo(g, (s) => s.kind === "line" && s.speaker === "thought" && /목까지/.test(s.text.ko));
   assert.deepEqual(g.view().stage.pinned, { items: [{ type: "verse", key: "MT_9_3Q" }], read: false });
-  playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_4N", (s) => (s.id === "c5" ? "c" : "a"));
+  playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_4N", (s) => (s.id === "c3" ? "c" : "a"));
   const pin = g.view().stage.pinned;
   assert.equal(pin.read, true);
   assert.equal(pin.items.length, 2);
-  assert.deepEqual(pin.items[1].id, "c5");
+  assert.equal(pin.items[1].id, "c3");
   assert.equal(pin.items[1].option, "c");
-  assert.match(pin.items[1].text.ko, /고치기 전에 용서부터/);
+  assert.match(pin.items[1].text.ko, /얼굴을 본다/);
   playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_5");
   assert.equal(g.view().stage.pinned, null);
 });
@@ -334,93 +353,225 @@ test("scribe: scene sets bg + caption; light levels follow fx", () => {
   playTo(g, (s) => s.kind === "verse" && s.key === "MT_9_8");
   assert.equal(g.view().stage.light, "bright");
   g.next();
+  assert.equal(g.step.id, "c4");
+  assert.equal(g.view().stage.light, "soft");
+  g.choose("b");
   assert.equal(g.view().stage.light, "off");
-  assert.equal(g.view().stage.bg, "lamp_night");
+  assert.equal(g.view().stage.bg, "crowd");
 });
 
-// ---------------------------------------------------------------- endings
+// ---------------------------------------------------------------- lens endings
 
-test("ending sequence: preface, title, beats with c10lens, last, coda, end (no mismatch)", () => {
+test("ending sequence: preface, title, beats with lastLens, last, coda, end (no mismatch)", () => {
   const g = E.createGame("scribe");
-  const log = stepsUntilEnd(g, {}); // all "a" -> lens 1, c10 a (lens 1)
+  const log = stepsUntilEnd(g, {}); // all "a" -> lens 1, last choice c4 a (lens 1)
   const kinds = log.map((s) => s.kind);
   const iTitle = kinds.indexOf("endingTitle");
   assert.ok(iTitle > 0);
   assert.ok(!log.some((s) => s.mismatch), "no mismatch line expected");
-  assert.equal(log[iTitle - 1].text.ko, "등잔 심지가 짧아진다.", "endingPreface right before the title card");
+  assert.equal(log[iTitle - 1].text.ko, "기록장을 편다.", "endingPreface right before the title card");
   const title = log[iTitle];
   assert.equal(title.lens, 1);
-  assert.equal(title.lensLabel.ko, "누가?");
-  assert.equal(title.title.ko, "누가 말했는가");
+  assert.equal(title.cut, false);
+  assert.equal(title.lensLabel.ko, BHS.meta.lenses[1].label.ko);
+  assert.equal(title.title.ko, BHS.meta.endings.scribe[1].ko);
   assert.equal(log[iTitle + 1].text.ko, "므나헴은 그 주장을 누구보다 정확히 알아들었다.");
-  assert.match(log[iTitle + 2].text.ko, /신성모독/, "c10lens + choice condition line plays");
-  assert.ok(!log.some((s) => s.text && s.text.ko === "그는 결론 칸을 비워 둔다."), "c10=d line skipped");
+  assert.match(log[iTitle + 2].text.ko, /신성모독/, "lastLens + choice condition line plays");
+  assert.ok(!texts(log).includes("그는 결론 칸을 비워 둔다."), "c4=d line skipped");
   const iLast = kinds.indexOf("last");
   assert.equal(log[iLast].text.ko, "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.");
   assert.equal(log[iLast + 1].speaker, "sign", "endingCoda after the last line");
   assert.equal(log[iLast + 1].text.ko, "― 등잔이 꺼진다 ―");
   assert.equal(kinds[kinds.length - 1], "end", "the route ends right after the coda");
   assert.equal(kinds.length - 1, iLast + 2, "nothing between the coda and the end");
-  assert.ok(!kinds.includes("final"), "there is no final screen step");
-  assert.ok(!g.state.segs.includes("@final"));
-  assert.equal(g.state.ending.id, "scribe-1");
+  assert.deepEqual(g.state.ending, { routeId: "scribe", id: "scribe-1", lens: 1, cut: false, scores: { 1: 5, 2: 0, 3: 0 }, lastLens: 1, c10Lens: 1, mismatch: false });
   assert.equal(g.state.done, true);
 });
 
-test("ending sequence: mismatch line plays before endingPreface", () => {
-  const g = E.createGame("scribe");
-  // scribe fixture: c1..c9 option b; c10 option a (lens 1) -> lenses of b vary, check computed result
-  const map = {};
-  for (let i = 1; i <= 9; i++) map["c" + i] = "c";
-  map.c10 = "a";
+test("ending sequence: mismatch line plays before endingPreface; c10lens alias in ending beats", () => {
+  // c1-c3 option c (lens 3), c4 option a (lens 1, +2): {1:2, 3:3} -> lens 3, mismatch
+  const map = { c1: "c", c2: "c", c3: "c", c4: "a" };
   const expected = E.computeLens("scribe", map);
-  assert.equal(expected.mismatch, true, "fixture picks should produce a mismatch");
-  const log = stepsUntilEnd(g, map);
+  assert.equal(expected.lens, 3);
+  assert.equal(expected.mismatch, true);
+  const log = stepsUntilEnd(E.createGame("scribe"), map);
   const iMis = log.findIndex((s) => s.mismatch);
   assert.ok(iMis > 0, "mismatch line present");
   assert.equal(log[iMis].text.ko, BHS.common.mismatchLine.ko);
-  assert.equal(log[iMis + 1].text.ko, "등잔 심지가 짧아진다.");
+  assert.equal(log[iMis + 1].text.ko, "기록장을 편다.");
   assert.equal(log[iMis + 2].kind, "endingTitle");
-  assert.equal(log[iMis + 2].lens, expected.lens);
+  assert.equal(log[iMis + 2].lens, 3);
+  assert.ok(!texts(log).includes("그는 그 권한으로 한 사람을 집에 보냈다."), "c10lens:3 line skipped when the last pick has lens 1");
+  const log2 = stepsUntilEnd(E.createGame("scribe"), { c1: "c", c2: "c", c3: "c", c4: "c" });
+  assert.ok(texts(log2).includes("그는 그 권한으로 한 사람을 집에 보냈다."), "c10lens:3 line plays when the last pick has lens 3");
+  assert.ok(!log2.some((s) => s.mismatch));
 });
 
 test("game lens equals computeLens on recorded choices", () => {
   const g = E.createGame("friend");
-  const map = { c1: "c", c2: "b", c3: "d", c4: "b", c5: "b", c6: "b", c7: "b", c8: "c", c9: "b", c10: "b" };
+  const map = { c1: "c", c2: "b", c3: "b", c4: "b" };
   stepsUntilEnd(g, map);
   assert.deepEqual(g.state.choices, map);
   const r = E.computeLens("friend", map);
   assert.equal(g.state.ending.lens, r.lens);
   assert.equal(r.lens, 2);
+  assert.equal(g.state.lastLens, 2);
+});
+
+// ---------------------------------------------------------------- cut endings
+
+test("cut (scribe c3/d): reaction, then cut card, cut beats, last, coda; nothing else from the route", () => {
+  const g = E.createGame("scribe");
+  const log = stepsUntilEnd(g, { c1: "a", c2: "b", c3: "d" });
+  const kinds = log.map((s) => s.kind);
+  const iPick = log.findIndex((s) => s.kind === "choice" && s.id === "c3");
+  assert.equal(log[iPick + 1].text.ko, "므나헴은 대답을 듣기 전에 무리를 빠져나온다.", "the cut option's reaction plays");
+  const card = log[iPick + 2];
+  assert.equal(card.kind, "endingTitle", "the ending card follows the reaction at once");
+  assert.equal(card.cut, true);
+  assert.equal(card.lens, null);
+  assert.deepEqual(card.lensLabel, BHS.meta.cut.label);
+  assert.deepEqual(card.title, BHS.meta.endings.scribe.cut);
+  assert.ok(!log.some((s) => s.mismatch), "no mismatch line on a cut");
+  assert.ok(!texts(log).includes("기록장을 편다."), "no endingPreface on a cut");
+  assert.ok(!log.some((s) => s.kind === "verse" && /^MT_9_(4|5|6|7|8)/.test(s.key)), "the rest of the route is skipped");
+  assert.ok(!log.some((s) => s.kind === "choice" && s.id === "c4"), "c4 is never asked");
+  assert.deepEqual(texts(log.slice(iPick + 3)), [
+    "몇 시간 뒤",
+    "선생님, 그 사람이 일어나 침상을 들고 집으로 갔어요.",
+    "아침에 밑줄 그은 글자가 떠오른다.",
+    "너는 첫마디까지 들었다. 그다음 말은 하난이 대신 들었다.",
+    "― 등잔이 꺼진다 ―"
+  ]);
+  assert.equal(log[kinds.indexOf("last")].text.ko, BHS.fixtureRoutes.scribe.endings.cut.last.ko);
+  assert.equal(kinds[kinds.length - 1], "end");
+  assert.deepEqual(g.state.ending, {
+    routeId: "scribe",
+    id: "scribe-cut",
+    lens: null,
+    cut: true,
+    scores: { 1: 1, 2: 1, 3: 0 },
+    lastLens: null,
+    c10Lens: null,
+    mismatch: false,
+    cutAt: { choice: "c3", option: "d" }
+  });
+  assert.equal(g.lens().cut, true);
+  assert.equal(g.state.done, true);
+});
+
+test("cut: the protagonist leaves the scene - pinned thought cleared, light off at the card", () => {
+  const g = E.createGame("scribe");
+  playTo(g, (s) => s.kind === "choice" && s.id === "c3");
+  assert.ok(g.view().stage.pinned, "the thought is pinned when the cut option is offered");
+  assert.equal(g.view().stage.light, "soft");
+  g.choose("d");
+  assert.equal(g.step.kind, "line", "the reaction still plays at the crowd");
+  assert.ok(g.view().stage.pinned, "and the pinned thought stays during it");
+  g.next();
+  assert.equal(g.step.kind, "endingTitle");
+  assert.equal(g.view().stage.pinned, null);
+  assert.equal(g.view().stage.light, "off");
+});
+
+test("cut: flags set by the cut option reach the cut ending; a route without a coda ends after the last line", () => {
+  const g = E.createGame("friend");
+  const log = stepsUntilEnd(g, { c1: "a", c2: "d" });
+  const t = texts(log);
+  const iReact = t.indexOf("다른 사람들이 침상을 들고 간다. 요나는 골목에 남는다.");
+  assert.ok(iReact > 0);
+  assert.equal(g.state.flags.stayed, true);
+  assert.ok(t.includes("아셀이 자기 침상을 들고 요나 곁을 지나간다."), "the flag condition in endings.cut holds");
+  assert.ok(!log.some((s) => s.kind === "verse"), "the crowd scene is skipped");
+  assert.equal(log[log.length - 2].kind, "last");
+  assert.equal(log[log.length - 1].kind, "end");
+  assert.equal(g.state.ending.id, "friend-cut");
+  assert.equal(g.view().stage.bg, "lane", "the scene stays where the route was cut");
+});
+
+test("cut: a cut option without a reaction goes straight to the card; condState has no lastLens", () => {
+  const route = JSON.parse(JSON.stringify(BHS.fixtureRoutes.scribe));
+  delete route.beats.find((b) => b.id === "c3").options[3].reaction;
+  BHS.routes.__cut = Object.assign(route, { id: "__cut" });
+  try {
+    const g = E.createGame("__cut");
+    playTo(g, (s) => s.kind === "choice" && s.id === "c3");
+    g.choose("d");
+    assert.equal(g.step.kind, "endingTitle");
+    assert.equal(g.step.cut, true);
+    assert.equal(g.condState().lastLens, null);
+    assert.equal(E.evalCond({ lastLens: 1 }, g.condState()), false);
+  } finally {
+    delete BHS.routes.__cut;
+  }
+});
+
+test("save + restore across a cut: at the reaction, the card, a cut beat and the last line", () => {
+  const map = { c1: "a", c2: "a", c3: "d" };
+  const full = stepsUntilEnd(E.createGame("scribe"), map);
+  const at = [
+    (s) => s.kind === "line" && /빠져나온다/.test(s.text.ko),
+    (s) => s.kind === "endingTitle",
+    (s) => s.kind === "line" && s.speaker === "hanan" && /집으로 갔어요/.test(s.text.ko),
+    (s) => s.kind === "last"
+  ];
+  for (const pred of at) {
+    const a = E.createGame("scribe");
+    playTo(a, pred, (s) => map[s.id]);
+    assert.ok(pred(a.step), "reached the save point");
+    const snap = snapshot(a);
+    assert.equal(E.canRestore(snap), true);
+    const b = E.restoreGame(snap);
+    assert.deepEqual(b.step, a.step);
+    const la = stepsUntilEnd(a, map);
+    const lb = stepsUntilEnd(b, map);
+    assert.deepEqual(lb, la);
+    assert.deepEqual(b.state.ending, a.state.ending);
+    assert.equal(b.state.ending.id, "scribe-cut");
+    assert.deepEqual(la, full.slice(full.length - la.length), "the resumed tail matches an uninterrupted run");
+  }
+});
+
+test("every path of every fixture route ends with the ending computeLens predicts (256 paths each)", () => {
+  const ids = ["a", "b", "c", "d"];
+  for (const rid of ["scribe", "friend", "asher"]) {
+    const counts = { 1: 0, 2: 0, 3: 0, cut: 0 };
+    for (let n = 0; n < 256; n++) {
+      const map = {};
+      for (let i = 0; i < 4; i++) map["c" + (i + 1)] = ids[(n >> (2 * i)) & 3];
+      const g = E.createGame(rid);
+      const log = stepsUntilEnd(g, map);
+      const exp = E.computeLens(rid, map);
+      const want = exp.cut ? rid + "-cut" : rid + "-" + exp.lens;
+      assert.equal(g.state.ending.id, want, `${rid} ${JSON.stringify(map)}`);
+      assert.equal(log.some((s) => s.mismatch), exp.mismatch, `${rid} mismatch line ${JSON.stringify(map)}`);
+      counts[exp.cut ? "cut" : exp.lens]++;
+    }
+    if (rid === "asher") assert.equal(counts.cut, 0, "asher has no cut");
+    else assert.equal(counts.cut, 64, `${rid}: one cut option of four at one choice = 25% of paths`);
+    assert.equal(counts[1] + counts[2] + counts[3] + counts.cut, 256);
+  }
 });
 
 // ---------------------------------------------------------------- friend: flags + conditions
 
-test("friend: flags drive conditional beats, reactions with multiple lines", () => {
+test("friend: flags drive conditional beats, reactions with two lines", () => {
   const g = E.createGame("friend");
-  const map = { c3: "a", c5: "c", c6: "d" };
-  const log = stepsUntilEnd(g, map);
-  const texts = log.filter((s) => s.text).map((s) => s.text.ko);
-  const i3 = texts.indexOf("네가 그걸 어떻게 알아?");
-  assert.ok(i3 > 0, "c3 reaction line 1");
-  assert.equal(texts[i3 + 1], "요나는 대답하지 못한다.", "c3 reaction line 2");
-  assert.ok(!texts.includes("침상이 기운다. 끈이 버텨 준다."), "rope line skipped");
-  assert.ok(texts.includes("다른 사람들이 침상을 들고 간다. 요나는 뒤에서 따라간다."), "far reaction");
-  assert.ok(texts.includes("그 손들 가운데 네 손은 없다."), "far line");
-  assert.ok(!texts.includes("그 손들 가운데 네 손이 있다."), "not-far line skipped");
-  assert.ok(!texts.includes("물주머니를 걸음에 걸리지 않게 치운다."), "all[water, not far] skipped when far");
-  assert.ok(texts.some((t) => /그날 그 .그들. 안에 너는 없었다/.test(t)), "endingPreface far variation");
-  assert.equal(g.state.flags.item, "water");
-  assert.equal(g.state.flags.far, true);
-});
-
-test("friend: default path shows the near-path lines", () => {
-  const g = E.createGame("friend");
-  const log = stepsUntilEnd(g, { c5: "a" });
-  const texts = log.filter((s) => s.text).map((s) => s.text.ko);
-  assert.ok(texts.includes("침상이 기운다. 끈이 버텨 준다."));
-  assert.ok(texts.includes("그 손들 가운데 네 손이 있다."));
-  assert.ok(!texts.some((t) => /안에 너는 없었다/.test(t)));
+  const log = stepsUntilEnd(g, { c1: "b", c2: "c", c3: "d" });
+  const t = texts(log);
+  assert.ok(t.includes("아셀한테 가야 해."), "c1 reaction");
+  assert.ok(t.includes("침상이 기운다. 요나가 모서리를 다시 잡는다."), "choice condition");
+  assert.ok(t.includes("그 손들 가운데 네 손이 있다."), "not(flag) condition");
+  assert.ok(t.includes("요나는 물러서서 아셀이 자기 침상을 들게 둔다."), "any[] condition");
+  assert.ok(t.includes("행인 앞을 막아섰던 손이 이제는 비어 있다."), "all[] + not condition");
+  assert.equal(g.state.flags.stood, true);
+  const g2 = E.createGame("friend");
+  const t2 = texts(stepsUntilEnd(g2, { c2: "b" }));
+  const i = t2.indexOf("네가 그걸 어떻게 알아?");
+  assert.ok(i > 0, "c2 reaction line 1");
+  assert.equal(t2[i + 1], "요나는 대답하지 못한다.", "c2 reaction line 2");
+  assert.ok(!t2.includes("침상이 기운다. 요나가 모서리를 다시 잡는다."));
+  assert.ok(!t2.includes("요나는 물러서서 아셀이 자기 침상을 들게 둔다."));
 });
 
 // ---------------------------------------------------------------- asher: actions
@@ -450,16 +601,15 @@ test("asher: actionsHide / actionsShow, press on getup, pov, label presses, var 
   g.tapAction("getup");
   g.tapAction("getup");
   assert.equal(g.view().stage.pov, "lying");
-  playTo(g, (s) => s.kind === "choice" && s.id === "c6");
+  playTo(g, (s) => s.kind === "choice" && s.id === "c2");
   assert.equal(g.actions().length, 0, "hidden after actionsHide");
   assert.equal(g.tapAction("getup"), null);
   g.choose("a");
   assert.equal(g.actions().length, 2, "shown again after actionsShow");
   playTo(g, (s) => s.kind === "press");
   assert.equal(g.step.action, "getup");
-  const acts = g.actions();
   assert.deepEqual(
-    acts.map((a) => [a.id, a.lit]),
+    g.actions().map((a) => [a.id, a.lit]),
     [
       ["getup", true],
       ["goout", false]
@@ -488,7 +638,9 @@ test("asher: press via game.press() also works and next() refuses at a press", (
   assert.equal(g.next(), false);
   assert.equal(g.choose("a"), false);
   assert.equal(g.press(), true);
-  assert.notEqual(g.step.kind, "press");
+  assert.equal(g.step.kind, "press");
+  assert.equal(g.step.action, null, "the getup press is answered; the next press is the labelled one");
+  assert.equal(g.step.label.ko, "침상을 들어");
 });
 
 // ---------------------------------------------------------------- portrait cast
@@ -563,13 +715,15 @@ test("cast: Jesus' verse clears the stage; Asher stands after MT_9_6B; endings c
   assert.deepEqual(e.view().stage.cast, []);
 });
 
-// ---------------------------------------------------------------- save / restore
+// ---------------------------------------------------------------- save / restore + fingerprints
 
 test("serialize / restoreGame resumes identically", () => {
-  const map = { c1: "b", c2: "c", c3: "a", c4: "d", c5: "b", c6: "a", c7: "c", c8: "b", c9: "d", c10: "c" };
+  const map = { c1: "b", c2: "c", c3: "a", c4: "d" };
   const a = E.createGame("scribe");
-  playTo(a, (s) => s.kind === "choice" && s.id === "c5", (s) => map[s.id]);
-  const snap = JSON.parse(JSON.stringify(a.serialize()));
+  playTo(a, (s) => s.kind === "choice" && s.id === "c3", (s) => map[s.id]);
+  const snap = snapshot(a);
+  assert.equal(snap.v, E.STATE_VERSION);
+  assert.equal(snap.fp, E.fingerprint("scribe"));
   const b = E.restoreGame(snap);
   const la = stepsUntilEnd(a, map);
   const lb = stepsUntilEnd(b, map);
@@ -577,47 +731,93 @@ test("serialize / restoreGame resumes identically", () => {
   assert.deepEqual(b.state.ending, a.state.ending);
 });
 
+test("fingerprint: stable, structural (text edits keep it; beat, option and cut changes alter it)", () => {
+  const base = BHS.fixtureRoutes.scribe;
+  const fp = E.fingerprint("scribe");
+  assert.match(fp, /^r[0-9a-z]+$/);
+  assert.equal(E.fingerprint(base), fp);
+  assert.notEqual(E.fingerprint("friend"), fp);
+  const edited = JSON.parse(JSON.stringify(base));
+  edited.beats[1].text = { ko: "다른 문장.", en: "Another line." };
+  assert.equal(E.fingerprint(edited), fp, "a text edit keeps the fingerprint");
+  const added = JSON.parse(JSON.stringify(base));
+  added.beats.splice(2, 0, { type: "line", text: { ko: "새 줄", en: "New line" } });
+  assert.notEqual(E.fingerprint(added), fp, "an added beat changes it");
+  const cutMoved = JSON.parse(JSON.stringify(base));
+  delete cutMoved.beats.find((b) => b.id === "c3").options[3].cut;
+  assert.notEqual(E.fingerprint(cutMoved), fp, "a cut flag change changes it");
+  const reacted = JSON.parse(JSON.stringify(base));
+  reacted.beats.find((b) => b.id === "c2").options[0].reaction = [{ type: "line", text: { ko: "가", en: "a" } }];
+  assert.notEqual(E.fingerprint(reacted), fp, "a new reaction changes it");
+  assert.match(E.fingerprint("prologue"), /^p[0-9a-z]+$/);
+  assert.equal(E.fingerprint("nope"), null);
+});
+
 test("restoreGame rejects incompatible snapshots", () => {
   assert.throws(() => E.restoreGame(null));
   assert.throws(() => E.restoreGame({ routeId: "scribe", v: 999 }));
   assert.throws(() => E.createGame("nope"));
+  const g = E.createGame("friend");
+  playTo(g, (s) => s.kind === "choice" && s.id === "c2");
+  const good = snapshot(g);
+  assert.equal(E.canRestore(good), true);
+  assert.equal(E.canRestore(Object.assign({}, good, { fp: "r0" })), false, "stale fingerprint");
+  assert.equal(E.canRestore(Object.assign({}, good, { routeId: "scribe" })), false, "another route's fingerprint");
+  assert.equal(E.canRestore(Object.assign({}, good, { routeId: "nope" })), false);
+  assert.equal(E.canRestore(Object.assign({}, good, { stack: null })), false, "damaged");
+  assert.equal(E.canRestore(Object.assign({}, good, { step: null })), false, "damaged");
+  assert.equal(E.canRestore({}), false);
+  assert.equal(E.canRestore("x"), false);
+  assert.throws(() => E.restoreGame(Object.assign({}, good, { fp: "r0" })), /Incompatible saved state/);
 });
 
-// Version 1.0 ended a route with ... "endingCoda", "@final", "@end" and a "final" step (a screen
-// that no longer exists). Rebuild such snapshots from a current game.
-function oldTail(snap) {
-  snap.segs.splice(snap.segs.lastIndexOf("@end"), 0, "@final");
-  return snap;
+// A snapshot exactly as release 1.0 stored it (10-choice routes): version 1, no fingerprint,
+// c1-c10 picks, a c10Lens field and beat indexes of the old route files.
+function v1Snapshot() {
+  return {
+    v: 1,
+    routeId: "scribe",
+    segs: ["beats", "@ending"],
+    seg: 0,
+    stack: [{ list: "beats", i: 57 }],
+    choices: { c1: "a", c2: "b", c3: "c", c4: "d", c5: "a", c6: "b", c7: "c", c8: "d", c9: "a" },
+    flags: { mark: "he" },
+    vars: {},
+    picks: ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"],
+    c10Lens: null,
+    stage: { bg: "lamp_night", caption: null, time: "day", pov: "normal", light: "off", pinned: null, actionsVisible: false, actionReplies: {}, actionCounts: {}, sceneSeq: 9, cast: [], speaking: null, castSeq: 4, risen: true },
+    pending: { hush: false, echo: null },
+    now: { hush: false, echo: null },
+    step: { kind: "choice", id: "c10", prompt: { ko: "기록장의 마지막 줄에 무엇을 적을까?", en: "What do you write?" }, options: [] },
+    at: { list: "beats", index: 56 },
+    ending: null,
+    steps: 140,
+    done: false
+  };
 }
 
-test("restore: a 1.0 save whose ending tail still lists @final skips it", () => {
-  const g = E.createGame("scribe");
-  playTo(g, (s) => s.kind === "last");
-  const r = E.restoreGame(oldTail(JSON.parse(JSON.stringify(g.serialize()))));
-  assert.equal(r.step.kind, "last");
+test("a release 1.0 (v1, 10-choice) save is dropped cleanly: canRestore false, restoreGame throws, nothing runs", () => {
+  const old = v1Snapshot();
   const warned = E.warnings.length;
-  const log = stepsUntilEnd(r, {});
-  assert.equal(E.warnings.length, warned, "@final is a known no-op, not an unknown segment");
-  assert.ok(!log.some((s) => s.kind === "final"), "no final step");
-  assert.equal(log[log.length - 2].speaker, "sign", "the coda still plays");
-  assert.equal(log[log.length - 1].kind, "end");
-  assert.equal(r.state.ending.id, "scribe-1");
+  assert.equal(E.canRestore(old), false);
+  assert.throws(() => E.restoreGame(old), /Incompatible saved state/);
+  // Even with the version patched, the missing fingerprint keeps it out.
+  assert.equal(E.canRestore(Object.assign({}, old, { v: E.STATE_VERSION })), false);
+  // A 1.0 save whose ending tail still listed the removed final screen.
+  const tail = Object.assign(v1Snapshot(), { segs: ["beats", "@ending", "endingCoda", "@final", "@end"], step: { kind: "final", routeId: "scribe", lens: 1 } });
+  assert.equal(E.canRestore(tail), false);
+  assert.equal(E.warnings.length, warned, "no engine warnings: the snapshot was never run");
+  // Its stray picks do not disturb scoring when passed in.
+  assert.deepEqual(E.computeLens("scribe", old.choices).scores, { 1: 3, 2: 1, 3: 1 }, "only c1-c4 count (c4 d is lens 1, weight 2)");
 });
 
-test("restore: a 1.0 save sitting on the final screen resumes at the end", () => {
-  const g = E.createGame("scribe");
-  playTo(g, (s, game) => game.state.at.list === "endingCoda");
-  const snap = oldTail(JSON.parse(JSON.stringify(g.serialize())));
-  // The state 1.0 kept while its final screen was shown.
-  snap.seg = snap.segs.indexOf("@final");
-  snap.stack = [];
-  snap.at = { list: "@final", index: 0 };
-  snap.step = { kind: "final", routeId: "scribe", lens: 1 };
+test("the prologue can be saved and restored", () => {
+  const g = E.createGame("prologue");
+  g.next();
+  const snap = snapshot(g);
+  assert.equal(E.canRestore(snap), true);
   const r = E.restoreGame(snap);
-  assert.equal(r.step.kind, "end");
-  assert.equal(r.state.done, true);
-  assert.equal(r.state.ending.id, "scribe-1");
-  assert.equal(r.next(), false);
+  assert.deepEqual(r.step, g.step);
 });
 
 // ---------------------------------------------------------------- prologue + sequence
@@ -649,23 +849,26 @@ test("createSequence: when-skips, unknown fx tolerated, verse speaker defaults t
 
 test("fastForward picks and stops at a predicate", () => {
   const g = E.createGame("friend");
-  const s = g.fastForward({ until: (st) => st.kind === "choice" && st.id === "c4", pick: () => "b" });
-  assert.equal(s.id, "c4");
-  assert.deepEqual(g.state.choices, { c1: "b", c2: "b", c3: "b" });
+  const s = g.fastForward({ until: (st) => st.kind === "choice" && st.id === "c3", pick: () => "b" });
+  assert.equal(s.id, "c3");
+  assert.deepEqual(g.state.choices, { c1: "b", c2: "b" });
 });
 
-test("all 4^10 paths: computeLens returns a valid lens and is fast", () => {
+test("all 4^4 paths: computeLens returns a valid outcome and is fast", () => {
   const ids = ["a", "b", "c", "d"];
-  const counts = { 1: 0, 2: 0, 3: 0 };
+  const counts = { 1: 0, 2: 0, 3: 0, cut: 0 };
   const t0 = Date.now();
   const choices = {};
-  for (let n = 0; n < 1 << 20; n++) {
-    for (let i = 0; i < 10; i++) choices["c" + (i + 1)] = ids[(n >> (2 * i)) & 3];
-    counts[E.computeLens("scribe", choices).lens]++;
+  for (let rep = 0; rep < 40; rep++) {
+    for (let n = 0; n < 256; n++) {
+      for (let i = 0; i < 4; i++) choices["c" + (i + 1)] = ids[(n >> (2 * i)) & 3];
+      const r = E.computeLens("scribe", choices);
+      if (rep === 0) counts[r.cut ? "cut" : r.lens]++;
+    }
   }
-  const total = counts[1] + counts[2] + counts[3];
-  assert.equal(total, 1 << 20);
-  assert.ok(Date.now() - t0 < 30000);
+  assert.equal(counts[1] + counts[2] + counts[3] + counts.cut, 256);
+  assert.equal(counts.cut, 64);
+  assert.ok(Date.now() - t0 < 10000);
 });
 
 // ---------------------------------------------------------------- report

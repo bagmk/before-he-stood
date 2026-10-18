@@ -3,16 +3,21 @@
  * No DOM access anywhere in this file. Loadable in Node with `globalThis.window = globalThis`.
  *
  * Public API (BHS.engine):
- *   computeLens(routeOrId, choices)      -> { lens, scores: {1,2,3}, c10Lens, mismatch }   (SPEC 5.1)
+ *   computeLens(routeOrId, choices)      -> { lens, scores: {1,2,3}, lastLens, c10Lens, mismatch, cut }   (SPEC 5.1)
+ *                                           c10Lens is an alias of lastLens (older callers); a picked cut
+ *                                           option gives { lens: null, lastLens: null, mismatch: false, cut: true }
+ *   lastChoiceId(routeOrId)              -> id of the double-weight choice (the highest cN in the route), or null
  *   evalCond(cond, state)                -> boolean                                         (SPEC 4.5)
  *   resolveText(t, lang, state)          -> string, tokens resolved, *emphasis* markers kept
  *   plainText(t, lang, state)            -> string, tokens resolved, emphasis markers removed
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
  *   quoteVerse(text)                     -> “text” with inner double quotes turned into ‘ ’
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
+ *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
+ *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
- *   restoreGame(savedState)              -> Game
+ *   restoreGame(savedState)              -> Game   (throws when canRestore(savedState) is false)
  *
  * Game (driven by the UI):
  *   game.step                 current blocking step (see STEP KINDS below)
@@ -26,10 +31,14 @@
  *   game.fastForward(opts)    debug helper: auto-play until a predicate holds
  *
  * STEP KINDS: line {speaker, text} | verse {key, speaker} | choice {id, prompt, options:[{id,text}]}
- *   | press {action?, label?, hint?} | endingTitle {lens, lensLabel, title} | last {text}
+ *   | press {action?, label?, hint?} | endingTitle {lens, cut, lensLabel, title} | last {text}
  *   | routeSelect {} | end {}
- * A route ends: ... ending beats -> last -> endingCoda -> end (the UI then opens the gallery).
- * Choice steps never expose lens tags, so the UI cannot leak them (SPEC 7.2-7.3).
+ * A route ends: [mismatch line] -> endingPreface -> ending card -> ending beats -> last -> endingCoda -> end.
+ * A cut option (option.cut === true) plays its reaction, skips the rest of the route's beats, then runs
+ * ending card (meta.cut.label + meta.endings[route].cut) -> endings.cut.beats -> last -> endingCoda -> end,
+ * with no mismatch line and no endingPreface; at the cut the pinned thought is cleared, the light goes off
+ * and persistent actions hide. Ending ids: "<route>-1|2|3" and "<route>-cut".
+ * Choice steps never expose lens tags or cut flags, so the UI cannot leak them (SPEC 7.2-7.3).
  */
 (function () {
   "use strict";
@@ -44,7 +53,9 @@
   // Speakers that may appear as portraits (never Jesus; the protagonist is excluded per route).
   var PORTRAIT_IDS = { menahem: true, hanan: true, yonah: true, asher: true, mother: true, brother: true, neighbor: true, passerby: true, partners: true, scribes: true };
   var MAX_CAST = 2;
-  var STATE_VERSION = 1;
+  // 2 = short routes (version 3): last-choice weighting, cut endings, route fingerprints.
+  // Snapshots of version 1 (10-choice routes) are never restored.
+  var STATE_VERSION = 2;
 
   var warnings = [];
 
@@ -64,6 +75,10 @@
   function normLens(v) {
     var n = typeof v === "string" ? parseInt(v, 10) : v;
     return n === 1 || n === 2 || n === 3 ? n : null;
+  }
+
+  function isCutOption(opt) {
+    return !!opt && opt.cut === true;
   }
 
   // ---------------------------------------------------------------------------
@@ -91,6 +106,28 @@
       }
     }
     return out;
+  }
+
+  function choiceNumber(id) {
+    var m = /^c(\d+)$/.exec(String(id));
+    return m ? parseInt(m[1], 10) : -1;
+  }
+
+  // The double-weight choice: the highest cN in the route (c4 in the short routes). Falls back to the
+  // last choice in beat order when no id has the cN form.
+  function lastChoiceId(routeOrId) {
+    var list = choiceBeats(getRoute(routeOrId));
+    var best = null;
+    var bestN = -1;
+    for (var i = 0; i < list.length; i++) {
+      var n = choiceNumber(list[i].id);
+      if (n > bestN) {
+        bestN = n;
+        best = list[i].id;
+      }
+    }
+    if (best === null && list.length) best = list[list.length - 1].id;
+    return best;
   }
 
   function findChoice(route, id) {
@@ -134,10 +171,15 @@
   // Lens scoring (SPEC 5.1)
   // ---------------------------------------------------------------------------
 
+  // Each pick adds its weight (1; 2 for the last choice) to its lens. Ending lens = highest score; a tie
+  // goes to the last choice's lens when it is among the tied lenses, otherwise to the smallest tied lens.
+  // Picks for choice ids the route does not have (for example c5-c10 from an old save) are ignored.
   function computeLens(routeOrId, choices) {
     var route = getRoute(routeOrId);
+    var lastId = lastChoiceId(route);
     var scores = { 1: 0, 2: 0, 3: 0 };
-    var c10Lens = null;
+    var lastLens = null;
+    var cut = false;
     choices = choices || {};
     var list = choiceBeats(route);
     for (var i = 0; i < list.length; i++) {
@@ -146,21 +188,25 @@
       if (pick == null) continue;
       var opt = findOption(cb, pick);
       if (!opt) continue;
+      if (isCutOption(opt)) cut = true;
       var lens = normLens(opt.lens);
-      if (cb.id === "c10") c10Lens = lens;
+      if (cb.id === lastId) lastLens = lens;
       if (lens === null) continue;
-      scores[lens] += cb.id === "c10" ? 2 : 1;
+      scores[lens] += cb.id === lastId ? 2 : 1;
     }
+    if (cut) return { lens: null, scores: scores, lastLens: null, c10Lens: null, mismatch: false, cut: true };
     var max = Math.max(scores[1], scores[2], scores[3]);
     var tied = LENSES.filter(function (l) {
       return scores[l] === max;
     });
-    var lensOut = c10Lens !== null && tied.indexOf(c10Lens) >= 0 ? c10Lens : tied[0];
+    var lensOut = lastLens !== null && tied.indexOf(lastLens) >= 0 ? lastLens : tied[0];
     return {
       lens: lensOut,
       scores: scores,
-      c10Lens: c10Lens,
-      mismatch: c10Lens !== null && lensOut !== c10Lens
+      lastLens: lastLens,
+      c10Lens: lastLens,
+      mismatch: lastLens !== null && lensOut !== lastLens,
+      cut: false
     };
   }
 
@@ -187,12 +233,19 @@
     return v !== undefined && v !== null && v !== false;
   }
 
-  function c10LensOf(state) {
-    if (state && state.c10Lens !== undefined && state.c10Lens !== null) return state.c10Lens;
-    if (state && state.routeId && state.choices && state.choices.c10) {
-      var cb = findChoice(getRoute(state.routeId), "c10");
-      var opt = findOption(cb, state.choices.c10);
-      return opt ? normLens(opt.lens) : null;
+  // Lens of the option picked at the last (double-weight) choice: from the state when known,
+  // otherwise looked up in the route. Accepts `c10Lens` from older callers.
+  function lastLensOf(state) {
+    if (!state) return null;
+    if (state.lastLens !== undefined && state.lastLens !== null) return state.lastLens;
+    if (state.c10Lens !== undefined && state.c10Lens !== null) return state.c10Lens;
+    if (state.routeId && state.choices) {
+      var route = getRoute(state.routeId);
+      var id = lastChoiceId(route);
+      if (id && state.choices[id] != null) {
+        var opt = findOption(findChoice(route, id), state.choices[id]);
+        return opt ? normLens(opt.lens) : null;
+      }
     }
     return null;
   }
@@ -218,7 +271,9 @@
     if (own(cond, "not")) return !evalCond(cond.not, state);
     if (own(cond, "choice")) return matchValue((state.choices || {})[cond.choice], cond);
     if (own(cond, "flag")) return matchValue((state.flags || {})[cond.flag], cond);
-    if (own(cond, "c10lens")) return c10LensOf(state) === normLens(cond.c10lens);
+    if (own(cond, "lastLens")) return lastLensOf(state) === normLens(cond.lastLens);
+    // Alias kept from the 10-choice routes, where the last choice was c10.
+    if (own(cond, "c10lens")) return lastLensOf(state) === normLens(cond.c10lens);
     if (own(cond, "var")) {
       // Extension (not in SPEC 4.5): numeric test on a runtime variable.
       var n = Number((state.vars || {})[cond["var"]] || 0);
@@ -341,6 +396,78 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Route fingerprints (save compatibility)
+  // ---------------------------------------------------------------------------
+
+  // A snapshot stores list names and beat indexes, so it only fits the route data it was made from.
+  // The fingerprint hashes the route's skeleton: the beat types of every list in order, choice ids,
+  // option ids and cut flags, reaction lengths, ending keys, and action ids. Text edits keep it;
+  // added, removed or reordered beats change it.
+  function skeletonOf(list) {
+    if (!Array.isArray(list)) return "-";
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (!b || typeof b !== "object") {
+        out.push("?");
+        continue;
+      }
+      if (b.type === "choice") {
+        var opts = (Array.isArray(b.options) ? b.options : []).map(function (o) {
+          return o ? String(o.id) + (isCutOption(o) ? "!" : "") + "[" + skeletonOf(o.reaction) + "]" : "?";
+        });
+        out.push("choice:" + b.id + "(" + opts.join(",") + ")");
+      } else out.push(String(b.type));
+    }
+    return out.join(".");
+  }
+
+  function hashString(s) {
+    // FNV-1a, 32 bit.
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(36);
+  }
+
+  function fingerprint(routeOrId) {
+    if (routeOrId === "prologue") return "p" + hashString(skeletonOf((BHS.common && BHS.common.prologue) || []));
+    var route = getRoute(routeOrId);
+    if (!route) return null;
+    var parts = ["beats:" + skeletonOf(route.beats), "preface:" + skeletonOf(route.endingPreface)];
+    var ends = route.endings && typeof route.endings === "object" ? Object.keys(route.endings).sort() : [];
+    ends.forEach(function (k) {
+      var e = route.endings[k];
+      parts.push("ending " + k + ":" + skeletonOf(e && e.beats) + (e && e.last ? "+last" : ""));
+    });
+    parts.push("coda:" + skeletonOf(route.endingCoda));
+    parts.push(
+      "actions:" +
+        routeActions(route)
+          .map(function (a) {
+            return a && a.id;
+          })
+          .join(",")
+    );
+    return "r" + hashString(parts.join("|"));
+  }
+
+  // True when a snapshot can be resumed against the data loaded now. Anything else (version 1 saves
+  // from the 10-choice routes, saves from before a route edit, damaged objects) is refused.
+  function canRestore(saved) {
+    if (!saved || typeof saved !== "object" || saved.v !== STATE_VERSION) return false;
+    if (typeof saved.routeId !== "string" || !saved.routeId) return false;
+    if (saved.routeId !== "prologue" && !getRoute(saved.routeId)) return false;
+    if (!Array.isArray(saved.segs) || !Array.isArray(saved.stack) || typeof saved.seg !== "number") return false;
+    if (!saved.stage || typeof saved.stage !== "object" || !saved.step || typeof saved.step.kind !== "string") return false;
+    if (!saved.choices || typeof saved.choices !== "object") return false;
+    var fp = fingerprint(saved.routeId);
+    return !!fp && saved.fp === fp;
+  }
+
+  // ---------------------------------------------------------------------------
   // Game state machine
   // ---------------------------------------------------------------------------
 
@@ -356,6 +483,7 @@
     return {
       v: STATE_VERSION,
       routeId: routeId,
+      fp: custom ? "custom" : fingerprint(routeId === "prologue" ? "prologue" : route),
       segs: segs,
       seg: 0,
       stack: [{ list: segs[0], i: 0 }],
@@ -363,7 +491,8 @@
       flags: {},
       vars: {},
       picks: [],
-      c10Lens: null,
+      lastLens: null,
+      cutAt: null,
       stage: {
         bg: null,
         caption: null,
@@ -398,12 +527,8 @@
     if (!this.route && routeId !== "prologue" && !this.custom) throw new Error("Unknown route: " + routeId);
     this.debug = !!opts.debug;
     if (opts.state) {
+      if (!canRestore(opts.state) || opts.state.routeId !== routeId) throw new Error("Incompatible saved state");
       this.state = clone(opts.state);
-      if (!this.state || this.state.v !== STATE_VERSION || this.state.routeId !== routeId) {
-        throw new Error("Incompatible saved state");
-      }
-      // A save from version 1.0 may sit on the removed final screen; move on to the end step.
-      if (this.state.step && this.state.step.kind === "final") this._run();
     } else {
       this.state = initialState(routeId, this.route, !!this.custom);
       this._run();
@@ -423,7 +548,8 @@
       choices: st.choices,
       flags: st.flags,
       vars: st.vars,
-      c10Lens: st.c10Lens,
+      lastLens: st.lastLens,
+      c10Lens: st.lastLens,
       debug: this.debug
     };
   };
@@ -484,6 +610,12 @@
     }
   };
 
+  // Inserts the ending sequence right after the current segment.
+  Game.prototype._queue = function (tail) {
+    var st = this.state;
+    Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
+  };
+
   Game.prototype._synthetic = function (seg) {
     var st = this.state;
     var route = this.route;
@@ -494,13 +626,17 @@
         return true;
       case "@ending": {
         var res = computeLens(route, st.choices);
+        // A cut pick always ends through the cut path (choose() normally queues it already).
+        if (res.cut) return this._synthetic("@cut");
         st.ending = {
           routeId: st.routeId,
+          id: st.routeId + "-" + res.lens,
           lens: res.lens,
+          cut: false,
           scores: res.scores,
-          c10Lens: res.c10Lens,
-          mismatch: res.mismatch,
-          id: st.routeId + "-" + res.lens
+          lastLens: res.lastLens,
+          c10Lens: res.lastLens,
+          mismatch: res.mismatch
         };
         var tail = [];
         var hasEnding = !!(route && route.endings && route.endings[String(res.lens)]);
@@ -508,7 +644,32 @@
         tail.push("endingPreface", "@title");
         if (hasEnding) tail.push("ending:" + res.lens, "@last");
         tail.push("endingCoda", "@end");
-        Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
+        this._queue(tail);
+        return false;
+      }
+      case "@cut": {
+        // The route was cut short: no lens scoring, no mismatch line, no endingPreface. The beats that
+        // would have closed the scene were skipped, so the protagonist leaves it here: the pinned
+        // thought goes, the light goes off, persistent actions hide. endings.cut beats may set them again.
+        st.stage.pinned = null;
+        st.stage.light = "off";
+        st.stage.actionsVisible = false;
+        var scored = computeLens(route, st.choices);
+        st.ending = {
+          routeId: st.routeId,
+          id: st.routeId + "-cut",
+          lens: null,
+          cut: true,
+          scores: scored.scores,
+          lastLens: null,
+          c10Lens: null,
+          mismatch: false,
+          cutAt: st.cutAt || null
+        };
+        var cutTail = ["@title"];
+        if (route && route.endings && route.endings.cut) cutTail.push("ending:cut", "@last");
+        cutTail.push("endingCoda", "@end");
+        this._queue(cutTail);
         return false;
       }
       case "@mismatch":
@@ -517,15 +678,30 @@
         this._setStep({ kind: "line", speaker: "narrator", text: BHS.common.mismatchLine, mismatch: true });
         return true;
       case "@title": {
-        var lens = st.ending.lens;
+        var ending = st.ending || {};
         this._castClear();
-        var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
         var titles = (meta.endings && meta.endings[st.routeId]) || {};
         st.at = { list: "@title", index: 0 };
+        if (ending.cut) {
+          var cutMeta = meta.cut || {};
+          this._setStep({
+            kind: "endingTitle",
+            routeId: st.routeId,
+            lens: null,
+            cut: true,
+            lensLabel: cutMeta.label || { ko: "", en: "" },
+            lensDesc: cutMeta.desc || null,
+            title: titles.cut || { ko: "", en: "" }
+          });
+          return true;
+        }
+        var lens = ending.lens;
+        var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
         this._setStep({
           kind: "endingTitle",
           routeId: st.routeId,
           lens: lens,
+          cut: false,
           lensLabel: lensMeta.label || { ko: String(lens), en: String(lens) },
           lensDesc: lensMeta.desc || null,
           title: titles[lens] || { ko: "", en: "" }
@@ -533,16 +709,14 @@
         return true;
       }
       case "@last": {
-        var e = route.endings[String(st.ending.lens)];
+        var key = st.ending && st.ending.cut ? "cut" : String(st.ending && st.ending.lens);
+        var e = route && route.endings && route.endings[key];
         if (!e || !e.last) return false;
         st.at = { list: "@last", index: 0 };
         this._castClear();
         this._setStep({ kind: "last", text: e.last });
         return true;
       }
-      case "@final":
-        // Saves from version 1.0 still list "@final" (the removed final screen) before "@end": skip it.
-        return false;
       case "@end":
         this._setStep({ kind: "end" });
         st.done = true;
@@ -755,6 +929,18 @@
     return true;
   };
 
+  // A cut option ends the route early: every list still open (the route's main beats) is exhausted,
+  // and the coming "@ending" segment becomes "@cut". The option's reaction is pushed afterwards, so it
+  // still plays. All of this lives in the state, so saving and resuming work across a cut.
+  Game.prototype._cutFrom = function (choiceId, optId) {
+    var st = this.state;
+    st.cutAt = { choice: choiceId, option: optId };
+    for (var i = 0; i < st.stack.length; i++) st.stack[i].i = this._list(st.stack[i].list).length;
+    var at = st.segs.indexOf("@ending", st.seg);
+    if (at >= 0) st.segs[at] = "@cut";
+    else st.segs.splice(st.seg + 1, 0, "@cut");
+  };
+
   Game.prototype.choose = function (optId) {
     var st = this.state;
     var step = st.step;
@@ -764,12 +950,13 @@
     if (!opt) return false;
     st.choices[step.id] = optId;
     st.picks.push(step.id);
-    if (step.id === "c10") st.c10Lens = normLens(opt.lens);
+    if (step.id === lastChoiceId(this.route)) st.lastLens = normLens(opt.lens);
     if (opt.set && typeof opt.set === "object") {
       Object.keys(opt.set).forEach(function (k) {
         st.flags[k] = opt.set[k];
       });
     }
+    if (isCutOption(opt)) this._cutFrom(step.id, optId);
     if (Array.isArray(opt.reaction) && opt.reaction.length) {
       st.stack.push({ list: "react:" + step.id + ":" + optId, i: 0 });
     }
@@ -904,13 +1091,15 @@
   }
 
   var api = {
-    version: "1.0.0",
+    version: "3.0.0",
+    STATE_VERSION: STATE_VERSION,
     debug: false,
     warnings: warnings,
     LENSES: LENSES,
     PORTRAIT_IDS: PORTRAIT_IDS,
     getRoute: getRoute,
     choiceBeats: choiceBeats,
+    lastChoiceId: lastChoiceId,
     findChoice: findChoice,
     findOption: findOption,
     computeLens: computeLens,
@@ -924,6 +1113,8 @@
     verseText: verseText,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,
+    fingerprint: fingerprint,
+    canRestore: canRestore,
     createGame: createGame,
     createSequence: createSequence,
     restoreGame: restoreGame,

@@ -1311,6 +1311,18 @@ body.is-last .veil {
   animation: fade-in 1s 1.4s ease both;
 }
 
+/* A cut ending (the route stopped midway): the same card, quieter. No glowing numeral; the mark is
+   an ellipsis in limestone and the label is muted, so it never reads as a failure or a fourth lens. */
+.card--cut .card__num {
+  color: var(--limestone-dim);
+  text-shadow: none;
+  letter-spacing: 0.12em;
+}
+
+.card--cut .card__lens {
+  color: var(--limestone);
+}
+
 /* ------------------------------------------------------------------ page screens */
 
 .screen {
@@ -1623,12 +1635,19 @@ body.is-last .veil {
   opacity: 0.55;
 }
 
-/* Gallery */
+/* Gallery: rows = characters, columns = the three lenses plus the "cut" column (SPEC 4.5).
+   Phone: four equal columns; each character's name runs across the row above its four cells.
+   Wider layouts (tablet portrait, TV) add a name column on the left. */
 
 .gallery-page {
   gap: 16px;
   padding-top: calc(var(--safe-top) + var(--header-h) + 12px);
   background: rgba(22, 20, 17, 0.94);
+}
+
+.gallery-head {
+  display: grid;
+  gap: 10px;
 }
 
 .gallery-title {
@@ -1652,21 +1671,27 @@ body.is-last .veil {
   word-break: keep-all;
 }
 
+.grid-wrap {
+  min-width: 0;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: 58px repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .grid__corner {
-  min-height: 1px;
+  display: none;
 }
 
 .grid__lens {
-  padding: 6px 2px 4px;
+  align-self: end;
+  padding: 4px 2px 2px;
   text-align: center;
   font: 600 13px/1.3 var(--sans);
   color: var(--amber-soft);
+  word-break: keep-all;
 }
 
 .grid__lens .en {
@@ -1675,41 +1700,77 @@ body.is-last .veil {
   color: var(--limestone-dim);
 }
 
+.grid__label {
+  display: block;
+}
+
+/* Narrow columns: balanced lines instead of a lone last word. */
+.grid__lens,
+.grid__desc,
+.cell {
+  text-wrap: balance;
+}
+
+/* The cut column reads as a different kind of column: muted heading, a short note under it. */
+.grid__lens--cut {
+  color: var(--limestone);
+}
+
+.grid__mark {
+  color: var(--limestone-dim);
+}
+
+.grid__desc {
+  display: block;
+  margin-top: 3px;
+  font: 400 11px/1.35 var(--sans);
+  color: var(--limestone-dim);
+}
+
+.grid__desc .en {
+  font-size: 10.5px;
+  opacity: 0.9;
+}
+
 .grid__row {
+  grid-column: 1 / -1;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 4px 0;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
   font: 600 13px/1.3 var(--sans);
   color: var(--limestone);
   word-break: keep-all;
 }
 
-.grid__row .en {
+.grid__name .en {
+  display: inline;
+  margin-left: 0.5em;
   font-weight: 500;
   font-size: 11px;
   color: var(--limestone-dim);
 }
 
 .grid__swatch {
+  flex: none;
   display: block;
   width: 18px;
   height: 4px;
   border-radius: 2px;
-  margin-bottom: 6px;
   background: var(--plate, var(--basalt-3));
 }
 
 .cell {
   position: relative;
-  min-height: 92px;
-  padding: 10px 8px;
+  min-height: 84px;
+  padding: 9px 5px;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  font: 700 calc(13.5px * var(--text-scale)) / 1.45 var(--serif);
+  font: 700 calc(13px * var(--text-scale)) / 1.4 var(--serif);
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
@@ -1721,22 +1782,36 @@ body.is-last .veil {
   line-height: 1.35;
 }
 
-.cell[data-seen="true"] {
+.cell[data-state="seen"] {
   color: var(--ink);
   background-color: var(--papyrus);
   background-image: var(--paper-grain), linear-gradient(180deg, var(--papyrus-hi), var(--papyrus-lo));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.cell[data-seen="true"] .en {
+.cell[data-state="seen"] .en {
   color: var(--ink-soft);
 }
 
-.cell[data-seen="false"] {
+.cell[data-state="locked"],
+.cell[data-state="none"] {
   color: #8a8376;
   background: rgba(58, 54, 49, 0.45);
   border: 1px dashed rgba(235, 227, 207, 0.2);
   font: 500 12.5px/1.3 var(--sans);
+}
+
+/* Asher's cut cell: a note, not an ending. No paper, no frame of an ending; an italic remark. */
+.cell[data-state="note"] {
+  color: var(--limestone);
+  background: transparent;
+  border: 1px dotted rgba(235, 227, 207, 0.38);
+  font: italic 400 calc(12.5px * var(--text-scale)) / 1.45 var(--serif);
+}
+
+.cell[data-state="note"] .en {
+  color: var(--limestone-dim);
+  font-style: italic;
 }
 
 .cell[data-current="true"] {
@@ -1948,6 +2023,30 @@ body.is-last .veil {
 @media (min-width: 700px) and (orientation: portrait) {
   .app {
     max-width: 760px;
+  }
+  .grid {
+    grid-template-columns: 112px repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .grid__corner {
+    display: block;
+  }
+  .grid__row {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    margin-top: 0;
+    font-size: 15px;
+  }
+  .grid__name .en {
+    display: block;
+    margin-left: 0;
+    font-size: 12.5px;
+  }
+  .cell {
+    min-height: 104px;
+    font-size: calc(15px * var(--text-scale));
   }
   :root {
     --fs-story: 21px;
@@ -2384,78 +2483,128 @@ body.is-last .veil {
     font-size: calc(3vh * var(--text-scale));
   }
 
+  /* Gallery on a 16:9 screen: title and buttons share the top row, the 3 x 4 grid fills the rest
+     (rows = characters with a name column, columns = lenses 1-3 + cut). Fits 1280x720 and 1920x1080
+     in both languages with the "just now" label. */
   .gallery-page {
-    gap: 2vh;
-    padding-top: calc(var(--safe-top) + 9vh);
-    padding-bottom: calc(var(--safe-bottom) + 4vh);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head actions"
+      "grid grid";
+    align-content: start;
+    column-gap: 3vw;
+    row-gap: 2.6vh;
+    padding: calc(var(--safe-top) + 9vh) 4vw calc(var(--safe-bottom) + 3vh);
+  }
+
+  .gallery-head {
+    grid-area: head;
+    gap: 1vh;
+    align-self: center;
   }
 
   .gallery-title {
-    font-size: calc(5vh * var(--text-scale));
+    font-size: calc(4.4vh * var(--text-scale));
   }
 
   .gallery-intro {
-    font-size: 2.4vh;
+    font-size: 2.3vh;
+    line-height: 1.45;
+  }
+
+  .grid-wrap {
+    grid-area: grid;
   }
 
   .grid {
-    grid-template-columns: 13vw repeat(3, minmax(0, 1fr));
+    grid-template-columns: 10vw repeat(4, minmax(0, 1fr));
     gap: 1.2vh;
   }
 
+  .grid__corner {
+    display: block;
+  }
+
   .grid__lens {
-    font-size: 3vh;
-    padding: 0.6vh 0.5vw;
+    font-size: 2.8vh;
+    padding: 0.4vh 0.5vw 0.6vh;
   }
 
   .grid__lens .en {
-    font-size: 2.3vh;
+    font-size: 2.25vh;
+  }
+
+  .grid__desc {
+    margin-top: 0.5vh;
+    font-size: 2.2vh;
+  }
+
+  .grid__desc .en {
+    font-size: 2.2vh;
   }
 
   .grid__row {
-    font-size: 3vh;
-    padding: 0 0.6vw;
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1vh;
+    margin-top: 0;
+    padding: 0 0.4vw;
+    font-size: 2.8vh;
   }
 
-  .grid__row .en {
-    font-size: 2.3vh;
+  .grid__name .en {
+    display: block;
+    margin-left: 0;
+    font-size: 2.25vh;
   }
 
   .grid__swatch {
     width: 4vh;
     height: 0.6vh;
-    margin-bottom: 1.2vh;
   }
 
   .cell {
-    min-height: 13.5vh;
-    padding: 1.4vh 1.2vw;
+    min-height: 11vh;
+    padding: 1.2vh 1vw;
     border-radius: 1vh;
-    font-size: calc(3.1vh * var(--text-scale));
+    font-size: calc(2.7vh * var(--text-scale));
   }
 
   .cell .en {
-    font-size: calc(2.4vh * var(--text-scale));
+    font-size: calc(2.25vh * var(--text-scale));
   }
 
-  .cell[data-seen="false"] {
+  .cell[data-state="locked"],
+  .cell[data-state="none"] {
     font-size: 2.4vh;
+  }
+
+  .cell[data-state="note"] {
+    font-size: calc(2.45vh * var(--text-scale));
+  }
+
+  .cell[data-state="note"] .en {
+    font-size: calc(2.2vh * var(--text-scale));
   }
 
   .cell__yours {
     font-size: 2.2vh;
-    margin-top: 0.8vh;
+    margin-top: 0.6vh;
   }
 
   .gallery-actions {
-    grid-template-columns: repeat(2, minmax(0, 30vw));
-    justify-content: end;
-    gap: 1.6vw;
+    grid-area: actions;
+    align-self: center;
+    grid-template-columns: repeat(2, minmax(0, 24vw));
+    gap: 1.4vw;
     margin-top: 0;
   }
 
   .gallery-actions .btn {
-    min-height: 7.5vh;
+    min-height: 7vh;
   }
 
   .settings {

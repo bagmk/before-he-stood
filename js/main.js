@@ -18,7 +18,9 @@
     save: "bhs.v1.save",
     gallery: "bhs.v1.gallery"
   };
-  var SAVE_VERSION = 1;
+  // 2 = short routes (version 3). Every save carries the route fingerprint of BHS.engine; a save
+  // that no longer fits the loaded data (for example one from the 10-choice routes) is dropped silently.
+  var SAVE_VERSION = 2;
   var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true };
 
   // ------------------------------------------------------------------ storage (never throws)
@@ -123,12 +125,14 @@
 
   function persist() {
     if (!app.game) return;
+    var state = app.game.serialize();
     store.set(KEYS.save, {
       v: SAVE_VERSION,
       at: Date.now(),
       screen: app.screen,
-      routeId: app.game.state.routeId,
-      state: app.game.serialize()
+      routeId: state.routeId,
+      fp: state.fp,
+      state: state
     });
   }
 
@@ -136,12 +140,24 @@
     store.set(KEYS.save, { v: SAVE_VERSION, at: Date.now(), screen: "routeSelect", routeId: null, state: null });
   }
 
+  // A save is offered only when it fits the data loaded now (save format, state version, route
+  // fingerprint). Anything else is removed without a notice, so "Continue" never resumes a stale place.
   function loadSave() {
     var s = store.get(KEYS.save);
-    if (!s || s.v !== SAVE_VERSION) return null;
-    if (s.screen === "routeSelect") return s;
-    if (!s.state || !s.routeId) return null;
-    if (s.routeId !== "prologue" && !routeExists(s.routeId)) return null;
+    if (!s) return null;
+    var ok = false;
+    try {
+      if (s.v === SAVE_VERSION && s.screen === "routeSelect") ok = true;
+      else if (s.v === SAVE_VERSION && s.state && typeof s.routeId === "string" && s.state.routeId === s.routeId) {
+        ok = (s.routeId === "prologue" || routeExists(s.routeId)) && E.canRestore(s.state);
+      }
+    } catch (err) {
+      ok = false;
+    }
+    if (!ok) {
+      clearSave();
+      return null;
+    }
     return s;
   }
 
@@ -149,6 +165,8 @@
     store.del(KEYS.save);
   }
 
+  // Seen endings ("scribe-1" ... "friend-cut"). Ids from older releases stay valid; anything unknown
+  // is simply never matched by a gallery cell.
   function loadGallery() {
     var g = store.get(KEYS.gallery);
     return Array.isArray(g) ? g.filter(function (x) { return typeof x === "string"; }) : app.memGallery || [];
@@ -647,6 +665,8 @@
         projectedLens: lensNow ? lensNow.lens : null,
         flags: st ? st.flags : {},
         vars: st ? st.vars : {},
+        lastLens: st ? st.lastLens : null,
+        cut: st && st.ending ? !!st.ending.cut : st && st.cutAt ? true : null,
         lens: st && st.ending ? st.ending.lens : null,
         ending: st && st.ending ? st.ending.id : app.lastEnding,
         mismatch: st && st.ending ? st.ending.mismatch : null,
@@ -683,6 +703,13 @@
     return (BHS.meta && BHS.meta.routeOrder && BHS.meta.routeOrder[0]) || "scribe";
   }
 
+  function isCutPick(rid, cid, optId) {
+    var opt = E.findOption(E.findChoice(E.getRoute(rid), cid), optId);
+    return !!(opt && opt.cut === true);
+  }
+
+  // Replays the route up to choice `cid`, keeping earlier picks; a cut option on the way is replaced
+  // by the first option that does not end the route.
   function jumpTo(cid, routeId) {
     var rid = routeId || currentRouteId();
     if (!routeExists(rid)) return;
@@ -693,7 +720,9 @@
         return s.kind === "choice" && s.id === cid;
       },
       pick: function (s) {
-        return prev[s.id] || s.options[0].id;
+        if (prev[s.id] && !isCutPick(rid, s.id, prev[s.id])) return prev[s.id];
+        for (var i = 0; i < s.options.length; i++) if (!isCutPick(rid, s.id, s.options[i].id)) return s.options[i].id;
+        return s.options[0].id;
       }
     });
     app.game = g;
@@ -762,7 +791,7 @@
     var info = [
       "screen " + s.screen + "  route " + (s.routeId || "-") + "  " + (s.list || "-") + "#" + (s.beatIndex == null ? "-" : s.beatIndex) + "  step " + (s.step || "-") + (s.stepId ? " " + s.stepId : ""),
       "choices " + JSON.stringify(s.choices),
-      "scores " + JSON.stringify(s.scores) + "  projected " + (s.projectedLens || "-") + "  lens " + (s.lens || "-"),
+      "scores " + JSON.stringify(s.scores) + "  projected " + (s.projectedLens || "-") + "  lens " + (s.lens || "-") + (s.cut ? "  (cut)" : ""),
       "flags " + JSON.stringify(s.flags) + "  vars " + JSON.stringify(s.vars),
       "light " + s.light + "  pov " + s.pov,
       E.warnings.length ? "warnings: " + E.warnings.slice(-3).join(" | ") : ""
@@ -773,7 +802,10 @@
       box.appendChild(h("button", { type: "button", disabled: routeExists(rid) ? null : true, on: { click: function () { startRoute(rid); } } }, rid));
     });
     var sel = h("select", { "aria-label": dbg("debugJump"), "data-testid": "debug-select" });
-    for (var i = 1; i <= 10; i++) sel.appendChild(h("option", { value: "c" + i }, "c" + i));
+    var jumpRoute = currentRouteId();
+    E.choiceBeats(routeExists(jumpRoute) ? E.getRoute(jumpRoute) : null).forEach(function (cb) {
+      sel.appendChild(h("option", { value: cb.id }, cb.id));
+    });
     box.appendChild(sel);
     box.appendChild(h("button", { type: "button", "data-testid": "debug-jump", on: { click: function () { jumpTo(sel.value); } } }, dbg("debugJump")));
     box.appendChild(h("button", { type: "button", "data-testid": "debug-autopick", on: { click: autoPick } }, dbg("debugAutoPick")));
