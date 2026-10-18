@@ -101,7 +101,7 @@
           },
           {
             id: "b",
-            text: t("“이유 몰라도 돼. 그냥 가자.”", "“I don't need a reason. Let's just go.”"),
+            text: t("“이유 몰라도 돼. 그냥 가자.”", "“We don't need to know why. Let's just go.”"),
             reaction: [say("asher", "다들 이유부터 묻던데. …좋아. 떨어뜨리지만 마.", "Everyone else wants a reason first. …Okay. Just don't drop me.")]
           },
           {
@@ -179,7 +179,7 @@
       light("soft"),
       say(
         null,
-        "요나와 동료들이 마침내 그분 앞에 침상을 내려놓는다. 귀퉁이를 잡은 손들은 그물에 트고 굳은살이 박였다.",
+        "요나와 동료들이 마침내 그분 앞에 침상을 내려놓는다. 귀퉁이를 잡은 손들은 그물 일로 트고 굳은살이 박였다.",
         "At last, Yonah and his partners set the bed down in front of Jesus. The hands on its corners are chapped and callused from the nets.",
         "crowd-bed-down"
       ),
@@ -202,7 +202,7 @@
           },
           {
             id: "b",
-            text: t("왜 그 말부터 하셨지?", "Why did he say that first?"),
+            text: t("왜 그 말씀부터 하셨지?", "Why did he say that first?"),
             // Points at the person, never at a cause for his condition (SPEC 7.2).
             reaction: [
               say(
@@ -285,7 +285,7 @@
             )
           }
         ],
-        last: t("너는 그를 여기까지 들고 왔다. 집까지는 그가 침상을 들고 갔다.", "You carried him this far. The rest of the way home, he carried the bed.")
+        last: t("너는 친구를 여기까지 들고 왔다. 집까지는 친구가 침상을 들고 갔다.", "You carried your friend this far. The rest of the way home, he carried the bed.")
       },
 
       // Cut branches (engine: reaction, beats, last line, then the snip card with the title).
@@ -327,7 +327,7 @@
             // Asher's own words carry the first words this branch never heard (forgiveness, then healing).
             say(
               null,
-              "아셀이 요나를 지나며 씩 웃는다. “그분이 나한테 먼저 하신 말이 있어. 나중에 들려줄게.”",
+              "아셀이 요나를 지나며 씩 웃는다. “그분이 나한테 먼저 하신 말씀이 있어. 나중에 들려줄게.”",
               "Asher grins as he passes Yonah. “He said something to me first. I'll tell you later.”"
             )
           ],

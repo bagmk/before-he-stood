@@ -10,8 +10,8 @@
     subtitle: { ko: "그날, 가버나움 · 마태복음 9:1–8", en: "Capernaum, That Day · Matthew 9:1–8" },
 
     disclaimer: {
-      ko: "사건은 마태복음 9:1–8을 따릅니다. 이름, 대화, 이전 이야기와 결말은 창작입니다.",
-      en: "The event follows Matthew 9:1–8. Names, conversations, backstories, and endings are imagined."
+      ko: "사건은 마태복음 9:1–8을 따릅니다. 이름, 대화, 인물들의 사연과 결말은 창작입니다.",
+      en: "The event follows Matthew 9:1–8. Names, conversations, backstories, and endings are invented."
     },
 
     bibleNotice: {
@@ -29,17 +29,17 @@
         tagline: { ko: "말씀을 지키려는 사람", en: "He guards what belongs to God." },
         firstLine: {
           ko: "하나님께 속한 것을 사람이 함부로 말하게 둘 수는 없다.",
-          en: "What belongs to God must not be claimed lightly by anyone."
+          en: "I can't let anyone lightly claim what belongs to God."
         }
       },
       friend: {
         protagonist: "yonah",
         name: { ko: "친구 요나", en: "Yonah, the friend" },
         title: { ko: "침상의 귀퉁이", en: "A Corner of the Bed" },
-        tagline: { ko: "한 사람을 예수님께 데려가는 사람", en: "He carries a friend to Jesus." },
+        tagline: { ko: "친구를 예수님께 데려가는 사람", en: "He carries a friend to Jesus." },
         firstLine: {
-          ko: "그가 다시 걸을 수 있다면, 오늘 내가 할 수 있는 건 뭐든 하겠다.",
-          en: "If it means he can walk again, I'll do whatever I can today."
+          ko: "아셀이 다시 걸을 수 있다면, 오늘 내가 할 수 있는 건 뭐든 하겠다.",
+          en: "If it means Asher can walk again, I'll do whatever I can today."
         }
       },
       asher: {

@@ -135,14 +135,14 @@
         nope("c", "“요나, 내려 줘. 집에 갈래.”", "“Yonah, put me down. I'm going home.”", "yonah", "안 돼! 다 왔는데 어딜 가.", "Nope! We're almost there!")
       ]),
       line(
-        "회당에서 보던 서기관 므나헴이 제자와 함께 비켜선다. 잠깐, 그와 눈이 마주친다. 둘 다 아무 말이 없다.",
+        "회당에서 보던 서기관 므나헴이 제자와 함께 비켜선다. 잠깐 서로 눈이 마주친다. 둘 다 아무 말이 없다.",
         "Menahem, a scribe from the synagogue, steps aside with his student. For a moment, his eyes meet Asher's. Neither says a word.",
         "lane-menahem"
       ),
 
       // ---------- THE CROWD (SPEC §6.4), lying POV before Jesus ----------
       // The scene sets the bed down before him (faces above, light); MT_9_2A narrates it.
-      scene("crowd_lying", "lying", "정오 무렵 · 그분 앞", "Around noon · Before Jesus"),
+      scene("crowd_lying", "lying", "정오 무렵 · 그분 앞", "Around noon · In front of Jesus"),
       fx("light", { level: "soft" }),
       verse("MT_9_2A"),
       fx("light", { level: "bright" }),
@@ -155,7 +155,7 @@
 
       // c4: no option carries a "right answer" feel. Trying to stand still answers that nothing has
       // changed (no "sin removed, body released"; SPEC §7.2).
-      choice("c4", "내 죄가 사함을 받았다고 하셨다. 이제 어쩌지?", "He said my sins are forgiven. Now what?", [
+      choice("c4", "죄를 용서받았다고 하셨다. 이제 어쩌지?", "He said my sins are forgiven. Now what?", [
         nope("a", "일어나 본다.", "Try to get up.", "thought", "다리는 그대로다.", "My legs haven't changed."),
         go("b", "정말 나한테 하시는 말씀인가?", "Is he really saying this to me?", [
           // Calls back his only way out of the house: "I want to go. But I'm scared."
@@ -166,9 +166,9 @@
           // His own noticing, not a narrator's ruling (SPEC §7.2). The variant recalls the c1 psalm.
           when(
             { choice: "c1", is: "a" },
-            thought("아침에 기도할 때도 그게 무서웠다. 그런데 그 말 어디에도 ‘그래서’는 없었다.", "That's what scared me when I prayed this morning. But nothing he said had a “because” in it.")
+            thought("아침에 기도할 때도 그게 무서웠다. 그런데 그 말씀 어디에도 ‘때문에’라는 말은 없었다.", "That's what scared me when I prayed this morning. But nothing he said had a ‘because’ in it.")
           ),
-          when({ not: { choice: "c1", is: "a" } }, thought("그런데 그 말 어디에도 ‘그래서’는 없었다.", "But nothing he said had a “because” in it."))
+          when({ not: { choice: "c1", is: "a" } }, thought("그런데 그 말씀 어디에도 ‘때문에’라는 말은 없었다.", "But nothing he said had a ‘because’ in it."))
         ])
       ]),
 
@@ -238,7 +238,7 @@
           beats: [
             line("요나의 발소리가 골목 아래로 멀어진다.", "Yonah's footsteps fade down the lane.", "home-footsteps"),
             when({ choice: "c1", is: "d" }, thought("아침에 세다 만 들보를 끝까지 센다. 마흔둘.", "I finish counting the beams I started this morning. Forty-two.", "home-beams-again")),
-            when({ not: { choice: "c1", is: "d" } }, thought("들보나 끝까지 세 본다. 마흔둘.", "I count the beams all the way through. Forty-two.", "home-beams")),
+            when({ not: { choice: "c1", is: "d" } }, thought("들보나 끝까지 세 본다. 마흔둘.", "Might as well count every beam. Forty-two.", "home-beams")),
             scene("asher_ceiling", "lying", "정오 무렵 · 아셀의 집", "Around noon · Asher's house"),
             sign("― 바닷가 쪽에서 함성이 들려온다 ―", "— A roar goes up from the shore —", "home-roar")
           ],

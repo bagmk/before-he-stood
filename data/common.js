@@ -19,8 +19,8 @@
         type: "line",
         // Both rumors point to the sermon text (Matt 8:23-27 and 8:28-34) before the game's own story (9:1-8).
         text: {
-          ko: "폭풍이 그의 말 한마디에 잠잠해졌다는 소문, 건너편에서 귀신들이 쫓겨났다는 소문이 그보다 먼저 도착했다.",
-          en: "Rumors got here before he did: a storm went still at a single word from him, and demons were driven out across the lake."
+          ko: "소문이 그보다 먼저 와 있었다. 말 한마디로 폭풍을 잠재웠다는 소문, 건너편에서 귀신들을 쫓아냈다는 소문.",
+          en: "Rumors got here before he did: he calmed a storm with a single word, and across the lake, he drove out demons."
         }
       },
       {
@@ -33,7 +33,7 @@
     ],
 
     routeSelect: {
-      prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" },
+      prompt: { ko: "누구의 눈으로 그날을 볼까요?", en: "Through whose eyes will you see this day?" },
       // The scribe's unspoken thought (route 1) is answered in routes 2 and 3; Asher standing up comes last.
       hint: { ko: "추천 순서: 서기관 → 친구 → 아셀", en: "Suggested order: scribe → friend → Asher" }
     }
