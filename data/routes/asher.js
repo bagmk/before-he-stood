@@ -104,7 +104,7 @@
 
       // ---------- 2. Morning: Yonah bursts in (the boat is still on its way) ----------
       scene("asher_ceiling", "lying", "아침 · 아셀의 집", "Morning · Asher's house"),
-      // c2: whatever he answers, the bed is lifted (the sign below answers every option).
+      // c2: whatever he answers, the bed is lifted (the sign below answers a, b, d; c has its own reaction).
       {
         type: "choice",
         id: "c2",
@@ -112,7 +112,10 @@
         options: [
           opt("a", "가고 싶어. 근데 겁나.", "I want to go. But I'm scared.", 2),
           opt("b", "그분이 어떤 분인데?", "Who is he, anyway?", 1),
-          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 2),
+          // A refusal is answered by waiting, not by lifting him anyway: he consents before the lane.
+          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 2, [
+            thought("요나는 따지지 않는다. 그냥 기다린다. 한참 뒤, 결국 내가 고개를 끄덕인다.", "Yonah doesn't argue. He just waits. After a long while, I nod.")
+          ]),
           opt("d", "내 겉옷 좀 줘. 그리고 가자.", "Hand me my cloak. Then let's go.", 3)
         ]
       },
@@ -120,7 +123,8 @@
       // ---------- 3. THE LANE (SPEC §6.3), carried POV ----------
       scene("sky_carried", "lying", "늦은 아침 · 골목", "Late morning · The lane"),
       fx("actionReply", { action: "goout", text: t("나왔다. 내 발로 나온 건 아니지만.", "I'm out. Not on my own feet, but I'm out.") }),
-      sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you."),
+      // Skipped after c2 c, whose reaction already shows the wait and his nod (keeps the screen count).
+      when({ not: { choice: "c2", is: "c" } }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
       {
         type: "line",
         id: "lane-passerby",

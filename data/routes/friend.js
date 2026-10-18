@@ -320,8 +320,8 @@
     ],
 
     // Titles come from data/meta.js (BHS.meta.endings.friend, including "cut").
-    // Ending 2's beat states that Jesus gave no reason for the illness, so its last line
-    // ("answered the question Asher feared most") never reads as confirming a cause (SPEC 7.2).
+    // Ending 2's beat states that Jesus gave no reason for the illness (SPEC 7.2); its last line
+    // echoes the ending title and the game title ("before he stood").
     endings: {
       "1": {
         beats: [
@@ -354,16 +354,16 @@
         beats: [
           {
             type: "line",
-            id: "e2-face",
+            id: "e2-first-words",
             text: {
-              ko: "아셀이 왜 아팠는지, 그분은 한마디도 하지 않으셨다. 요나는 첫마디를 듣던 아셀의 얼굴을 기억한다.",
-              en: "Jesus never said a word about why Asher had been sick. Yonah remembers Asher's face as he heard the first words."
+              ko: "그분은 아셀이 왜 아팠는지 한마디도 하지 않으셨다. 다리 이야기보다 먼저, 아셀에게 말을 거셨다.",
+              en: "Jesus never said a word about why Asher had been sick. Before anything about his legs, he spoke to Asher himself."
             }
           }
         ],
         last: {
-          ko: "그분은 다리보다 먼저, 아셀이 가장 무서워하던 질문에 답하셨다.",
-          en: "Before a word about his legs, Jesus answered the question Asher feared most."
+          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그 전의 첫마디도 기억한다.",
+          en: "Everyone remembers that Asher walked. I remember the first words too, the ones before he stood."
         }
       },
 

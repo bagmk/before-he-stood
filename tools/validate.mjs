@@ -1055,6 +1055,9 @@ function checkBeat(b, cx, label) {
     case 'scene': {
       if (!cx.canon.bgIds.includes(b.bg)) rep.error('schema', w, `unknown bg ${JSON.stringify(b.bg)} (SPEC 6.6: ${cx.canon.bgIds.join(', ')})`);
       else if (cx.setBg) cx.setBg(b.bg);
+      if (cx.rid && (b.time === 'evening' || b.time === 'night' || ['lamp_night', 'road_home', 'doorway_evening'].includes(b.bg))) {
+        rep.info('scene', w, `evening/epilogue setting (${b.bg}${b.time ? ', ' + b.time : ''}); SPEC 6.2: short routes end at the crowd or one step away`);
+      }
       if (b.caption !== undefined) checkT(b.caption, cx, `${w} › caption`, { story: cx.story });
       if (b.pov !== undefined && !POV_VALUES.includes(b.pov)) rep.error('schema', w, `pov must be one of ${POV_VALUES.join('|')}`);
       if (b.time !== undefined && !TIME_VALUES.includes(b.time)) rep.error('schema', w, `time must be one of ${TIME_VALUES.join('|')} (SPEC 4.5), got ${JSON.stringify(b.time)}`);
@@ -1182,8 +1185,8 @@ function checkFx(b, cx, w) {
 
 function checkChoice(b, cx, w) {
   const rep = cx.rep;
-  if (!CHOICE_IDS.includes(b.id)) rep.error('schema', w, `choice id must be c1..c10, got ${JSON.stringify(b.id)}`);
-  if (b.when !== undefined) rep.warn('schema', w, 'choice beat has a "when" condition; all ten choices must be reached on every path');
+  if (!CHOICE_IDS.includes(b.id)) rep.error('schema', w, `choice id must be ${CHOICE_IDS[0]}..${LAST_CHOICE}, got ${JSON.stringify(b.id)}`);
+  if (b.when !== undefined) rep.warn('schema', w, `choice beat has a "when" condition; all ${CHOICE_COUNT} choices must be reached on every path that is not cut`);
   checkT(b.prompt, cx, `${w} › prompt`, { kind: 'prompt', story: cx.story });
   if (!Array.isArray(b.options)) { rep.error('schema', w, 'options must be an array of 4 options'); return; }
   if (b.options.length !== 4) rep.error('schema', w, `expected 4 options, found ${b.options.length}`);
@@ -1196,6 +1199,13 @@ function checkChoice(b, cx, w) {
     if (unknown.length) rep.warn('schema', ow, `unknown key(s) on option: ${unknown.join(', ')}`);
     if (!('lens' in o)) rep.error('schema', ow, 'option has no lens (use null for no lens)');
     else if (!(o.lens === null || LENSES.includes(o.lens))) rep.error('schema', ow, `lens must be 1, 2, 3 or null, got ${JSON.stringify(o.lens)}`);
+    if ('cut' in o) {
+      if (o.cut !== true) rep.error('cut', ow, `"cut" must be the boolean true (or left out), got ${JSON.stringify(o.cut)}`);
+      else {
+        if (cx.cutOptions) cx.cutOptions.push({ choice: b.id, option: o.id, w: ow });
+        if (o.lens !== null) rep.error('cut', ow, `a cut option must have lens null (SPEC 4.5), got ${JSON.stringify(o.lens)}`);
+      }
+    }
     const egg = (cx.rid === 'friend' && b.id === 'c7' && o.id === 'd') || MARK_LABEL.test(JSON.stringify([o.text, o.reaction || []]));
     const ocx = Object.assign({}, cx, { egg });
     checkT(o.text, ocx, `${ow} › text`, { kind: 'option', story: cx.story });
@@ -1220,8 +1230,11 @@ function checkChoice(b, cx, w) {
         if (CHOICE_IDS.includes(b.id)) seen.add(b.id);
         const rcx = Object.assign({}, cx, { seen, flags: optFlags, inReaction: true, egg, path: `${ow} › reaction` });
         o.reaction.forEach((rb, ri) => checkBeat(rb, rcx, `[${ri}]`));
-        const plain = o.reaction.filter((rb) => isObj(rb) && (rb.type === 'line' || rb.type === 'verse') && rb.when === undefined).length;
-        if (plain > 2) rep.warn('schema', ow, `reaction has ${plain} unconditional lines (SPEC 4.5: 0-2 short lines)`);
+        const plain = o.reaction.filter((rb) => isObj(rb) && (rb.type === 'line' || rb.type === 'verse' || rb.type === 'press') && rb.when === undefined).length;
+        const most = isCutOption(o) ? 2 : 1;
+        if (plain > most) {
+          rep.warn('schema', ow, `reaction has ${plain} unconditional beats (SPEC 4.5: ${isCutOption(o) ? 'a cut option keeps at most two' : 'at most one short reaction beat; two only when a "when" variant needs it'})`);
+        }
       }
     }
   });
@@ -1524,6 +1537,17 @@ function checkMeta(rep, data, cx) {
     ['name', 'title', 'tagline', 'firstLine'].forEach((k) => checkT(r[k], cx, W(`routes.${rid}.${k}`), {}));
     for (const l of LENSES) checkT(r.lensDesc && r.lensDesc[l], cx, W(`routes.${rid}.lensDesc.${l}`), {});
     for (const l of LENSES) checkT(m.endings && m.endings[rid] && m.endings[rid][l], cx, W(`endings.${rid}.${l}`), {});
+    const er = (m.endings && m.endings[rid]) || {};
+    if (CUT_ROUTES.includes(rid)) {
+      if (er.cut === undefined) rep.error('meta', W(`endings.${rid}.cut`), 'missing (the title of the cut ending, SPEC 4.1)');
+      else checkT(er.cut, cx, W(`endings.${rid}.cut`), {});
+    } else if (er.cutNote === undefined) rep.warn('meta', W(`endings.${rid}.cutNote`), 'missing (the note shown in the gallery\'s cut column, SPEC 4.1)');
+    else checkT(er.cutNote, cx, W(`endings.${rid}.cutNote`), {});
+  }
+  if (!isObj(m.cut)) rep.error('meta', W('cut'), 'missing { label, desc } for the cut column and the cut ending card (SPEC 4.1)');
+  else {
+    checkT(m.cut.label, cx, W('cut.label'), {});
+    checkT(m.cut.desc, cx, W('cut.desc'), {});
   }
 }
 
@@ -1601,7 +1625,7 @@ function checkRoute(rep, data, rid, gcx, opts) {
   const cx = Object.assign({}, gcx, {
     rid, file, path: rid, story: true, phase: 'main', seen: new Set(), flags: new Map(), allFlags,
     counters: new Set(), actions: new Set(), ids: new Set(), choiceList: [], lastChoice: null, usage, cursor: { pos: 0 },
-    allTexts: []
+    allTexts: [], cutOptions: []
   });
   cx.setBg = (bg) => { bgNow = bg; };
   cx.bgNow = () => bgNow;
@@ -1636,15 +1660,26 @@ function checkRoute(rep, data, rid, gcx, opts) {
   // Main beats.
   if (!Array.isArray(route.beats) || !route.beats.length) rep.error('schema', `${rid} › beats`, 'beats must be a non-empty array');
   else checkBeats(route.beats, cx, 'beats');
-  // Choice order.
+  // Choice order (SPEC 4.5: exactly four choices c1..c4 in order; the last counts double).
   const ids = cx.choiceList.map((b) => b.id);
-  if (ids.length !== 10 || ids.some((id, i) => id !== CHOICE_IDS[i])) {
-    rep.error('schema', `${rid} › beats`, `expected exactly ten choices c1..c10 in order, found [${ids.join(', ')}]`);
+  if (ids.length !== CHOICE_COUNT || ids.some((id, i) => id !== CHOICE_IDS[i])) {
+    rep.error('schema', `${rid} › beats`, `expected exactly ${CHOICE_COUNT} choices ${CHOICE_IDS.join(', ')} in order, found [${ids.join(', ')}]`);
   }
+  // Cut options (SPEC 4.5): scribe and friend exactly one, in c2 or c3; asher none (he cannot walk away).
+  const cuts = cx.cutOptions;
+  const cutRoute = CUT_ROUTES.includes(rid);
+  if (cutRoute) {
+    if (!cuts.length) rep.error('cut', `${rid} › beats`, `no cut option; the ${rid} route needs exactly one option with cut: true, in ${CUT_CHOICES.join(' or ')} (SPEC 4.5)`);
+    else if (cuts.length > 1) rep.error('cut', `${rid} › beats`, `${cuts.length} cut options (${cuts.map((c) => c.choice + '/' + c.option).join(', ')}); exactly one is allowed (SPEC 4.5)`);
+    for (const c of cuts) if (!CUT_CHOICES.includes(c.choice)) rep.error('cut', c.w, `the cut option sits in ${c.choice}; it must be in ${CUT_CHOICES.join(' or ')} (SPEC 4.5)`);
+  } else if (cuts.length) {
+    rep.error('cut', `${rid} › beats`, `the ${rid} route must not have a cut option (SPEC 4.5${rid === 'asher' ? ': Asher cannot walk away' : ''}); found ${cuts.map((c) => c.choice + '/' + c.option).join(', ')}`);
+  }
+  const cutChoice = cuts.length ? cuts[0].choice : null;
   // Endings.
-  const ecx = Object.assign({}, cx, { phase: 'ending', allowC10: true, seen: new Set(CHOICE_IDS), flags: new Map([...allFlags].map(([k, v]) => [k, new Set(v)])), lastChoice: null });
+  const ecx = Object.assign({}, cx, { phase: 'ending', allowLast: true, seen: new Set(CHOICE_IDS), flags: new Map([...allFlags].map(([k, v]) => [k, new Set(v)])), lastChoice: null });
   if (route.endingPreface !== undefined) checkBeats(route.endingPreface, Object.assign({}, ecx, { path: `${rid} › endingPreface` }), 'beats');
-  if (!isObj(route.endings)) rep.error('schema', `${rid} › endings`, 'endings must be an object with keys "1", "2", "3"');
+  if (!isObj(route.endings)) rep.error('schema', `${rid} › endings`, `endings must be an object with keys "1", "2", "3"${cutRoute ? ' and "cut"' : ''}`);
   else {
     const ek = Object.keys(route.endings);
     for (const l of ['1', '2', '3']) {
@@ -1657,7 +1692,29 @@ function checkRoute(rep, data, rid, gcx, opts) {
       else checkBeats(e.beats, Object.assign({}, ecx, { path: w }), 'beats');
       checkT(e.last, Object.assign({}, ecx, { path: w }), `${w} › last`, { kind: 'line', story: true });
     }
-    const extraE = ek.filter((k) => !['1', '2', '3'].includes(k));
+    const ce = route.endings.cut;
+    const cw = `${rid} › endings.cut`;
+    if (cutRoute && !isObj(ce)) rep.error('cut', cw, 'missing; a route with a cut option needs endings.cut = { beats, last } (SPEC 4.5)');
+    else if (!cutRoute && ce !== undefined) rep.error('cut', cw, `the ${rid} route has no cut ending by design; remove endings.cut (meta.endings.${rid}.cutNote fills the gallery cell)`);
+    else if (isObj(ce)) {
+      // Only choices up to the cut are asked on a cut path, and only their flags can be set.
+      const upto = cutChoice ? CHOICE_IDS.slice(0, CHOICE_IDS.indexOf(cutChoice) + 1) : CHOICE_IDS;
+      const cutFlags = new Map();
+      for (const cb of cx.choiceList) {
+        if (!upto.includes(cb.id)) continue;
+        for (const o of cb.options || []) {
+          if (!isObj(o) || !isObj(o.set)) continue;
+          for (const [f, v] of Object.entries(o.set)) { if (!cutFlags.has(f)) cutFlags.set(f, new Set()); cutFlags.get(f).add(v); }
+        }
+      }
+      const ccx = Object.assign({}, ecx, { path: cw, inCutEnding: true, cutChoice, seen: new Set(upto), flags: cutFlags });
+      const ex = Object.keys(ce).filter((k) => k !== 'beats' && k !== 'last');
+      if (ex.length) rep.warn('schema', cw, `unknown key(s): ${ex.join(', ')} (ending titles live in meta.js)`);
+      if (!Array.isArray(ce.beats)) rep.error('schema', cw, 'beats must be an array');
+      else checkBeats(ce.beats, ccx, 'beats');
+      checkT(ce.last, ccx, `${cw} › last`, { kind: 'line', story: true });
+    }
+    const extraE = ek.filter((k) => !['1', '2', '3', 'cut'].includes(k));
     if (extraE.length) rep.warn('schema', `${rid} › endings`, `unexpected ending key(s): ${extraE.join(', ')}`);
   }
   if (route.endingCoda !== undefined) checkBeats(route.endingCoda, Object.assign({}, ecx, { path: `${rid} › endingCoda` }), 'beats');
@@ -1688,62 +1745,54 @@ function checkRoute(rep, data, rid, gcx, opts) {
 
 function routeStats(rep, data, rid, rcx, canon, engine) {
   const route = data.routes[rid];
-  const rng = mulberry32(20261018);
-  const { table, ok } = lensTable(route);
-  // ---- Balance (SPEC 8).
-  const counts = { 1: 0, 2: 0, 3: 0, null: 0 };
-  const covers = (arr) => LENSES.every((l) => arr.includes(l));
+  const { table, cuts, ok } = lensTable(route);
+  const L = CHOICE_COUNT - 1;
+  const fmtRow = (i) => table[i].map((l, j) => (cuts[i][j] ? 'x' : l === null ? '-' : l)).join('');
+  // ---- Balance (SPEC 8): c1-c3 cover lenses 1-3 (the fourth option any lens or null; a cut option is
+  // the null one); the last choice has four lensed options covering 1-3.
   const balanceLines = [];
   if (ok) {
-    for (let c = 0; c < 9; c++) {
+    const counts = { 1: 0, 2: 0, 3: 0, null: 0 };
+    const covers = (arr) => LENSES.every((l) => arr.includes(l));
+    for (let c = 0; c < CHOICE_COUNT; c++) {
       const cid = CHOICE_IDS[c];
       const lz = table[c];
-      lz.forEach((l) => { counts[l === null ? 'null' : l]++; });
       const w = `${rid} › ${cid}`;
-      if (rid === 'friend' && cid === 'c5') {
-        if (lz.some((l) => l !== null)) rep.warn('balance', w, `friend c5 (item pick) should be all null, got [${lz.join(', ')}]`);
-        continue;
+      if (c < L) {
+        lz.forEach((l) => { counts[l === null ? 'null' : l]++; });
+        if (!covers(lz)) rep.error('balance', w, `options must include lenses 1, 2 and 3 (SPEC 8), got [${fmtRow(c)}]`);
+      } else if (lz.some((l) => l === null) || !covers(lz)) {
+        rep.error('balance', w, `${cid} (the last choice) needs four options with a lens, covering 1, 2 and 3 (SPEC 8), got [${fmtRow(c)}]`);
       }
-      if (rid === 'friend' && (cid === 'c6' || cid === 'c7')) {
-        if (lz[3] !== null) rep.warn('balance', w, `friend ${cid} option d should have lens null (SPEC 8 exception), got ${lz[3]}`);
-        if (!covers(lz.slice(0, 3))) rep.error('balance', w, `options a-c must cover lenses 1, 2, 3 (SPEC 8), got [${lz.join(', ')}]`);
-        continue;
-      }
-      if (!covers(lz)) rep.error('balance', w, `options must include lenses 1, 2 and 3 (SPEC 8), got [${lz.join(', ')}]`);
     }
-    const c10 = table[9];
-    if (c10.some((l) => l === null) || !covers(c10)) rep.error('balance', `${rid} › c10`, `c10 options must all have a lens and cover 1, 2, 3 (SPEC 8), got [${c10.join(', ')}]`);
-    for (const l of LENSES) {
-      if (counts[l] < 10 || counts[l] > 14) rep.warn('balance', rid, `lens ${l} appears ${counts[l]} times across c1-c9 (SPEC 8: 10-14)`);
-    }
-    balanceLines.push(`${pad(rid, 7)} L1 ${padL(counts[1], 2)}  L2 ${padL(counts[2], 2)}  L3 ${padL(counts[3], 2)}  null ${padL(counts.null, 2)}   c10 [${table[9].join(',')}]`);
-    balanceLines.push('        ' + CHOICE_IDS.map((cid, i) => `${cid}:${table[i].map((l) => (l === null ? '-' : l)).join('')}`).join(' '));
+    balanceLines.push(`${pad(rid, 7)} c1-c3: L1 ${counts[1]}  L2 ${counts[2]}  L3 ${counts[3]}  null ${counts.null}   ${LAST_CHOICE} [${table[L].join(',')}]`);
+    balanceLines.push('        ' + CHOICE_IDS.map((cid, i) => `${cid}:${fmtRow(i)}`).join(' '));
   } else {
     balanceLines.push(`${pad(rid, 7)} (choices incomplete; balance and enumeration skipped)`);
   }
-  // ---- Enumeration (SPEC 5.1, 8).
+  // ---- Enumeration of all 4^4 paths (SPEC 5.1, 8).
   const distLines = [];
   let dist = null;
   if (ok) {
-    const sub = rid === 'friend' ? { subChoice: 5, subOption: 3 } : {};
-    dist = enumerateEndings(table, sub);
-    const share = (l) => dist.counts[l] / dist.total;
+    dist = enumerateEndings(table, cuts);
+    const nonCut = dist.total - dist.cut;
+    const cutShare = dist.cut / dist.total;
+    if (cutShare > SHARE.cutMax + 1e-9) rep.error('dist', rid, `cut paths are ${pct(cutShare)} of all ${dist.total} paths (SPEC 8: at most ${pct(SHARE.cutMax)})`);
+    const share = (l) => (nonCut ? dist.counts[l] / nonCut : 0);
     for (const l of LENSES) {
-      const s = share(l);
-      if (s < 0.15 || s > 0.5) rep.error('dist', rid, `ending ${l} share is ${pct(s)} over all 4^10 paths (must be 15-50%; SPEC 8 target 20-45%)`);
-      else if (s < 0.2 || s > 0.45) rep.warn('dist', rid, `ending ${l} share is ${pct(s)} over all 4^10 paths (SPEC 8 target 20-45%)`);
+      const sh = share(l);
+      if (sh < SHARE.error[0] || sh > SHARE.error[1]) rep.error('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (allowed 15-55%; SPEC 8: 20-50%)`);
+      else if (sh < SHARE.warn[0] || sh > SHARE.warn[1]) rep.warn('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (target 20-45%; SPEC 8: 20-50%)`);
     }
-    distLines.push(`${pad(rid, 7)} ① ${padL(pct(share(1)), 6)}  ② ${padL(pct(share(2)), 6)}  ③ ${padL(pct(share(3)), 6)}   mismatch ${padL(pct(dist.mismatch / dist.total), 6)}   tie-break ${padL(pct(dist.ties / dist.total), 6)}`);
-    distLines.push('        by c10 pick: ' + OPTION_IDS.map((oid, i) => {
-      const bc = dist.byC10[i];
-      return `${oid}(L${table[9][i]})→ ${LENSES.map((l) => Math.round(bc[l] / bc.n * 100)).join('/')}`;
+    distLines.push(`${pad(rid, 7)} non-cut ${padL(nonCut, 3)}/${dist.total}: ① ${padL(pct(share(1)), 6)}  ② ${padL(pct(share(2)), 6)}  ③ ${padL(pct(share(3)), 6)}   ` +
+      `cut ${padL(pct(cutShare), 6)}   mismatch ${padL(pct(nonCut ? dist.mismatch / nonCut : 0), 6)}   tie-break ${padL(pct(nonCut ? dist.ties / nonCut : 0), 6)}`);
+    distLines.push(`        by ${LAST_CHOICE} pick (ending ①/②/③ % of its non-cut paths): ` + OPTION_IDS.map((oid, i) => {
+      const bl = dist.byLast[i];
+      const n = bl.n - bl.cut;
+      return `${oid}(L${table[L][i]})→ ${LENSES.map((l) => (n ? Math.round(bl[l] / n * 100) : 0)).join('/')}`;
     }).join('  '));
-    if (dist.sub) {
-      const s = dist.sub;
-      distLines.push(`        far path (c6=d): ${pct(s.total / dist.total)} of paths; endings there ① ${pct(s.counts[1] / s.total)} ② ${pct(s.counts[2] / s.total)} ③ ${pct(s.counts[3] / s.total)}, mismatch ${pct(s.mismatch / s.total)}`);
-    }
   }
-  // ---- Engine cross-check.
+  // ---- Engine cross-check on every path.
   const engineLines = [];
   if (engine && ok) {
     if (typeof engine.computeLens !== 'function') rep.error('engine', 'js/engine.js', 'BHS.engine.computeLens is not a function (SPEC 5.1)');
@@ -1751,42 +1800,33 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
       let bad = 0;
       let first = null;
       let threw = null;
-      for (let n = 0; n < 20000; n++) {
-        const ch = {};
-        CHOICE_IDS.forEach((cid) => { ch[cid] = OPTION_IDS[Math.floor(rng() * 4)]; });
+      let nCut = 0;
+      const num = (v) => (v == null ? null : Number(v));
+      for (const picks of allPicks()) {
+        const ch = picksToChoices(picks);
         const mine = computeLensFor(route, ch);
+        if (mine.cut) nCut++;
         let theirs;
         try { theirs = engine.computeLens(rid, Object.assign({}, ch)); } catch (e) { threw = e; break; }
         const sc = theirs && theirs.scores ? theirs.scores : {};
-        const same = theirs && Number(theirs.lens) === mine.lens && !!theirs.mismatch === mine.mismatch &&
-          (theirs.c10Lens == null ? null : Number(theirs.c10Lens)) === mine.c10Lens &&
+        const same = theirs && num(theirs.lens) === mine.lens && !!theirs.mismatch === mine.mismatch && !!theirs.cut === mine.cut &&
+          num(theirs.lastLens) === mine.lastLens && num(theirs.c10Lens) === mine.lastLens &&
           LENSES.every((l) => Number(sc[l] != null ? sc[l] : sc[String(l)]) === mine.scores[l]);
         if (!same) { bad++; if (!first) first = { ch, mine, theirs }; }
       }
       if (threw) rep.error('engine', `${rid}`, `BHS.engine.computeLens threw: ${threw.message}`);
       else if (bad) {
-        rep.error('engine', `${rid}`, `BHS.engine.computeLens disagrees with SPEC 5.1 on ${bad}/20000 random paths; e.g. choices ${OPTION_IDS.length && CHOICE_IDS.map((c) => first.ch[c]).join('')} → engine ${snip(JSON.stringify(first.theirs), 120)}, expected ${JSON.stringify(first.mine)}`);
-      } else engineLines.push(`${pad(rid, 7)} computeLens agrees on 20000/20000 random paths`);
+        rep.error('engine', `${rid}`, `BHS.engine.computeLens disagrees with SPEC 5.1 on ${bad}/${PATH_COUNT} paths; e.g. choices ${CHOICE_IDS.map((c) => first.ch[c]).join('')} → engine ${snip(JSON.stringify(first.theirs), 140)}, expected ${JSON.stringify(first.mine)}`);
+      } else engineLines.push(`${pad(rid, 7)} computeLens agrees on ${PATH_COUNT}/${PATH_COUNT} paths (${nCut} of them cut)`);
     }
     if (typeof engine.createGame === 'function') {
-      const r = enginePathCheck(rep, data, rid, engine, rng);
+      const r = enginePathCheck(rep, data, rid, engine);
       if (r) engineLines.push(`${pad(rid, 7)} ${r}`);
     }
     if (typeof engine.evalCond !== 'function') rep.warn('engine', 'js/engine.js', 'BHS.engine.evalCond is not exposed (SPEC 5.1)');
     if (typeof engine.resolveText !== 'function') rep.warn('engine', 'js/engine.js', 'BHS.engine.resolveText is not exposed (SPEC 5.1)');
   }
-  // ---- Path simulations: screens, reading time, crowd order, passerby, light, lane.
-  const paths = [];
-  const allOf = (o) => Object.fromEntries(CHOICE_IDS.map((c) => [c, o]));
-  paths.push({ label: 'all-a', ch: allOf('a') });
-  paths.push({ label: 'all-b', ch: allOf('b') });
-  paths.push({ label: 'all-c', ch: allOf('c') });
-  paths.push({ label: 'all-d', ch: allOf('d') });
-  for (let i = 0; i < 200; i++) {
-    const ch = {};
-    CHOICE_IDS.forEach((cid) => { ch[cid] = OPTION_IDS[Math.floor(rng() * 4)]; });
-    paths.push({ label: 'random#' + (i + 1), ch, random: true });
-  }
+  // ---- Every path: screens, reading time, crowd order, passerby, light, ending lengths.
   const prologueItems = [];
   if (data.common && Array.isArray(data.common.prologue)) {
     for (const b of data.common.prologue) if (isObj(b)) prologueItems.push({ kind: b.type, beat: b });
@@ -1796,13 +1836,28 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
   const orderProblems = new Map();
   const passerbyMissing = [];
   const lightProblems = new Map();
-  for (const p of paths) {
+  const endingLen = {};
+  const overMax = [];
+  const overWarn = [];
+  let simFailed = false;
+  for (const picks of allPicks()) {
+    const label = picks.map((p) => OPTION_IDS[p]).join('');
+    const ch = picksToChoices(picks);
     let sim;
-    try { sim = simulate(route, data, p.ch); } catch (e) { rep.error('internal', rid, `simulation failed on ${p.label}: ${e.message}`); break; }
+    try { sim = simulate(route, data, ch); } catch (e) { rep.error('internal', rid, `simulation failed on ${label}: ${e.message}`); simFailed = true; break; }
     const st = readingStats(sim.out, data);
     const total = { screens: st.screens + pro.screens, choices: st.choices, koChars: st.koChars + pro.koChars, enWords: st.enWords + pro.enWords };
-    res.push({ p, st, mins: minutes(st), totalMins: minutes(total), lens: sim.lens.lens });
-    // Crowd order on main+reaction phases.
+    const endKey = sim.cut ? 'cut' : String(sim.lens.lens);
+    res.push({ label, cut: !!sim.cut, st, mins: minutes(st), totalMins: minutes(total), lens: sim.lens.lens, endKey });
+    if (st.screens > SCREENS.max) overMax.push({ label, n: st.screens });
+    else if (st.screens > SCREENS.warn) overWarn.push({ label, n: st.screens });
+    // Ending length: screens of the ending beats (the last line not counted).
+    const eb = sim.out.filter((it) => /^ending/.test(it.phase) && SCREEN_KINDS.has(it.kind)).length;
+    const el = endingLen[endKey] || (endingLen[endKey] = { min: Infinity, max: -Infinity, eg: label });
+    if (eb < el.min) el.min = eb;
+    if (eb > el.max) { el.max = eb; el.eg = label; }
+    // Crowd order on the main beats (with reactions). A cut path may stop early: on it only the order
+    // of what was shown is checked, not what is missing.
     const first = {};
     sim.out.forEach((it, idx) => {
       if (!/^main/.test(it.phase)) return;
@@ -1831,71 +1886,103 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
       if (!keys.length) continue;
       const start = Math.min(...keys.map((k) => first[k]));
       const req = reqSet(g).filter(has);
-      const endKey = req.length ? req.reduce((a, b) => (first[a] >= first[b] ? a : b)) : keys[0];
-      groups.push({ g, start, end: first[endKey], endKey, startKey: keys.find((k) => first[k] === start) });
+      const endKey2 = req.length ? req.reduce((x, y) => (first[x] >= first[y] ? x : y)) : keys[0];
+      groups.push({ g, start, end: first[endKey2], endKey: endKey2, startKey: keys.find((k) => first[k] === start) });
     }
     for (let i = 1; i < groups.length; i++) {
-      const a = groups[i - 1];
-      const b = groups[i];
-      if (a.end > b.start) probs.push(`${b.startKey} (${EVENT_LABEL[b.g]}) is shown before ${a.endKey} (${EVENT_LABEL[a.g]})`);
+      const ga = groups[i - 1];
+      const gb = groups[i];
+      if (ga.end > gb.start) probs.push(`${gb.startKey} (${EVENT_LABEL[gb.g]}) is shown before ${ga.endKey} (${EVENT_LABEL[ga.g]})`);
     }
-    for (const [a, b] of SUB_ORDER) if (has(a) && has(b) && first[a] > first[b]) probs.push(`${b} is shown before ${a}`);
-    if (!has('MT_9_2A')) probs.push('MT_9_2A (9:2a) not shown');
-    if (!(has('MT_9_2B') || (has('MT_9_2B1') && has('MT_9_2B2')))) probs.push('first words (MT_9_2B or MT_9_2B1+2B2) not shown');
-    if (!(has('MT_9_4') || (has('MT_9_4N') && has('MT_9_4Q')))) probs.push('9:4 (MT_9_4N + MT_9_4Q) not shown');
-    for (const k of ['MT_9_5', 'MT_9_6A', 'MT_9_6N', 'MT_9_6B', 'MT_9_7', 'MT_9_8']) if (!has(k)) probs.push(`${k} not shown`);
-    if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown (WARN only)');
-    if (rid === 'scribe' && !has('MT_9_3Q') && !has('MT_9_3')) probs.push('MT_9_3Q (scribes\' thought) not shown in the scribe route (WARN only)');
+    for (const [x, y] of SUB_ORDER) if (has(x) && has(y) && first[x] > first[y]) probs.push(`${y} is shown before ${x}`);
+    if (!sim.cut) {
+      if (!has('MT_9_2A')) probs.push('MT_9_2A (9:2a) not shown');
+      if (!(has('MT_9_2B') || (has('MT_9_2B1') && has('MT_9_2B2')))) probs.push('first words (MT_9_2B or MT_9_2B1+2B2) not shown');
+      if (!(has('MT_9_4') || (has('MT_9_4N') && has('MT_9_4Q')))) probs.push('9:4 (MT_9_4N + MT_9_4Q) not shown');
+      for (const k of ['MT_9_5', 'MT_9_6A', 'MT_9_6N', 'MT_9_6B', 'MT_9_7', 'MT_9_8']) if (!has(k)) probs.push(`${k} not shown`);
+      if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown (WARN only)');
+      if (rid === 'scribe' && !has('MT_9_3Q') && !has('MT_9_3')) probs.push('MT_9_3Q (scribes\' thought) not shown in the scribe route (WARN only)');
+    }
     for (const pr of probs) {
       if (!orderProblems.has(pr)) orderProblems.set(pr, []);
-      orderProblems.get(pr).push(p.label);
+      orderProblems.get(pr).push(label);
     }
     // Passerby line coverage (friend and asher must show it on every path).
     const shownKo = sim.out.filter((it) => it.kind === 'line').map((it) => (isT(it.beat.text) ? it.beat.text.ko : '')).join(' ');
     const shownEn = sim.out.filter((it) => it.kind === 'line').map((it) => (isT(it.beat.text) ? it.beat.text.en : '')).join(' ');
-    if (rid !== 'scribe' && (!shownKo.includes(canon.passerby.ko) || !shownEn.includes(canon.passerby.en))) passerbyMissing.push(p.label);
+    if (rid !== 'scribe' && (!shownKo.includes(canon.passerby.ko) || !shownEn.includes(canon.passerby.en))) passerbyMissing.push(label);
   }
+  const nPaths = res.length;
+  const nonCutPaths = res.filter((r) => !r.cut).length;
   for (const [pr, labels] of orderProblems) {
     const level = /WARN only/.test(pr) ? 'WARN' : 'ERROR';
-    const n = labels.length;
-    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(' (WARN only)', '')} on ${n}/${paths.length} simulated paths (e.g. ${labels[0]})`);
+    const scope = /not shown/.test(pr) ? `${labels.length}/${nonCutPaths} non-cut paths` : `${labels.length}/${nPaths} paths`;
+    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(' (WARN only)', '')} on ${scope} (e.g. ${labels[0]})`);
   }
-  for (const [k, n] of lightProblems) rep.warn('fx', rid, `${k} is shown without fx light "bright" on ${n} simulated path(s) (SPEC 4.5)`);
+  for (const [k, n] of lightProblems) rep.warn('fx', rid, `${k} is shown without fx light "bright" on ${n}/${nPaths} paths (SPEC 4.5)`);
   if (rid !== 'scribe' && passerbyMissing.length) {
-    rep.error('canon', rid, `the SPEC 6.3 passerby line (verbatim, ko and en) is not shown on ${passerbyMissing.length}/${paths.length} simulated paths (e.g. ${passerbyMissing[0]})`);
+    rep.error('canon', rid, `the SPEC 6.3 passerby line (verbatim, ko and en) is not shown on ${passerbyMissing.length}/${nPaths} paths (e.g. ${passerbyMissing[0]})`);
+  }
+  // Screen budget (SPEC 3.3): at most 32 screens on any path; warn above 30.
+  if (overMax.length) {
+    const worst = overMax.reduce((x, y) => (y.n > x.n ? y : x));
+    rep.error('screens', rid, `${overMax.length}/${nPaths} paths exceed ${SCREENS.max} screens (SPEC 3.3); worst ${worst.n} on ${worst.label}`);
+  }
+  if (overWarn.length) {
+    const worst = overWarn.reduce((x, y) => (y.n > x.n ? y : x));
+    rep.warn('screens', rid, `${overWarn.length}/${nPaths} paths have ${SCREENS.warn + 1}-${SCREENS.max} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]}); worst ${worst.n} on ${worst.label}`);
+  }
+  // Ending lengths (SPEC 4.5): lens endings 1-3 beats, endings.cut 2-4 beats (plus the last line).
+  for (const [k, el] of Object.entries(endingLen)) {
+    const [lo, hi] = k === 'cut' ? ENDING_BEATS.cut : ENDING_BEATS.lens;
+    if (el.max > hi || el.min < lo) {
+      rep.warn('ending', `${rid} › endings.${k}`, `shows ${el.min === el.max ? el.min : el.min + '-' + el.max} beat screen(s) before the last line (SPEC 4.5: ${lo}-${hi}); e.g. ${el.eg}`);
+    }
   }
   // Lane and crowd backgrounds at the shared moments.
-  const laneChoice = { scribe: 'c4', friend: 'c6', asher: 'c5' }[rid];
-  const simA = res.length ? simulate(route, data, paths[0].ch) : null;
+  const simA = !simFailed ? simulate(route, data, picksToChoices([0, 0, 0, 0])) : null;
   if (simA) {
-    const it = simA.out.find((x) => x.kind === 'choice' && x.beat.id === laneChoice);
-    const okBg = rid === 'asher' ? ['lane', 'sky_carried'] : ['lane'];
-    if (it && !okBg.includes(it.bg)) rep.warn('canon', `${rid} › ${laneChoice}`, `the lane moment (SPEC 6.3) is shown on bg "${it.bg}" (expected ${okBg.join(' or ')})`);
+    for (const it of simA.out) {
+      if (it.kind === 'line' && it.beat.speaker === 'passerby' && !['lane', 'sky_carried'].includes(it.bg)) {
+        rep.warn('canon', rid, `the passerby (SPEC 6.3, the lane) speaks on bg "${it.bg}" (expected lane${rid === 'asher' ? ' or sky_carried' : ''})`);
+      }
+    }
     const v = simA.out.find((x) => x.kind === 'verse' && x.beat.key === 'MT_9_2A');
     if (v && !['crowd', 'crowd_lying'].includes(v.bg)) rep.warn('canon', rid, `MT_9_2A is shown on bg "${v.bg}" (expected crowd or crowd_lying)`);
     const lastLight = simA.out.filter((x) => x.kind === 'fx' && x.beat.fx === 'light').pop();
-    if (lastLight && lastLight.beat.level !== 'off') rep.info('fx', rid, `the light is still "${lastLight.beat.level}" at the end of the all-a path (SPEC 4.5: off when leaving)`);
+    if (!simA.cut && lastLight && lastLight.beat.level !== 'off') rep.info('fx', rid, `the light is still "${lastLight.beat.level}" at the end of the aaaa path (SPEC 4.5: off when leaving)`);
   }
   // Screens and time summary.
   const timeLines = [];
+  let summary = null;
   if (res.length) {
-    const pick = (label) => res.find((r) => r.p.label === label);
-    const row = (label, r) => `${pad(rid, 7)} ${pad(label, 11)} screens ${padL(r.st.screens, 3)}  choices ${padL(r.st.choices, 2)}  ` +
-      `route ko ${r.mins.ko.toFixed(1)} min / en ${r.mins.en.toFixed(1)} min   with prologue ko ${r.totalMins.ko.toFixed(1)} / en ${r.totalMins.en.toFixed(1)}   ending ${r.lens}`;
-    timeLines.push(row('all-a', pick('all-a')));
-    timeLines.push(row('all-d', pick('all-d')));
-    const rnd = res.filter((r) => r.p.random);
-    const sc = rnd.map((r) => r.st.screens);
-    const tk = rnd.map((r) => r.totalMins.ko);
-    const te = rnd.map((r) => r.totalMins.en);
-    timeLines.push(`${pad(rid, 7)} ${pad('random200', 11)} screens min ${Math.min(...sc)} / median ${median(sc)} / max ${Math.max(...sc)}   ` +
-      `total ko min ${Math.min(...tk).toFixed(1)} / median ${median(tk).toFixed(1)} / max ${Math.max(...tk).toFixed(1)}   ` +
-      `en min ${Math.min(...te).toFixed(1)} / median ${median(te).toFixed(1)} / max ${Math.max(...te).toFixed(1)}`);
-    if (median(sc) > 80) rep.warn('screens', rid, `median screens on random paths is ${median(sc)} (SPEC 3.3 budget: 80)`);
-    if (median(tk) > 10) rep.warn('screens', rid, `median estimated Korean reading time is ${median(tk).toFixed(1)} min (target 8-9, limit 10)`);
-    if (median(te) > 10) rep.warn('screens', rid, `median estimated English reading time is ${median(te).toFixed(1)} min (target 8-9, limit 10)`);
+    const byLabel = (label) => res.find((r) => r.label === label);
+    const row = (label, r) => `${pad(rid, 7)} ${pad(label, 13)} screens ${padL(r.st.screens, 3)}  choices ${r.st.choices}  ` +
+      `silent ko ${r.mins.ko.toFixed(1)} / en ${r.mins.en.toFixed(1)} min   aloud ko ${r.mins.koAloud.toFixed(1)} / en ${r.mins.enAloud.toFixed(1)} min   ending ${r.endKey}`;
+    timeLines.push(row('aaaa', byLabel('aaaa')));
+    timeLines.push(row('dddd', byLabel('dddd')));
+    const nc = res.filter((r) => !r.cut);
+    const cutRes = res.filter((r) => r.cut);
+    const stat = (arr, f, d = 1) => (arr.length ? `${Math.min(...arr.map(f)).toFixed(d)} / ${median(arr.map(f)).toFixed(d)} / ${Math.max(...arr.map(f)).toFixed(d)}` : '-');
+    if (nc.length) {
+      timeLines.push(`${pad(rid, 7)} ${pad(`non-cut ${nc.length}`, 13)} screens min/median/max ${stat(nc, (r) => r.st.screens, 0)}   aloud ko ${stat(nc, (r) => r.mins.koAloud)} min   en ${stat(nc, (r) => r.mins.enAloud)} min   silent ko ${stat(nc, (r) => r.mins.ko)}`);
+    }
+    if (cutRes.length) {
+      timeLines.push(`${pad(rid, 7)} ${pad(`cut ${cutRes.length}`, 13)} screens min/median/max ${stat(cutRes, (r) => r.st.screens, 0)}   aloud ko ${stat(cutRes, (r) => r.mins.koAloud)} min   en ${stat(cutRes, (r) => r.mins.enAloud)} min`);
+    }
+    const medScreens = nc.length ? median(nc.map((r) => r.st.screens)) : 0;
+    if (nc.length && (medScreens < SCREENS.target[0] || medScreens > SCREENS.target[1])) {
+      rep.info('screens', rid, `median screens on non-cut paths is ${medScreens} (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
+    }
+    summary = {
+      medianScreens: medScreens,
+      maxScreens: Math.max(...res.map((r) => r.st.screens)),
+      aloudKo: nc.length ? median(nc.map((r) => r.mins.koAloud)) : 0,
+      aloudEn: nc.length ? median(nc.map((r) => r.mins.enAloud)) : 0,
+      silentKo: nc.length ? median(nc.map((r) => r.mins.ko)) : 0
+    };
   }
-  return { balanceLines, distLines, engineLines, timeLines, dist, prologue: pro };
+  return { balanceLines, distLines, engineLines, timeLines, dist, prologue: pro, summary };
 }
 
 // Signature of one shown step, comparable between the reference simulation and the engine.
@@ -1906,7 +1993,7 @@ function sigOfItem(it, data) {
   if (it.kind === 'verse') return `verse|${b.key}`;
   if (it.kind === 'choice') return `choice|${b.id}`;
   if (it.kind === 'press') return `press|${b.action || ''}|${ko(b.label)}`;
-  if (it.kind === 'card') return `title|${it.lens}`;
+  if (it.kind === 'card') return `title|${it.cut ? 'cut' : it.lens}`;
   return null;
 }
 function sigOfStep(st) {
@@ -1916,50 +2003,52 @@ function sigOfStep(st) {
     case 'verse': return `verse|${st.key}`;
     case 'choice': return `choice|${st.id}`;
     case 'press': return `press|${st.action || ''}|${ko(st.label)}`;
-    case 'endingTitle': return `title|${st.lens}`;
+    case 'endingTitle': return `title|${st.cut ? 'cut' : st.lens}`;
     case 'last': return `last|${ko(st.text)}`;
     default: return `${st.kind}|`;
   }
 }
 
-// Drives BHS.engine.createGame() along the same choice paths as simulate() and compares every shown step.
-function enginePathCheck(rep, data, rid, engine, rng) {
+// Drives BHS.engine.createGame() along every choice path (4^4) and compares every shown step with
+// simulate(), cut paths included, plus the ending id ("<route>-<lens>" or "<route>-cut").
+function enginePathCheck(rep, data, rid, engine) {
   const route = data.routes[rid];
-  const paths = OPTION_IDS.map((o) => ({ label: 'all-' + o, ch: Object.fromEntries(CHOICE_IDS.map((c) => [c, o])) }));
-  for (let i = 0; i < 40; i++) {
-    const ch = {};
-    CHOICE_IDS.forEach((cid) => { ch[cid] = OPTION_IDS[Math.floor(rng() * 4)]; });
-    paths.push({ label: 'random#' + (i + 1), ch });
-  }
   const warnBefore = Array.isArray(engine.warnings) ? engine.warnings.length : 0;
   let diffs = 0;
   let firstDiff = null;
-  for (const p of paths) {
-    const mine = simulate(route, data, p.ch).out.map((it) => sigOfItem(it, data)).filter(Boolean);
+  let n = 0;
+  let nCut = 0;
+  for (const picks of allPicks()) {
+    const label = picks.map((p) => OPTION_IDS[p]).join('');
+    const ch = picksToChoices(picks);
+    const sim = simulate(route, data, ch);
+    const mine = sim.out.map((it) => sigOfItem(it, data)).filter(Boolean);
     const theirs = [];
     let game;
     try { game = engine.createGame(rid); } catch (e) { rep.error('engine', rid, `createGame("${rid}") threw: ${e.message}`); return null; }
-    let endLens = null;
+    let endId = null;
     for (let guard = 0; guard < 4000; guard++) {
       const st = game.step;
       if (!st || st.kind === 'end') {
         const v = st && typeof game.view === 'function' ? game.view() : null;
-        if (v && v.ending) endLens = v.ending.lens;
+        if (v && v.ending) endId = v.ending.id;
         break;
       }
       theirs.push(sigOfStep(st));
       try {
-        if (st.kind === 'choice') { if (!game.choose(p.ch[st.id])) { theirs.push('choose-failed|' + st.id); break; } } else if (st.kind === 'press') game.press();
+        if (st.kind === 'choice') { if (!game.choose(ch[st.id])) { theirs.push('choose-failed|' + st.id); break; } } else if (st.kind === 'press') game.press();
         else game.next();
       } catch (e) { theirs.push('threw|' + e.message); break; }
     }
-    const n = Math.max(mine.length, theirs.length);
+    n++;
+    if (sim.cut) nCut++;
+    const len = Math.max(mine.length, theirs.length);
     let at = -1;
-    for (let i = 0; i < n; i++) if (mine[i] !== theirs[i]) { at = i; break; }
-    const expLens = computeLensFor(route, p.ch).lens;
-    if (at >= 0 || (endLens != null && endLens !== expLens)) {
+    for (let i = 0; i < len; i++) if (mine[i] !== theirs[i]) { at = i; break; }
+    const expId = rid + '-' + (sim.cut ? 'cut' : sim.lens.lens);
+    if (at >= 0 || endId !== expId) {
       diffs++;
-      if (!firstDiff) firstDiff = { p, at, mine: mine[at], theirs: theirs[at], endLens, expLens };
+      if (!firstDiff) firstDiff = { label, at, mine: mine[at], theirs: theirs[at], endId, expId };
     }
   }
   if (Array.isArray(engine.warnings) && engine.warnings.length > warnBefore) {
@@ -1968,11 +2057,11 @@ function enginePathCheck(rep, data, rid, engine, rng) {
   }
   if (diffs) {
     const f = firstDiff;
-    const detail = f.at >= 0 ? `step ${f.at + 1}: reference "${snip(f.mine || '(end)', 60)}" vs engine "${snip(f.theirs || '(end)', 60)}"` : `ending lens engine ${f.endLens} vs reference ${f.expLens}`;
-    rep.error('engine', rid, `engine play differs from the SPEC reference simulation on ${diffs}/${paths.length} paths; first on ${f.p.label} (${CHOICE_IDS.map((c) => f.p.ch[c]).join('')}) at ${detail}`);
+    const detail = f.at >= 0 ? `step ${f.at + 1}: reference "${snip(f.mine || '(end)', 60)}" vs engine "${snip(f.theirs || '(end)', 60)}"` : `ending ${f.endId} vs reference ${f.expId}`;
+    rep.error('engine', rid, `engine play differs from the SPEC reference simulation on ${diffs}/${n} paths; first on ${f.label} at ${detail}`);
     return null;
   }
-  return `engine play (createGame) matches the reference step-by-step on ${paths.length}/${paths.length} paths`;
+  return `engine play (createGame) matches the reference step by step on ${n}/${n} paths (${nCut} cut), ending ids included`;
 }
 
 function checkPasserbyText(rep, rid, texts, canon) {
@@ -2029,17 +2118,24 @@ export function validateData(data, opts = {}) {
       out.dist.push(...s.distLines);
       out.engine.push(...s.engineLines);
       out.time.push(...s.timeLines);
-      out.routes[rid] = { dist: s.dist ? { total: s.dist.total, counts: s.dist.counts, mismatch: s.dist.mismatch, ties: s.dist.ties } : null };
+      out.routes[rid] = { dist: s.dist ? { total: s.dist.total, counts: s.dist.counts, cut: s.dist.cut, mismatch: s.dist.mismatch, ties: s.dist.ties } : null, summary: s.summary };
       out.prologue = s.prologue;
     }
   }
   if (data.engine) safe('engine', () => checkEngineExtras(rep, data, routes));
-  if (out.balance.length) rep.section('Balance - lens tags per option (SPEC 8; c1-c9 counts, then per choice a,b,c,d)', out.balance);
-  if (out.dist.length) rep.section('Ending distribution - all 4^10 = 1,048,576 choice combinations per route (SPEC 5.1)', out.dist);
+  if (out.balance.length) rep.section(`Balance - lens per option a,b,c,d (SPEC 8; x = cut option, - = no lens; ${LAST_CHOICE} counts double)`, out.balance);
+  if (out.dist.length) rep.section(`Ending distribution - all 4^${CHOICE_COUNT} = ${PATH_COUNT} choice combinations per route (SPEC 5.1, 8; lens shares are of the non-cut paths)`, out.dist);
   if (out.engine.length) rep.section('Engine cross-check', out.engine);
   if (out.time.length) {
-    rep.section('Screens and reading time (screens = line+verse+choice+press; ko 450 chars/min, en 200 words/min, +4 s per choice)',
-      out.time.concat(out.prologue ? [`prologue: ${out.prologue.screens} screens (included in "with prologue")`] : []));
+    const sums = Object.values(out.routes).map((r) => r.summary).filter(Boolean);
+    const lesson = [];
+    if (out.prologue) lesson.push(`prologue: ${out.prologue.screens} screens (played once per lesson; not in the route numbers)`);
+    if (sums.length) {
+      const add = (k) => sums.reduce((x, y) => x + y[k], 0);
+      lesson.push(`all ${sums.length} routes in one lesson (median non-cut path each): ${add('medianScreens')} screens, read aloud ~${add('aloudKo').toFixed(1)} min (ko) / ~${add('aloudEn').toFixed(1)} min (en), silent ~${add('silentKo').toFixed(1)} min (ko)`);
+    }
+    rep.section(`Screens and reading time over all ${PATH_COUNT} paths (screens = line+verse+choice+press, budget <= ${SCREENS.max}; silent ko 450 chars/min, en 200 words/min, +4 s per choice; aloud ko 260 chars/min, en 150 words/min, +10 s per choice, +1 s per screen)`,
+      out.time.concat(lesson));
   }
   return { report: rep, stats: out };
 }
@@ -2066,8 +2162,8 @@ function checkEngineExtras(rep, data, routes) {
             const arr = [...vals];
             if (rng() < 0.75) flags[f] = arr[Math.floor(rng() * arr.length)];
           }
-          const c10Lens = 1 + Math.floor(rng() * 3);
-          const st = { routeId: rid, choices, flags, vars: {}, c10Lens, c10lens: c10Lens, lens: c10Lens };
+          const lastLens = 1 + Math.floor(rng() * 3);
+          const st = { routeId: rid, choices, flags, vars: {}, lastLens, c10Lens: lastLens, lens: lastLens };
           let theirs;
           try { theirs = !!eng.evalCond(c, st); } catch (e) { theirs = 'threw ' + e.message; }
           n++;
@@ -2075,14 +2171,14 @@ function checkEngineExtras(rep, data, routes) {
         }
       }
     }
-    if (bad) rep.warn('engine', 'js/engine.js', `evalCond disagrees with the reference on ${bad}/${n} samples (assumed state {choices, flags, vars, c10Lens}); e.g. ${snip(JSON.stringify(first.c), 80)} -> ${first.theirs}`);
+    if (bad) rep.warn('engine', 'js/engine.js', `evalCond disagrees with the reference on ${bad}/${n} samples (assumed state {choices, flags, vars, lastLens}); e.g. ${snip(JSON.stringify(first.c), 80)} -> ${first.theirs}`);
     else if (n) rep.info('engine', 'js/engine.js', `evalCond agrees with the reference on ${n} samples`);
   }
   if (typeof eng.resolveText === 'function') {
     let bad = 0;
     let first = null;
     let n = 0;
-    const st = { choices: {}, flags: {}, vars: {}, c10Lens: 1 };
+    const st = { choices: {}, flags: {}, vars: {}, lastLens: 1 };
     const visit = (t) => {
       if (!isT(t)) return;
       for (const lang of ['ko', 'en']) {
@@ -2232,8 +2328,9 @@ async function main() {
 
 function T(ko, en) { return { ko, en }; }
 
-export function fixtureData(root) {
-  // Uses the real meta/characters/scripture/common when available, plus generated routes.
+export function fixtureData(root, opts = {}) {
+  // Uses the real meta/characters/scripture/common when available, plus generated short routes (SPEC v3):
+  // four choices, scribe cut at c3 (after the scribes' thought), friend cut at c2 (in the lane), asher none.
   const rep = new Report();
   const loaded = loadProject(root, rep, { routeFilter: '__none__', partial: true });
   const d = loaded.data;
@@ -2244,47 +2341,40 @@ export function fixtureData(root) {
     type: 'choice', id: 'c' + n, prompt: T(ko('prompt ' + n), 'Prompt ' + n + '?'),
     options: OPTION_IDS.map((oid, i) => Object.assign({ id: oid, text: T(ko('opt ' + n + oid), 'Option ' + n + oid + '.'), lens: lenses[i] }, (extra && extra[oid]) || {}))
   });
-  const crowd = (rid) => {
-    const b = [{ type: 'scene', bg: rid === 'asher' ? 'crowd_lying' : 'crowd' }, { type: 'fx', fx: 'light', level: 'soft' }, { type: 'verse', key: 'MT_9_2A' }, { type: 'fx', fx: 'light', level: 'bright' }];
-    if (rid === 'asher') b.push({ type: 'verse', key: 'MT_9_2B1' }, { type: 'verse', key: 'MT_9_2B2' });
-    else b.push({ type: 'verse', key: 'MT_9_2B' });
-    b.push({ type: 'fx', fx: 'light', level: 'soft' });
-    if (rid === 'scribe') b.push({ type: 'verse', key: 'MT_9_3Q', speaker: 'scribes' });
-    b.push({ type: 'verse', key: 'MT_9_4N' }, { type: 'verse', key: 'MT_9_4Q' }, { type: 'verse', key: 'MT_9_5' },
-      { type: 'verse', key: 'MT_9_6A' }, { type: 'verse', key: 'MT_9_6N' }, { type: 'fx', fx: 'light', level: 'bright' },
-      { type: 'verse', key: 'MT_9_6B' }, { type: 'fx', fx: 'light', level: 'soft' });
-    return b;
-  };
-  const pass = { type: 'line', speaker: 'passerby', text: T(canonFromSpec(parseSpec(root)).passerby.ko, canonFromSpec(parseSpec(root)).passerby.en) };
-  const L4 = [[1, 2, 3, 1], [1, 2, 3, 2], [1, 2, 3, 3]];
+  const canon = canonFromSpec(parseSpec(root));
+  const pass = { type: 'line', speaker: 'passerby', text: T(canon.passerby.ko, canon.passerby.en) };
+  const me = { scribe: 'menahem', friend: 'yonah', asher: 'asher' };
+  const cutOpt = { cut: true, reaction: [line('leaving', 'narrator')] };
   const mk = (rid) => {
-    const beats = [{ type: 'scene', bg: 'shore_dawn', caption: T(ko('cap'), 'Dawn') }, { type: 'verse', key: 'MT_9_1' }, line('a1')];
-    for (let n = 1; n <= 10; n++) {
-      let lz = L4[(n - 1) % 3];
-      let extra = null;
-      if (rid === 'friend' && n === 5) {
-        lz = [null, null, null, null];
-        extra = { a: { set: { item: 'rope' } }, b: { set: { item: 'cloak' } }, c: { set: { item: 'water' } }, d: { set: { item: 'food' } } };
-      }
-      if (rid === 'friend' && n === 6) { lz = [1, 2, 3, null]; extra = { d: { set: { far: true } } }; }
-      if (rid === 'friend' && n === 7) {
-        lz = [1, 2, 3, null];
-        extra = { d: { reaction: [{ type: 'line', text: T(ko('{{r:MK_2_4}}'), 'That is in Mark ({{r:MK_2_4}}).') }] } };
-      }
-      if (n === 10) lz = [1, 2, 3, n % 2 ? 1 : 3];
-      const laneAt = { scribe: 4, friend: 6, asher: 5 }[rid];
-      if (n === laneAt) { beats.push({ type: 'scene', bg: rid === 'asher' ? 'sky_carried' : 'lane' }); if (rid !== 'scribe') beats.push(pass); }
-      if ((rid === 'scribe' && n === 5) || (rid === 'friend' && n === 8) || (rid === 'asher' && n === 7)) beats.push(...crowd(rid));
-      if (rid === 'asher' && n === 9) beats.push({ type: 'press', action: 'getup' });
-      if (n === 10) beats.push({ type: 'verse', key: 'MT_9_7' }, { type: 'verse', key: 'MT_9_8' }, { type: 'fx', fx: 'light', level: 'off' });
-      beats.push(choice(n, lz, extra));
-      beats.push(line('after ' + n, rid === 'scribe' ? 'menahem' : rid === 'friend' ? 'yonah' : 'asher'));
-    }
-    if (rid === 'friend') beats.push({ type: 'line', when: { flag: 'far', is: true }, text: T(ko('far'), 'From far away.') });
+    const beats = [{ type: 'scene', bg: rid === 'asher' ? 'asher_ceiling' : 'shore_dawn', caption: T(ko('cap'), 'Dawn') }, { type: 'verse', key: 'MT_9_1' }, line('a1')];
+    beats.push(choice(1, [1, 2, 3, 1]), line('after 1', me[rid]));
+    // The lane.
+    beats.push({ type: 'scene', bg: rid === 'asher' ? 'sky_carried' : 'lane' });
+    if (rid !== 'scribe') beats.push(pass);
+    beats.push(line('lane'));
+    if (rid === 'friend') beats.push(choice(2, [1, 2, 3, null], { a: { set: { near: true } }, d: cutOpt }));
+    // The crowd (SPEC 6.4).
+    beats.push({ type: 'scene', bg: rid === 'asher' ? 'crowd_lying' : 'crowd' }, { type: 'fx', fx: 'light', level: 'soft' }, { type: 'verse', key: 'MT_9_2A' }, { type: 'fx', fx: 'light', level: 'bright' });
+    if (rid === 'asher') beats.push({ type: 'verse', key: 'MT_9_2B1' }, { type: 'verse', key: 'MT_9_2B2' });
+    else beats.push({ type: 'verse', key: 'MT_9_2B' });
+    beats.push({ type: 'fx', fx: 'light', level: 'soft' });
+    if (rid === 'scribe') beats.push(choice(2, [1, 2, 3, 2]), { type: 'verse', key: 'MT_9_3Q', speaker: 'scribes' }, choice(3, [1, 2, 3, null], { d: cutOpt }));
+    if (rid === 'friend') beats.push(choice(3, [1, 2, 3, 3]), { type: 'line', when: { flag: 'near', is: true }, text: T(ko('near'), 'Close by.') });
+    if (rid === 'asher') beats.push(choice(2, [1, 2, 3, 3]), line('scribes stiff'), choice(3, [1, 2, 3, 2]));
+    beats.push({ type: 'verse', key: 'MT_9_4N' }, { type: 'verse', key: 'MT_9_4Q' }, { type: 'verse', key: 'MT_9_5' },
+      { type: 'verse', key: 'MT_9_6A' }, { type: 'verse', key: 'MT_9_6N' }, { type: 'fx', fx: 'light', level: 'bright' }, { type: 'verse', key: 'MT_9_6B' });
+    if (rid === 'asher') beats.push({ type: 'press', action: 'getup' });
+    beats.push({ type: 'verse', key: 'MT_9_7' }, { type: 'verse', key: 'MT_9_8' }, { type: 'fx', fx: 'light', level: 'soft' });
+    beats.push(choice(4, [1, 2, 3, rid === 'friend' ? 2 : 1]), { type: 'fx', fx: 'light', level: 'off' });
     const r = {
       id: rid, beats,
-      endings: { 1: { beats: [line('e1')], last: T(ko('last1'), 'Last one.') }, 2: { beats: [line('e2')], last: T(ko('last2'), 'Last two.') }, 3: { beats: [line('e3'), { type: 'line', when: { c10lens: 3 }, text: T(ko('c10'), 'C ten.') }], last: T(ko('last3'), 'Last three.') } }
+      endings: {
+        1: { beats: [line('e1')], last: T(ko('last1'), 'Last one.') },
+        2: { beats: [line('e2')], last: T(ko('last2'), 'Last two.') },
+        3: { beats: [line('e3'), { type: 'line', when: { lastLens: 3 }, text: T(ko('c4'), 'Last pick three.') }], last: T(ko('last3'), 'Last three.') }
+      }
     };
+    if (rid !== 'asher') r.endings.cut = { beats: [line('cut 1'), line('cut 2', rid === 'scribe' ? 'hanan' : 'narrator')], last: T(ko('cut last'), 'Cut last.') };
     if (rid === 'asher') {
       r.actions = [{ id: 'getup', label: T(ko('up'), 'Get up'), replies: [T(ko('no'), 'No.'), T(ko('no2'), 'Still no.'), T(ko('no3'), 'No again.')], counter: 'getup_count' },
         { id: 'goout', label: T(ko('out'), 'Go out'), replies: [T(ko('door'), 'The door is far.')], counter: 'goout_count' }];
@@ -2293,6 +2383,7 @@ export function fixtureData(root) {
     return r;
   };
   d.routes = { scribe: mk('scribe'), friend: mk('friend'), asher: mk('asher') };
+  if (opts.withEngine) return { data: d, engine: loaded.data.engine, bhs: loaded.bhs };
   d.engine = null;
   return d;
 }
@@ -2303,16 +2394,33 @@ function selfTest() {
   const clone = (x) => JSON.parse(JSON.stringify(x));
   const base = fixtureData(root);
   const run = (data, routeFilter) => validateData(data, { root, fixture: true, routeFilter }).report;
-  const errorsIn = (rep) => rep.findings.filter((f) => f.level === 'ERROR' && !/^scripture|^data\/scripture|^docs/.test(f.where));
+  const errorsIn = (rep) => rep.findings.filter((f) => f.level === 'ERROR' && !/^scripture|^data\/scripture|^docs|^meta/.test(f.where));
   const t = (name, fn) => {
     try { const ok = fn(); results.push({ name, ok: !!ok }); } catch (e) { results.push({ name, ok: false, err: e.stack }); }
   };
   const find = (d, rid, pred) => d.routes[rid].beats.find(pred);
+  const cho = (d, rid, id) => find(d, rid, (x) => x.type === 'choice' && x.id === id);
+  // Pads a route's main beats with narration so every path shows exactly `n` more screens.
+  const pad = (d, rid, n) => {
+    const at = d.routes[rid].beats.findIndex((x) => x.type === 'choice' && x.id === 'c1');
+    for (let i = 0; i < n; i++) d.routes[rid].beats.splice(at, 0, { type: 'line', text: T('가 채움 ' + i, 'Filler ' + i + '.') });
+  };
+  const maxScreens = (d, rid) => {
+    let m = 0;
+    for (const picks of allPicks()) m = Math.max(m, readingStats(simulate(d.routes[rid], d, picksToChoices(picks)).out, d).screens);
+    return m;
+  };
   t('good fixture has no route/common ERROR', () => {
     const rep = run(clone(base));
     const errs = errorsIn(rep);
     if (errs.length) console.log(errs.map((f) => `   ${f.code} ${f.where}: ${f.msg}`).join('\n'));
     return errs.length === 0;
+  });
+  t('good fixture: no cut/dist/screens/canon WARN either', () => {
+    const rep = run(clone(base));
+    const w = rep.findings.filter((f) => f.level === 'WARN' && ['cut', 'dist', 'screens', 'canon', 'balance', 'ending', 'schema', 'cond'].includes(f.code));
+    if (w.length) console.log(w.map((f) => `   ${f.code} ${f.where}: ${f.msg}`).join('\n'));
+    return w.length === 0;
   });
   t('line speaker jesus -> ERROR guard', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', speaker: 'jesus', text: T('가 a', 'b') }); return run(d).has('ERROR', 'guard', /speaker "jesus"/); });
   t('MT_9_3Q in friend -> ERROR guard', () => { const d = clone(base); d.routes.friend.beats.splice(5, 0, { type: 'verse', key: 'MT_9_3Q' }); return run(d).has('ERROR', 'guard', /MT_9_3Q/); });
@@ -2331,15 +2439,51 @@ function selfTest() {
     const rep = run(d);
     return rep.has('WARN', 'canon', /normalizing/) && !rep.has('ERROR', 'canon', /passerby line \(en\) is missing/);
   });
-  t('condition on a later choice -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.splice(4, 0, { type: 'line', when: { choice: 'c7', is: 'a' }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /c7, which does not appear earlier/); });
+  t('passerby only after the friend cut -> ERROR canon (shown on every path)', () => {
+    const d = clone(base);
+    const bs = d.routes.friend.beats;
+    const p = bs.splice(bs.findIndex((x) => x.speaker === 'passerby'), 1)[0];
+    bs.splice(bs.findIndex((x) => x.type === 'verse' && x.key === 'MT_9_2A'), 0, p);
+    return run(d).has('ERROR', 'canon', /passerby line \(verbatim, ko and en\) is not shown on 64\/256 paths/);
+  });
+  t('condition on a later choice -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.splice(4, 0, { type: 'line', when: { choice: 'c3', is: 'a' }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /c3, which does not appear earlier/); });
+  t('condition on c5 (no such choice) -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', when: { choice: 'c5', is: 'a' }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /unknown choice id "c5"/); });
   t('flag never set -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', when: { flag: 'nope', is: true }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /never set/); });
-  t('flag set only later -> ERROR cond', () => { const d = clone(base); d.routes.friend.beats.splice(3, 0, { type: 'line', when: { flag: 'far', is: true }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /only set later/); });
-  t('c10lens in main beats -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', when: { c10lens: 2 }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /c10lens may only/); });
+  t('flag set only later -> ERROR cond', () => { const d = clone(base); d.routes.friend.beats.splice(3, 0, { type: 'line', when: { flag: 'near', is: true }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /only set later/); });
+  t('lastLens / c10lens in main beats -> ERROR cond', () => {
+    const d = clone(base);
+    d.routes.scribe.beats.push({ type: 'line', when: { lastLens: 2 }, text: T('가 x', 'x') });
+    const d2 = clone(base);
+    d2.routes.scribe.beats.push({ type: 'line', when: { c10lens: 2 }, text: T('가 x', 'x') });
+    return run(d).has('ERROR', 'cond', /lastLens may only/) && run(d2).has('ERROR', 'cond', /c10lens may only/);
+  });
+  t('c10lens alias accepted in endings (INFO), lastLens in endings.cut -> WARN', () => {
+    const d = clone(base);
+    d.routes.scribe.endings['2'].beats.push({ type: 'line', when: { c10lens: 2 }, text: T('가 x', 'x') });
+    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { lastLens: 1 }, text: T('가 y', 'y') });
+    const rep = run(d);
+    return !rep.has('ERROR', 'cond') && rep.has('INFO', 'cond', /old name of lastLens/) && rep.has('WARN', 'cond', /never true inside endings.cut/);
+  });
+  t('endings.cut condition on a choice after the cut -> ERROR cond', () => {
+    const d = clone(base);
+    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { choice: 'c4', is: 'a' }, text: T('가 x', 'x') });
+    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { choice: 'c2', is: 'a' }, text: T('가 y', 'y') });
+    const rep = run(d);
+    return rep.has('ERROR', 'cond', /c4, which is never asked on a cut path/) && !rep.has('ERROR', 'cond', /c2, which/);
+  });
   t('reaction may reference its own choice', () => {
     const d = clone(base);
-    const c = find(d, 'scribe', (x) => x.id === 'c3');
+    const c = cho(d, 'scribe', 'c3');
     c.options[1].reaction = [{ type: 'line', when: { choice: 'c3', is: 'b' }, text: T('가 x', 'x') }];
     return !run(d).has('ERROR', 'cond');
+  });
+  t('two unconditional reaction lines -> WARN (one allowed; two on a cut option)', () => {
+    const d = clone(base);
+    cho(d, 'scribe', 'c2').options[0].reaction = [{ type: 'line', text: T('가 x', 'x') }, { type: 'line', text: T('가 y', 'y') }];
+    const ok1 = run(d).has('WARN', 'schema', /2 unconditional beats/);
+    const d2 = clone(base);
+    cho(d2, 'scribe', 'c3').options[3].reaction.push({ type: 'line', text: T('가 z', 'z') });
+    return ok1 && !run(d2).has('WARN', 'schema', /unconditional beats/);
   });
   t('{{v:}} on refOnly key -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{v:MT_8_19_20}}', 'x {{v:MT_8_19_20}}') }); return run(d).has('ERROR', 'token', /reference-only/); });
   t('unknown key -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{r:MT_99_1}}', 'x {{r:MT_99_1}}') }); return run(d).has('ERROR', 'token', /unknown scripture key/); });
@@ -2359,34 +2503,79 @@ function selfTest() {
     [bs[i5], bs[i4]] = [bs[i4], bs[i5]];
     return run(d).has('ERROR', 'canon', /crowd sequence/);
   });
-  t('missing MT_9_7 -> ERROR canon', () => { const d = clone(base); d.routes.asher.beats = d.routes.asher.beats.filter((x) => x.key !== 'MT_9_7'); return run(d).has('ERROR', 'canon', /MT_9_7 not shown/); });
-  t('nine choices -> ERROR schema', () => { const d = clone(base); d.routes.scribe.beats = d.routes.scribe.beats.filter((x) => x.id !== 'c9'); return run(d).has('ERROR', 'schema', /exactly ten choices/); });
-  t('option without lens -> ERROR schema', () => { const d = clone(base); delete find(d, 'scribe', (x) => x.id === 'c2').options[0].lens; return run(d).has('ERROR', 'schema', /no lens/); });
-  t('option ids out of order -> ERROR schema', () => { const d = clone(base); const c = find(d, 'scribe', (x) => x.id === 'c2'); c.options[0].id = 'b'; return run(d).has('ERROR', 'schema', /option ids/); });
-  t('line over hard limit -> ERROR length', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가'.repeat(111), 'x') }); return run(d).has('ERROR', 'length'); });
-  t('token counted at rendered length', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가'.repeat(70) + '{{v:MT_9_5}}', 'x {{v:MT_9_5}}') }); return run(d).has('ERROR', 'length', /ko is \d+ chars/); });
-  t('mechanics word -> WARN guard', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('진엔딩이다', 'This is the true ending.') }); return run(d).has('WARN', 'guard', /mechanics/); });
-  t('four men -> WARN guard', () => { const d = clone(base); d.routes.friend.beats.push({ type: 'line', text: T('네 명이 든다', 'Four men lift it.') }); return run(d).has('WARN', 'guard', /four men/); });
-  t('quoted scripture wording -> WARN quote', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('「그가 네 모든 죄악을 사하시며 네 모든」', '"who forgives all your iniquity," he said') }); return run(d).has('WARN', 'quote'); });
-  t('unquoted scripture wording -> INFO quote only', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('그가 네 모든 죄악을 사하시며 네 모든', 'he said he forgives all your iniquity, all of it') }); const rep = run(d); return rep.has('INFO', 'quote') && !rep.has('WARN', 'quote'); });
-  t('roof idiom is not flagged, Mark roof is', () => {
+  t('missing MT_9_7 -> ERROR canon (on the non-cut paths)', () => { const d = clone(base); d.routes.asher.beats = d.routes.asher.beats.filter((x) => x.key !== 'MT_9_7'); return run(d).has('ERROR', 'canon', /MT_9_7 not shown on 256\/256 non-cut paths/); });
+  t('cut paths may stop early: no "not shown" errors from them', () => {
+    const rep = run(clone(base));
+    return !rep.has(null, 'canon', /not shown/);
+  });
+  t('three choices -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats = d.routes.asher.beats.filter((x) => x.id !== 'c3'); return run(d).has('ERROR', 'schema', /exactly 4 choices/); });
+  t('five choices -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats.push(Object.assign(clone(cho(d, 'asher', 'c4')), { id: 'c5' })); return run(d).has('ERROR', 'schema', /exactly 4 choices|choice id must be c1\.\.c4/); });
+  t('option without lens -> ERROR schema', () => { const d = clone(base); delete cho(d, 'scribe', 'c2').options[0].lens; return run(d).has('ERROR', 'schema', /no lens/); });
+  t('option ids out of order -> ERROR schema', () => { const d = clone(base); const c = cho(d, 'scribe', 'c2'); c.options[0].id = 'b'; return run(d).has('ERROR', 'schema', /option ids/); });
+  t('cut option in asher -> ERROR cut', () => { const d = clone(base); Object.assign(cho(d, 'asher', 'c2').options[3], { cut: true, lens: null }); return run(d).has('ERROR', 'cut', /must not have a cut option/); });
+  t('endings.cut in asher -> ERROR cut', () => { const d = clone(base); d.routes.asher.endings.cut = clone(d.routes.scribe.endings.cut); return run(d).has('ERROR', 'cut', /no cut ending by design/); });
+  t('scribe without a cut option -> ERROR cut', () => { const d = clone(base); const o = cho(d, 'scribe', 'c3').options[3]; delete o.cut; o.lens = 2; return run(d).has('ERROR', 'cut', /no cut option/); });
+  t('two cut options -> ERROR cut and ERROR dist (share over 25%)', () => {
     const d = clone(base);
-    const at = d.routes.scribe.beats.findIndex((x) => x.key === 'MT_9_5');
-    d.routes.scribe.beats.splice(at, 0, { type: 'line', text: T('가 집', 'A man without a roof of his own.') });
-    const ok1 = !run(d).has('WARN', 'guard', /roof/);
-    d.routes.scribe.beats.splice(at, 0, { type: 'line', text: T('가 지붕을 뚫는다', 'They dig through the roof.') });
-    return ok1 && run(d).has('WARN', 'guard', /roof/);
+    Object.assign(cho(d, 'scribe', 'c2').options[3], { cut: true, lens: null });
+    const rep = run(d);
+    return rep.has('ERROR', 'cut', /2 cut options/) && rep.has('ERROR', 'dist', /cut paths are 43\.8%/);
+  });
+  t('cut option in c4 or c1 -> ERROR cut', () => {
+    const d = clone(base);
+    const o = cho(d, 'friend', 'c2').options[3];
+    delete o.cut;
+    o.lens = 2;
+    Object.assign(cho(d, 'friend', 'c4').options[3], { cut: true, lens: null });
+    const d2 = clone(base);
+    const o2 = cho(d2, 'friend', 'c2').options[3];
+    delete o2.cut;
+    o2.lens = 2;
+    Object.assign(cho(d2, 'friend', 'c1').options[0], { cut: true, lens: null });
+    return run(d).has('ERROR', 'cut', /sits in c4/) && run(d2).has('ERROR', 'cut', /sits in c1/);
+  });
+  t('cut option with a lens -> ERROR cut; cut: "yes" -> ERROR cut', () => {
+    const d = clone(base);
+    cho(d, 'scribe', 'c3').options[3].lens = 2;
+    const d2 = clone(base);
+    cho(d2, 'scribe', 'c3').options[3].cut = 'yes';
+    return run(d).has('ERROR', 'cut', /must have lens null/) && run(d2).has('ERROR', 'cut', /boolean true/);
+  });
+  t('missing endings.cut -> ERROR cut', () => { const d = clone(base); delete d.routes.friend.endings.cut; return run(d).has('ERROR', 'cut', /endings\.cut = \{ beats, last \}/); });
+  t('screens: 33 on some path -> ERROR, 31 -> WARN, 30 -> nothing', () => {
+    const at = (extra) => { const d = clone(base); pad(d, 'asher', extra); return d; };
+    const m0 = maxScreens(base, 'asher');
+    const dE = at(33 - m0);
+    const dW = at(31 - m0);
+    const dOk = at(30 - m0);
+    return maxScreens(dE, 'asher') === 33 && run(dE, 'asher').has('ERROR', 'screens', /exceed 32 screens/) &&
+      run(dW, 'asher').has('WARN', 'screens', /31-32 screens/) && !run(dW, 'asher').has('ERROR', 'screens') &&
+      !run(dOk, 'asher').has(null, 'screens', /exceed|31-32/);
+  });
+  t('ending lengths: 4 beats in a lens ending or 1 in endings.cut -> WARN ending', () => {
+    const d = clone(base);
+    d.routes.scribe.endings['1'].beats.push({ type: 'line', text: T('가 1', 'One.') }, { type: 'line', text: T('가 2', 'Two.') }, { type: 'line', text: T('가 3', 'Three.') });
+    d.routes.friend.endings.cut.beats.pop();
+    const rep = run(d);
+    return rep.has('WARN', 'ending', /endings\.1.*shows 4 beat/) && rep.has('WARN', 'ending', /endings\.cut.*shows 1 beat/);
   });
   t('skewed lenses -> ERROR dist', () => {
     const d = clone(base);
-    d.routes.scribe.beats.filter((x) => x.type === 'choice' && x.id !== 'c10').forEach((c) => { c.options[3].lens = 1; });
-    d.routes.scribe.beats.filter((x) => x.type === 'choice' && x.id !== 'c10').forEach((c) => { c.options[1].lens = 1; c.options[2].lens = 1; c.options[0].lens = 2; });
-    return run(d, 'scribe').has('ERROR', 'dist');
+    d.routes.scribe.beats.filter((x) => x.type === 'choice').forEach((c) => c.options.forEach((o) => { if (!o.cut) o.lens = 1; }));
+    cho(d, 'scribe', 'c4').options[1].lens = 2;
+    cho(d, 'scribe', 'c4').options[2].lens = 3;
+    return run(d, 'scribe').has('ERROR', 'dist', /ending 1 is/);
   });
-  t('missing lens coverage -> ERROR balance', () => { const d = clone(base); find(d, 'scribe', (x) => x.id === 'c3').options.forEach((o) => { o.lens = 1; }); return run(d).has('ERROR', 'balance', /c3/); });
+  t('missing lens coverage in c3 -> ERROR balance; null lens at c4 -> ERROR balance', () => {
+    const d = clone(base);
+    cho(d, 'asher', 'c3').options.forEach((o) => { o.lens = 1; });
+    const d2 = clone(base);
+    cho(d2, 'asher', 'c4').options[3].lens = null;
+    return run(d).has('ERROR', 'balance', /c3/) && run(d2).has('ERROR', 'balance', /c4 \(the last choice\)/);
+  });
   t('echoVerse highlight not a substring -> ERROR fx', () => {
     const d = clone(base);
-    const c1 = find(d, 'scribe', (x) => x.id === 'c1');
+    const c1 = cho(d, 'scribe', 'c1');
     c1.options[0].set = { underline: 'he' };
     d.routes.scribe.beats.splice(d.routes.scribe.beats.indexOf(c1) + 1, 0, { type: 'fx', fx: 'echoVerse', key: 'PS_103_3', highlight: { flag: 'underline', map: { he: { ko: ['없는 말'], en: ['who forgives'] } } } });
     return run(d).has('ERROR', 'fx', /not a substring/);
@@ -2396,15 +2585,16 @@ function selfTest() {
   t('asher without goout -> ERROR schema', () => { const d = clone(base); d.routes.asher.actions.pop(); return run(d).has('ERROR', 'schema', /goout/); });
   t('flag compared to false is accepted, and unset matches false', () => {
     const d = clone(base);
-    d.routes.friend.beats.push({ type: 'line', when: { flag: 'far', is: false }, text: T('가 x', 'x') });
+    d.routes.friend.beats.push({ type: 'line', when: { flag: 'near', is: false }, text: T('가 x', 'x') });
     const rep = run(d);
-    return !rep.has(null, 'cond', /false/) && evalCond({ flag: 'far', is: false }, { flags: {} }) && !evalCond({ flag: 'far', is: false }, { flags: { far: true } });
+    return !rep.has(null, 'cond', /false/) && evalCond({ flag: 'near', is: false }, { flags: {} }) && !evalCond({ flag: 'near', is: false }, { flags: { near: true } });
   });
   t('scene time day/evening/night accepted, other values -> ERROR schema', () => {
     const d = clone(base);
     d.routes.asher.endings['1'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'evening' });
     d.routes.asher.endings['2'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'night' });
-    const ok = !run(d).has(null, 'schema', /time/);
+    const rep = run(d);
+    const ok = !rep.has(null, 'schema', /time/) && rep.has('INFO', 'scene', /evening\/epilogue/);
     d.routes.asher.endings['3'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'dusk' });
     return ok && run(d).has('ERROR', 'schema', /time must be one of/);
   });
@@ -2413,6 +2603,14 @@ function selfTest() {
     d.scripture = clone(d.scripture);
     d.scripture.MT_9_2B = Object.assign({}, d.scripture.MT_9_2B, { full: { ko: '' } });
     return run(d).has('ERROR', 'scripture', /full must be/);
+  });
+  t('meta without cut column or cut titles -> ERROR meta', () => {
+    const d = clone(base);
+    d.meta = clone(d.meta);
+    delete d.meta.cut;
+    delete d.meta.endings.friend.cut;
+    const rep = run(d);
+    return rep.has('ERROR', 'meta', /cut/) && rep.has('ERROR', 'meta', /endings\.friend\.cut/);
   });
   t('engine cross-check: correct engine passes', () => {
     const d = clone(base);
@@ -2425,28 +2623,85 @@ function selfTest() {
     d.engine = {
       computeLens: (rid, ch) => {
         const r = computeLensFor(d.routes[rid], ch);
+        if (r.cut) return r;
         const max = Math.max(r.scores[1], r.scores[2], r.scores[3]);
         const lens = LENSES.find((l) => r.scores[l] === max);
-        return Object.assign({}, r, { lens, mismatch: lens !== r.c10Lens });
+        return Object.assign({}, r, { lens, mismatch: r.lastLens !== null && lens !== r.lastLens });
       }
     };
     return run(d).has('ERROR', 'engine', /disagrees/);
+  });
+  t('engine cross-check: a hardcoded c10 weight (no double weight on c4) fails', () => {
+    const d = clone(base);
+    d.engine = {
+      computeLens: (rid, ch) => {
+        const r = computeLensFor(d.routes[rid], ch);
+        if (r.cut) return r;
+        const scores = { 1: 0, 2: 0, 3: 0 };
+        for (const b of d.routes[rid].beats) {
+          if (b.type !== 'choice') continue;
+          const o = b.options.find((x) => x.id === ch[b.id]);
+          if (o && o.lens) scores[o.lens] += b.id === 'c10' ? 2 : 1;
+        }
+        const max = Math.max(scores[1], scores[2], scores[3]);
+        const lens = LENSES.find((l) => scores[l] === max);
+        return { lens, scores, lastLens: null, c10Lens: null, mismatch: false, cut: false };
+      }
+    };
+    return run(d).has('ERROR', 'engine', /disagrees/);
+  });
+  t('engine cross-check: an engine that ignores cut options fails', () => {
+    const d = clone(base);
+    d.engine = {
+      computeLens: (rid, ch) => {
+        const r = computeLensFor(d.routes[rid], ch);
+        if (!r.cut) return r;
+        const c = {};
+        for (const [k, v] of Object.entries(ch)) {
+          const b = d.routes[rid].beats.find((x) => x.type === 'choice' && x.id === k);
+          const o = b && b.options.find((x) => x.id === v);
+          if (!(o && o.cut)) c[k] = v;
+        }
+        return Object.assign(computeLensFor(d.routes[rid], c), { cut: false });
+      }
+    };
+    return run(d).has('ERROR', 'engine', /disagrees/);
+  });
+  t('real js/engine.js matches the reference on the fixture routes (computeLens + createGame, all 256 paths, cut paths included)', () => {
+    const fx = fixtureData(root, { withEngine: true });
+    if (!fx.engine || !fx.bhs) return false;
+    fx.bhs.routes = fx.data.routes;
+    fx.data.engine = fx.engine;
+    const rep = run(fx.data);
+    const engErr = rep.findings.filter((f) => f.code === 'engine' && f.level !== 'INFO');
+    if (engErr.length) console.log(engErr.map((f) => `   ${f.level} ${f.where}: ${f.msg}`).join('\n'));
+    const lines = rep.stats.find((x) => x.title === 'Engine cross-check');
+    return !engErr.length && lines && lines.lines.filter((l) => /matches the reference step by step on 256\/256 paths/.test(l)).length === 3 &&
+      lines.lines.some((l) => /scribe .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /friend .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /asher .*\(0 cut\)/.test(l));
   });
   t('lexer: Korean inside strings is not a comment', () => {
     const lx = lexJs('var a = "// 가"; /* ok */ var r = /\\/\\*x/; // 나\n`${"/*"}` // end');
     return lx.comments.length === 3 && lx.comments.filter((c) => HANGUL_TEST.test(c.text)).length === 1;
   });
-  t('enumeration matches the per-path rule', () => {
-    const { table } = lensTable(base.routes.scribe);
-    const dist = enumerateEndings(table);
-    const rng = mulberry32(3);
+  t('enumeration matches the per-path rule (256 paths, cut paths counted apart)', () => {
+    const { table, cuts } = lensTable(base.routes.scribe);
+    const dist = enumerateEndings(table, cuts);
     let agree = true;
-    for (let i = 0; i < 2000; i++) {
-      const picks = CHOICE_IDS.map(() => Math.floor(rng() * 4));
-      const ch = Object.fromEntries(CHOICE_IDS.map((c, j) => [c, OPTION_IDS[picks[j]]]));
-      if (computeLensFor(base.routes.scribe, ch).lens !== lensFromTable(table, picks).lens) agree = false;
+    let nCut = 0;
+    for (const picks of allPicks()) {
+      const r = computeLensFor(base.routes.scribe, picksToChoices(picks));
+      const r2 = lensFromTable(table, cuts, picks);
+      if (r.cut !== r2.cut || r.lens !== r2.lens) agree = false;
+      if (r.cut) nCut++;
     }
-    return agree && dist.total === 1048576 && dist.counts[1] + dist.counts[2] + dist.counts[3] === 1048576;
+    return agree && dist.total === 256 && nCut === 64 && dist.cut === 64 && dist.counts[1] + dist.counts[2] + dist.counts[3] === 192;
+  });
+  t('reference scoring: c4 counts double; ties go to the last lens; lastChoiceOf is the highest cN', () => {
+    const r = base.routes.asher;
+    const a = computeLensFor(r, { c1: 'b', c2: 'b', c3: 'c', c4: 'a' });
+    const b = computeLensFor(r, { c1: 'a', c2: 'b', c3: 'c', c4: 'b' });
+    const shuffled = { id: 'x', beats: clone(r.beats).filter((x) => x.type === 'choice').reverse() };
+    return a.lens === 2 && a.mismatch && a.lastLens === 1 && b.lens === 2 && !b.mismatch && lastChoiceOf(shuffled) === 'c4';
   });
   let pass = 0;
   for (const r of results) {
