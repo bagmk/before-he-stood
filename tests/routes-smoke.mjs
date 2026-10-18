@@ -242,7 +242,7 @@ function play(r, picker) {
     else if (s.kind === "press") g.press();
     else g.next();
   }
-  return { g, screens, seen };
+  return { g, screens, seen, ended: g.step.kind === "end" };
 }
 
 const report = {};
@@ -254,8 +254,9 @@ for (const r of routeIds) {
   const out = { screens: [], endings: { 1: 0, 2: 0, 3: 0 } };
   // Uniform strategies plus random paths.
   for (const fixed of ["a", "b", "c", "d"]) {
-    const { g, screens, seen } = play(r, () => fixed);
-    if (!seen.includes("endingTitle") || !seen.includes("final")) err(r, `all-${fixed}: ending sequence incomplete`);
+    const { screens, seen, ended } = play(r, () => fixed);
+    // The route ends right after the ending (title card, beats, last line, coda); the UI then opens the gallery.
+    if (!seen.includes("endingTitle") || !seen.includes("last") || !ended) err(r, `all-${fixed}: ending sequence incomplete`);
     out.screens.push(screens);
   }
   let seed = 7;

@@ -69,7 +69,7 @@ async function playUntil(page, until, pick, label, max = 900) {
     const s = await snapshot(page);
     if (until(s)) return s;
     const kind = s.step && s.step.kind;
-    if (s.screen === "routeSelect" || s.screen === "final" || s.screen === "gallery" || s.screen === "title") {
+    if (s.screen === "routeSelect" || s.screen === "gallery" || s.screen === "title") {
       throw new Error(`${label}: reached ${s.screen} before the target`);
     }
     if (kind === "choice") await page.click(`[data-testid="choice-${pick(s.step)}"]`);
@@ -159,7 +159,7 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
         await shot(page, `${sizeName}-${name}`);
       }
     }
-    if (s.screen === "final") break;
+    if (s.screen === "gallery") break;
     if (step.kind === "line" && i % 3 === 0) {
       const protagonist = { scribe: "menahem", friend: "yonah", asher: "asher" }[routeId];
       const own = await page.locator(`[data-testid="portrait-${protagonist}"]`).count();
@@ -187,26 +187,23 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
     else await page.click('[data-testid="advance"]');
   }
   s = await snapshot(page);
-  check(s.screen === "final", `${tag}: should reach the final screen, got ${s.screen}`);
-  const lens = s.st.lens;
-  const blank = page.locator('[data-testid="final-blank"]');
-  check((await blank.count()) === 1, `${tag}: one editable blank`);
-  await blank.fill("시험 test");
-  await shot(page, `${sizeName}-final-${routeId}`);
-  await noHorizontalScroll(page, `${tag} final`);
-  await page.click('[data-testid="final-next"]');
-  s = await snapshot(page);
-  check(s.screen === "gallery", `${tag}: gallery after final`);
-  const seen = await page.getAttribute(`[data-testid="gallery-cell-${routeId}-${lens}"]`, "data-seen");
-  check(seen === "true", `${tag}: gallery cell ${routeId}-${lens} marked seen`);
+  check(s.screen === "gallery", `${tag}: the ending should lead straight to the gallery, got ${s.screen}`);
+  const ending = (s.st && s.st.ending) || "";
+  check(ending.indexOf(routeId + "-") === 0, `${tag}: debug state names the ending (${ending})`);
+  if (ending) {
+    const cell = page.locator(`[data-testid="gallery-cell-${ending}"]`);
+    check((await cell.getAttribute("data-seen")) === "true", `${tag}: gallery cell ${ending} marked seen`);
+    check((await cell.getAttribute("data-current")) === "true", `${tag}: gallery cell ${ending} highlighted`);
+  }
+  const offers = (await page.locator('[data-testid="gallery-replay"]').count()) + (await page.locator('[data-testid="gallery-home"]').count());
+  check(offers === 2, `${tag}: the gallery offers another character and the title screen`);
+  await noHorizontalScroll(page, `${tag} gallery`);
   if (opts.galleryShot) await shot(page, `${sizeName}-gallery`);
-  const blanks = await page.evaluate(() => localStorage.getItem("bhs.v1.blanks"));
-  check(blanks && blanks.includes("시험 test"), `${tag}: blank persisted`);
   if (sizeName !== "phone" && minStory < 1e9) {
     check(minStory >= vh * 0.036 - 0.5, `${tag}: story text ${minStory}px < 3.6vh`);
   }
   check(errors.length === 0, `${tag}: console errors: ${errors.join(" | ")}`);
-  notes.push(`${tag}: ending ${routeId}-${lens}, min story font ${minStory.toFixed(1)}px`);
+  notes.push(`${tag}: ending ${ending}, min story font ${minStory.toFixed(1)}px`);
   if (choiceHeights.length) {
     const over = choiceHeights.filter((c) => c.pct > 50);
     notes.push(`${tag}: choice sheet height % of screen: ${choiceHeights.map((c) => c.id + "=" + c.pct + (c.stacked ? "s" : "") + (c.scroll ? "!" : "")).join(" ")}` + (over.length ? `  (over 50%: ${over.map((c) => c.id).join(",")})` : ""));
@@ -288,8 +285,19 @@ async function keyboardOnly(browser, sizeName, routeId) {
   check(s.screen === "play" && s.st.routeId === routeId, `${tag}: Enter on a route card starts it`);
   const pickKeys = ["1", "b", "3", "D", "2", "a", "4", "c", "1", "B"];
   let picks = 0;
-  for (let i = 0; i < 1500 && s.screen !== "final"; i++) {
+  let escChecked = false;
+  for (let i = 0; i < 1500 && s.screen !== "gallery"; i++) {
     const kind = s.step && s.step.kind;
+    if (!escChecked && s.screen === "ending") {
+      // Esc opens the in-page menu during the ending too; a second Esc closes it in place.
+      escChecked = true;
+      await page.keyboard.press("Escape");
+      check((await page.locator('[data-testid="confirm-yes"]').count()) === 1, `${tag}: Esc opens the menu during the ending`);
+      await page.keyboard.press("Escape");
+      check((await page.locator('[data-testid="confirm-yes"]').count()) === 0, `${tag}: Esc closes the menu`);
+      const after = (await snapshot(page)).st;
+      check(after.screen === "ending" && after.list === s.st.list && after.beatIndex === s.st.beatIndex, `${tag}: the Esc menu keeps the place in the ending`);
+    }
     if (kind === "choice") {
       if (picks === 2) {
         // Arrow focus then Enter picks the focused option.
@@ -315,13 +323,9 @@ async function keyboardOnly(browser, sizeName, routeId) {
     }
     s = await snapshot(page);
   }
-  check(s.screen === "final", `${tag}: keyboard reaches final (${s.screen})`);
+  check(s.screen === "gallery", `${tag}: keyboard reaches the gallery (${s.screen})`);
+  check(escChecked, `${tag}: an ending screen was shown`);
   check(picks === 10, `${tag}: made ${picks} picks by keyboard`);
-  // Esc opens the in-page menu on the final screen.
-  await page.keyboard.press("Escape");
-  check((await page.locator('[data-testid="confirm-yes"]').count()) === 1, `${tag}: Esc opens the menu`);
-  await page.keyboard.press("Escape");
-  check((await page.locator('[data-testid="confirm-yes"]').count()) === 0, `${tag}: Esc closes the menu`);
   check(errors.length === 0, `${tag}: console errors: ${errors.join(" | ")}`);
   notes.push(`${tag}: ended ${s.st.ending}`);
   await ctx.close();

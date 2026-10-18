@@ -145,12 +145,11 @@ try {
     await page.click('[data-testid="start"]');
     await toStep(page, (s) => s.st.screen === "routeSelect");
     await page.click('[data-testid="route-asher"]');
-    await toStep(page, (s) => s.st.screen === "final", 1500);
-    await page.fill('[data-testid="final-blank"]', "x");
-    await page.click('[data-testid="final-next"]');
+    await toStep(page, (s) => s.st.screen === "gallery", 1500);
     check((await state(page)).screen === "gallery", "no storage: reaches the gallery");
     const seen = await page.locator('[data-seen="true"]').count();
     check(seen === 1, "no storage: gallery still shows this session's ending");
+    check((await page.locator('[data-seen="true"][data-current="true"]').count()) === 1, "no storage: that ending is highlighted");
     check(errors.length === 0, "no storage: console errors " + errors.join(" | "));
     await ctx.close();
   }
@@ -165,7 +164,8 @@ try {
     check(st.step === "choice" && st.stepId === "c6" && Object.keys(st.choices).length === 5, `debug jump lands on c6 (${st.stepId} ${JSON.stringify(st.choices)})`);
     await shot(page, "tv-debug");
     await page.click('[data-testid="debug-autoplay"]');
-    check((await state(page)).screen === "final", "debug auto-play reaches the final screen");
+    check((await state(page)).screen === "gallery", "debug auto-play reaches the gallery");
+    check((await page.locator('[data-seen="true"][data-current="true"]').count()) === 1, "debug auto-play: the ending is marked seen and highlighted");
     check(errors.length === 0, "debug: console errors " + errors.join(" | "));
     await ctx.close();
   }
@@ -184,10 +184,26 @@ try {
     await ctx.close();
   }
 
+  // 7b. Continue during an ending after a reload, then finish: the gallery marks and highlights it.
+  {
+    const { ctx, page, errors } = await open(browser, index + "?test=1#friend");
+    const s = await toStep(page, (x) => x.st.screen === "ending" && x.step && x.step.kind === "line", 900);
+    await page.goto(index + "?test=1");
+    await page.waitForSelector('[data-testid="continue"]');
+    await page.click('[data-testid="continue"]');
+    const after = await state(page);
+    check(after.screen === "ending" && after.list === s.st.list && after.beatIndex === s.st.beatIndex, `continue restores the ending screen (${after.screen} ${after.list}#${after.beatIndex})`);
+    await toStep(page, (x) => x.st.screen === "gallery", 200);
+    const cur = await page.locator('[data-seen="true"][data-current="true"]').first().getAttribute("data-testid", { timeout: 2000 }).catch(() => null);
+    check(cur === "gallery-cell-" + s.st.ending, `resumed ending is marked seen and highlighted (${cur}, expected gallery-cell-${s.st.ending})`);
+    check(errors.length === 0, "resume in ending: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+
   // 8. Fixture routes (every beat type and FX) end to end.
   for (const rid of ["scribe", "friend", "asher"]) {
     const { ctx, page, errors } = await open(browser, fixture + "?test=1#" + rid);
-    await toStep(page, (s) => s.st.screen === "final", 600);
+    await toStep(page, (s) => s.st.screen === "gallery", 600);
     check(errors.length === 0, `fixture ${rid}: console errors ${errors.join(" | ")}`);
     await ctx.close();
   }

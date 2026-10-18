@@ -12,7 +12,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 const dist = path.join(root, "dist");
 const MAX_BYTES = 2 * 1024 * 1024;
-const TEACHER_URL = "https://bagmk.github.io/before-he-stood/teacher.html";
 const TITLE = "그가 일어나기 전 · Before He Stood";
 
 const warnings = [];
@@ -70,8 +69,8 @@ body = body.replace(/<script\s+src="([^"]+)"><\/script>/gi, (tag, src) => {
   return "<script>/* " + src + " */\n" + safeScript(fs.readFileSync(file, "utf8")) + "\n</script>";
 });
 
-// Single-file builds cannot reach teacher.html next to them, so point at the published guide.
-const config = '<script>window.BHS = window.BHS || {}; window.BHS.config = { teacherHref: "' + TEACHER_URL + '", build: "single" };</script>';
+// Marks the single-file builds so page code can tell them apart from the folder version.
+const config = '<script>window.BHS = window.BHS || {}; window.BHS.config = { build: "single" };</script>';
 body = body.replace(/(<script>\/\* data\/meta\.js \*\/)/, config + "\n$1");
 
 const bodyTrim = body.trim();

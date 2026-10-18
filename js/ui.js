@@ -2,7 +2,7 @@
  * js/ui.js - DOM rendering for "Before He Stood" (BHS.view).
  * Draws the stage (art, light, POV, hush, caption, echo verse, pinned thought), the text box with a
  * typewriter, choices, press buttons, Asher's persistent actions, and the page screens (title, route
- * select, final, gallery), plus the header, settings, and in-page confirm dialog.
+ * select, gallery), plus the header, settings, and in-page confirm dialog.
  * It never decides story flow; js/main.js drives it with views from BHS.engine.
  */
 (function () {
@@ -1000,7 +1000,6 @@
     if (o.hasSave) actions.push(btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null));
     actions.push(btn("btn--text", u("galleryOpen"), "gallery-open", o.onGallery));
 
-    var teacherHref = (BHS.config && BHS.config.teacherHref) || "teacher.html";
     var kids = [
       h("div", { class: "title-head" }, [
         meta.subtitle ? h("p", { class: "title-sub" }, bi(meta.subtitle)) : null,
@@ -1016,17 +1015,6 @@
         ]),
         h("div", { class: "title-actions" }, actions),
         h("div", { class: "title-foot" }, [
-          h(
-            "a",
-            {
-              class: "teacher-link",
-              href: teacherHref,
-              "data-testid": "teacher-link",
-              target: /^https?:/.test(teacherHref) ? "_blank" : null,
-              rel: /^https?:/.test(teacherHref) ? "noopener" : null
-            },
-            u("teacherLink").ko + " · " + u("teacherLink").en
-          ),
           // The English notice already carries the Korean credit, so "both" shows it alone.
           meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
         ])
@@ -1062,98 +1050,6 @@
       );
     });
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
-  }
-
-  function blankParts(str) {
-    var i = str.indexOf("___");
-    if (i < 0) return [str, ""];
-    var j = i;
-    while (str.charAt(j) === "_") j++;
-    return [str.slice(0, i), str.slice(j)];
-  }
-
-  function renderFinal(o) {
-    var common = BHS.common || {};
-    var fin = common.final || {};
-    var meta = BHS.meta || {};
-    var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var ls = langs();
-    var key = fin.key || "MT_9_2B2";
-    var value = (o.blanks && o.blanks[o.routeId]) || "";
-
-    var verse = h("h2", { class: "final-verse" });
-    ls.forEach(function (l, idx) {
-      verse.appendChild(h("span", { class: idx > 0 ? "en" : "ko", lang: l }, verseOf(key, l)));
-    });
-    verse.appendChild(h("span", { class: "final-verse__ref" }, refLine(key)));
-
-    var mirror = null;
-    var savedNote = null;
-    var items = order.map(function (rid) {
-      var t = (fin.blanks && fin.blanks[rid]) || null;
-      if (!t) return null;
-      var mine = rid === o.routeId;
-      var li = h("li", { class: "blank" + (mine ? " blank--mine" : "") });
-      ls.forEach(function (l, idx) {
-        var parts = blankParts(pick(t, l));
-        var line = h("span", { class: idx > 0 ? "en" : "ko", lang: l });
-        line.appendChild(doc.createTextNode(parts[0]));
-        if (mine && idx === 0) {
-          var input = h("input", {
-            class: "blank__input",
-            type: "text",
-            "data-testid": "final-blank",
-            maxlength: "40",
-            autocomplete: "off",
-            enterkeyhint: "done",
-            placeholder: pick(u("finalBlankPlaceholder"), l),
-            "aria-label": flat(u("finalBlankLabel"))
-          });
-          input.value = value;
-          input.addEventListener("input", function () {
-            if (mirror) mirror.textContent = input.value || "___";
-            if (o.onBlank) o.onBlank(input.value);
-            if (savedNote) savedNote.textContent = o.storageOK ? flat(u("finalSaved")) : "";
-          });
-          input.addEventListener("keydown", function (ev) {
-            if (ev.key === "Enter") input.blur();
-          });
-          line.appendChild(input);
-        } else if (mine) {
-          mirror = h("span", { class: "blank__mirror" }, value || "___");
-          line.appendChild(mirror);
-        } else {
-          line.appendChild(h("span", { class: "blank__line", "aria-label": "___" }));
-        }
-        line.appendChild(doc.createTextNode(parts[1]));
-        li.appendChild(line);
-      });
-      if (mine) {
-        savedNote = h("span", { class: "blank__saved", "aria-live": "polite" }, value && o.storageOK ? flat(u("finalSaved")) : "");
-        li.appendChild(savedNote);
-      }
-      return li;
-    });
-
-    var closing = h("div", { class: "closing" });
-    (fin.closing || []).forEach(function (k) {
-      var row = h("p", { class: "closing__v" });
-      ls.forEach(function (l, idx) {
-        var span = h("span", { class: idx > 0 ? "en" : "ko", lang: l }, verseOf(k, l));
-        if (idx === ls.length - 1) span.appendChild(h("span", { class: "closing__ref" }, refLine(k)));
-        row.appendChild(span);
-      });
-      closing.appendChild(row);
-    });
-
-    page("final-page", [
-      h("div", { class: "final-top" }, [h("p", { class: "final-kicker" }, flat(u("finalHeading"))), verse]),
-      h("ol", { class: "blanks" }, items),
-      fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null,
-      fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null,
-      closing,
-      btn("btn--primary final-next", u("finalNext"), "final-next", o.onNext)
-    ]);
   }
 
   function renderGallery(o) {
@@ -1400,7 +1296,6 @@
     renderPlay: renderPlay,
     renderTitle: renderTitle,
     renderRouteSelect: renderRouteSelect,
-    renderFinal: renderFinal,
     renderGallery: renderGallery,
     renderHeader: renderHeader,
     openSettings: openSettings,

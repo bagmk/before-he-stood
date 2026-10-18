@@ -1459,20 +1459,6 @@ function checkCommon(rep, data, cx) {
   else checkBeats(c.prologue, pcx, 'beats');
   checkT(c.routeSelect && c.routeSelect.prompt, cx, 'common › routeSelect.prompt', { kind: 'prompt' });
   checkT(c.mismatchLine, Object.assign({}, cx, { story: true }), 'common › mismatchLine', { kind: 'line', story: true });
-  const f = c.final;
-  if (!isObj(f)) { rep.error('common', 'common › final', 'missing'); return; }
-  const scr = data.scripture;
-  const keyOk = (k, w) => {
-    if (!isObj(scr)) { if (!cx.spec.keys.has(k)) rep.error('common', w, `unknown scripture key ${k}`); return; }
-    if (!scr[k]) rep.error('common', w, `unknown scripture key ${k}`);
-    else if (scr[k].refOnly) rep.error('common', w, `reference-only key ${k} cannot be displayed`);
-  };
-  keyOk(f.key, 'common › final.key');
-  for (const rid of ROUTE_IDS) checkT(f.blanks && f.blanks[rid], cx, `common › final.blanks.${rid}`, { story: true });
-  checkT(f.othersHint, cx, 'common › final.othersHint', {});
-  checkT(f.question, cx, 'common › final.question', { story: true });
-  if (!Array.isArray(f.closing) || !f.closing.length) rep.error('common', 'common › final.closing', 'must be a non-empty array of scripture keys');
-  else f.closing.forEach((k, i) => keyOk(k, `common › final.closing[${i}]`));
 }
 
 function checkUi(rep, data, cx) {
@@ -1712,7 +1698,6 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
     for (const b of data.common.prologue) if (isObj(b)) prologueItems.push({ kind: b.type, beat: b });
   }
   const pro = readingStats(prologueItems, data);
-  const fin = finalScreenStats(data);
   const res = [];
   const orderProblems = new Map();
   const passerbyMissing = [];
@@ -1721,7 +1706,7 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
     let sim;
     try { sim = simulate(route, data, p.ch); } catch (e) { rep.error('internal', rid, `simulation failed on ${p.label}: ${e.message}`); break; }
     const st = readingStats(sim.out, data);
-    const total = { screens: st.screens + pro.screens, choices: st.choices, koChars: st.koChars + pro.koChars + fin.koChars, enWords: st.enWords + pro.enWords + fin.enWords };
+    const total = { screens: st.screens + pro.screens, choices: st.choices, koChars: st.koChars + pro.koChars, enWords: st.enWords + pro.enWords };
     res.push({ p, st, mins: minutes(st), totalMins: minutes(total), lens: sim.lens.lens });
     // Crowd order on main+reaction phases.
     const first = {};
@@ -1802,7 +1787,7 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
   if (res.length) {
     const pick = (label) => res.find((r) => r.p.label === label);
     const row = (label, r) => `${pad(rid, 7)} ${pad(label, 11)} screens ${padL(r.st.screens, 3)}  choices ${padL(r.st.choices, 2)}  ` +
-      `route ko ${r.mins.ko.toFixed(1)} min / en ${r.mins.en.toFixed(1)} min   with prologue+final ko ${r.totalMins.ko.toFixed(1)} / en ${r.totalMins.en.toFixed(1)}   ending ${r.lens}`;
+      `route ko ${r.mins.ko.toFixed(1)} min / en ${r.mins.en.toFixed(1)} min   with prologue ko ${r.totalMins.ko.toFixed(1)} / en ${r.totalMins.en.toFixed(1)}   ending ${r.lens}`;
     timeLines.push(row('all-a', pick('all-a')));
     timeLines.push(row('all-d', pick('all-d')));
     const rnd = res.filter((r) => r.p.random);
@@ -1816,7 +1801,7 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
     if (median(tk) > 10) rep.warn('screens', rid, `median estimated Korean reading time is ${median(tk).toFixed(1)} min (target 8-9, limit 10)`);
     if (median(te) > 10) rep.warn('screens', rid, `median estimated English reading time is ${median(te).toFixed(1)} min (target 8-9, limit 10)`);
   }
-  return { balanceLines, distLines, engineLines, timeLines, dist, prologue: pro, final: fin };
+  return { balanceLines, distLines, engineLines, timeLines, dist, prologue: pro };
 }
 
 // Signature of one shown step, comparable between the reference simulation and the engine.
@@ -1863,7 +1848,11 @@ function enginePathCheck(rep, data, rid, engine, rng) {
     let endLens = null;
     for (let guard = 0; guard < 4000; guard++) {
       const st = game.step;
-      if (!st || st.kind === 'final' || st.kind === 'end') { if (st && st.kind === 'final') endLens = st.lens; break; }
+      if (!st || st.kind === 'end') {
+        const v = st && typeof game.view === 'function' ? game.view() : null;
+        if (v && v.ending) endLens = v.ending.lens;
+        break;
+      }
       theirs.push(sigOfStep(st));
       try {
         if (st.kind === 'choice') { if (!game.choose(p.ch[st.id])) { theirs.push('choose-failed|' + st.id); break; } } else if (st.kind === 'press') game.press();
@@ -1890,23 +1879,6 @@ function enginePathCheck(rep, data, rid, engine, rng) {
     return null;
   }
   return `engine play (createGame) matches the reference step-by-step on ${paths.length}/${paths.length} paths`;
-}
-
-function finalScreenStats(data) {
-  const f = data.common && data.common.final;
-  let koChars = 0;
-  let enWords = 0;
-  if (!isObj(f)) return { koChars, enWords };
-  const scr = data.scripture || {};
-  const add = (ko, en) => {
-    koChars += cpLen(String(ko || '').replace(/\s+/g, ''));
-    enWords += String(en || '').split(/\s+/).filter((x) => /[A-Za-z0-9]/.test(x)).length;
-  };
-  const keys = [f.key].concat(Array.isArray(f.closing) ? f.closing : []);
-  keys.forEach((k) => { const e = scr[k]; if (isObj(e)) add(e.ko, e.en); });
-  [f.othersHint, f.question].forEach((t) => { if (isT(t)) add(t.ko, t.en); });
-  if (isObj(f.blanks)) Object.values(f.blanks).forEach((t) => { if (isT(t)) add(t.ko, t.en); });
-  return { koChars, enWords };
 }
 
 function checkPasserbyText(rep, rid, texts, canon) {
@@ -1973,7 +1945,7 @@ export function validateData(data, opts = {}) {
   if (out.engine.length) rep.section('Engine cross-check', out.engine);
   if (out.time.length) {
     rep.section('Screens and reading time (screens = line+verse+choice+press; ko 450 chars/min, en 200 words/min, +4 s per choice)',
-      out.time.concat(out.prologue ? [`prologue: ${out.prologue.screens} screens (included in "with prologue+final")`] : []));
+      out.time.concat(out.prologue ? [`prologue: ${out.prologue.screens} screens (included in "with prologue")`] : []));
   }
   return { report: rep, stats: out };
 }
@@ -2106,10 +2078,11 @@ export function runValidation(args) {
   addDir('js', /\.js$/);
   addDir('css', /\.css$/);
   addDir('tools', /\.(mjs|js)$/);
-  for (const f of ['index.html', 'teacher.html']) if (fs.existsSync(path.join(root, f))) scanList.push(f);
+  const pages = ['index.html'];
+  for (const f of pages) if (fs.existsSync(path.join(root, f))) scanList.push(f);
   for (const rel of scanList) scanSourceFile(rep, root, rel);
   // Forbidden names in the HTML pages (Jonah there is only a WARN: the prophet Jonah may be meant).
-  for (const f of ['index.html', 'teacher.html']) {
+  for (const f of pages) {
     let src;
     try { src = fs.readFileSync(path.join(root, f), 'utf8'); } catch (e) { continue; }
     const text = src.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ');

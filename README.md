@@ -5,7 +5,6 @@
 A bilingual (Korean/English) visual novel on Matthew 9:1–8, made for a 20-minute youth Sunday school lesson.
 
 - **플레이:** https://bagmk.github.io/before-he-stood/
-- **선생님용 안내:** https://bagmk.github.io/before-he-stood/teacher.html
 - **오프라인:** 폴더의 `index.html`을 더블클릭하면 인터넷 없이 실행돼요. 파일 하나로 공유하려면 `dist/before-he-stood.html`을 보내면 돼요.
 
 ## TV로 함께 할 때
@@ -14,7 +13,6 @@ A bilingual (Korean/English) visual novel on Matthew 9:1–8, made for a 20-minu
 - 다음으로: `Space` · `Enter` · `→` · `↓` · `PageDown` (프레젠테이션 리모컨도 돼요)
 - 보기 고르기: `1`–`4` (또는 `A`–`D`)
 - 메뉴: `Esc`
-- 자세한 진행 방법은 선생님용 안내를 보세요.
 
 ## 어떤 게임인가요
 
@@ -35,16 +33,15 @@ A bilingual (Korean/English) visual novel on Matthew 9:1–8, made for a 20-minu
 
 ```
 index.html            게임
-teacher.html          선생님용 안내 (진행표, QR, 3×3 판, 토론 질문, 배경 설명)
 data/                 이야기와 본문 (여기만 고치면 내용이 바뀌어요)
   meta.js             제목, 세 가지 눈, 엔딩 제목
   characters.js       인물 이름과 색
   scripture.js        성경 본문 (개역개정, ESV)
-  common.js           프롤로그, 마지막 화면
+  common.js           프롤로그, 인물 선택 질문 등 공통 문장
   routes/*.js         세 인물의 대본
 js/, css/             엔진, 화면, 배경 그림
 docs/                 설계 문서와 시나리오 원문
-tools/                검사, 단일 파일 빌드, QR 생성 도구
+tools/                검사, 단일 파일 빌드 도구
 ```
 
 ## 내용을 고치려면

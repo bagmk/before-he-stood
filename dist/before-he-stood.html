@@ -1519,17 +1519,6 @@ body.is-last .veil {
   justify-items: start;
 }
 
-.teacher-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--limestone);
-  font: 500 13.5px/1.3 var(--sans);
-  text-decoration: underline;
-  text-decoration-color: rgba(235, 227, 207, 0.4);
-  text-underline-offset: 4px;
-}
-
 .fineprint {
   margin: 0;
   font: 400 11px/1.55 var(--sans);
@@ -1642,190 +1631,6 @@ body.is-last .veil {
 
 .routecard--missing {
   opacity: 0.55;
-}
-
-/* Final screen: a quiet page of papyrus. */
-
-.final-page {
-  gap: 22px;
-  color: var(--ink);
-  background-color: var(--papyrus);
-  background-image: var(--paper-grain), linear-gradient(180deg, var(--papyrus-hi), var(--papyrus) 40%, var(--papyrus-lo));
-  padding-top: calc(var(--safe-top) + var(--header-h) + 14px);
-}
-
-.final-top {
-  display: grid;
-  gap: 8px;
-}
-
-.final-kicker {
-  margin: 0;
-  font: 500 13px/1.4 var(--sans);
-  color: var(--ink-faint);
-}
-
-.final-verse {
-  margin: 0;
-  font: 700 calc(32px * var(--text-scale)) / 1.35 var(--serif);
-  color: #20160d;
-  word-break: keep-all;
-}
-
-.final-verse .en {
-  display: block;
-  margin-top: 0.2em;
-  font-weight: 400;
-  font-size: 0.6em;
-  color: var(--ink-soft);
-}
-
-/* The heading verse is a cut that starts mid-sentence; capitalize it for display only. */
-.final-verse .en::first-letter {
-  text-transform: uppercase;
-}
-
-.final-verse__ref {
-  display: block;
-  margin-top: 8px;
-  font: 500 12.5px/1.3 var(--sans);
-  color: var(--ink-faint);
-}
-
-.blanks {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 16px 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  list-style: none;
-}
-
-.blank {
-  font: 400 calc(16.5px * var(--text-scale)) / 1.8 var(--serif);
-  word-break: keep-all;
-}
-
-.blank .en {
-  font-size: 0.88em;
-  line-height: 1.6;
-  color: var(--ink-soft);
-}
-
-.blank--mine {
-  padding: 12px 14px;
-  margin: 0 -14px;
-  border-radius: 8px;
-  background: rgba(255, 252, 244, 0.75);
-  box-shadow: inset 0 0 0 1px rgba(42, 33, 25, 0.2);
-}
-
-.blank__line {
-  display: inline-block;
-  min-width: 5.5em;
-  border-bottom: 1.5px solid rgba(42, 33, 25, 0.5);
-  transform: translateY(-0.2em);
-  margin: 0 3px;
-}
-
-.blank__input {
-  display: inline-block;
-  width: 9em;
-  max-width: 62%;
-  min-height: 44px;
-  margin: 0 4px;
-  padding: 4px 8px;
-  border: 0;
-  border-bottom: 2px solid var(--galilee);
-  border-radius: 6px 6px 0 0;
-  background: rgba(44, 106, 134, 0.1);
-  color: var(--ink);
-  font: 700 1em/1.4 var(--serif);
-  color-scheme: light;
-}
-
-.blank__input::placeholder {
-  color: var(--ink-faint);
-  font-weight: 400;
-}
-
-.blank__mirror {
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.blank__saved {
-  display: block;
-  margin-top: 4px;
-  font: 500 12px/1.3 var(--sans);
-  color: var(--olive);
-  min-height: 1.3em;
-}
-
-.final-mid {
-  display: grid;
-  gap: 10px;
-}
-
-.final-hint {
-  margin: 0;
-  font: 500 13px/1.5 var(--sans);
-  color: var(--ink-soft);
-}
-
-.final-q {
-  margin: 0;
-  font: 700 calc(18px * var(--text-scale)) / 1.55 var(--serif);
-  word-break: keep-all;
-}
-
-.final-q .en {
-  font-weight: 400;
-  font-size: 0.86em;
-  color: var(--ink-soft);
-}
-
-.closing {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 16px 16px 12px;
-  border-radius: 6px;
-  background: var(--vellum);
-  box-shadow: inset 0 0 0 4px var(--vellum), inset 0 0 0 5px rgba(138, 98, 42, 0.3);
-  font: 400 calc(15.5px * var(--text-scale)) / 1.7 var(--serif);
-  word-break: keep-all;
-}
-
-.closing__v {
-  margin: 0;
-}
-
-.closing__v .en {
-  font-size: 0.9em;
-  color: var(--ink-soft);
-}
-
-.closing__ref {
-  display: block;
-  font: 500 11.5px/1.4 var(--sans);
-  color: var(--ink-faint);
-}
-
-.final-page .btn--primary {
-  background: var(--basalt-2);
-  color: var(--limestone);
-}
-
-.final-page .btn--primary:hover {
-  background: var(--basalt-3);
-}
-
-/* Header controls sit on papyrus here, so give them a solid ground. */
-body[data-screen="final"] .iconbtn,
-body[data-screen="final"] .seg {
-  background: rgba(43, 40, 36, 0.9);
 }
 
 /* Gallery */
@@ -2523,11 +2328,6 @@ body[data-screen="final"] .seg {
     gap: 1.2vh;
   }
 
-  .teacher-link {
-    min-height: max(44px, 5vh);
-    font-size: 2.4vh;
-  }
-
   .fineprint {
     font-size: 2.2vh;
     line-height: 1.45;
@@ -2592,146 +2392,6 @@ body[data-screen="final"] .seg {
     margin-top: auto;
     padding-top: 2.4vh;
     font-size: calc(3vh * var(--text-scale));
-  }
-
-  /* Final screen on 16:9: the verse on top, the three blanks in a row, the question beside
-     the hint and the button, the closing verses in three columns. Fits 1080p without scrolling. */
-  .final-page {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "top top"
-      "blanks blanks"
-      "hint hint"
-      "q next"
-      "closing closing";
-    align-content: center;
-    column-gap: 4vw;
-    row-gap: 1.6vh;
-    padding-top: calc(var(--safe-top) + 8vh);
-    padding-bottom: calc(var(--safe-bottom) + 3vh);
-  }
-
-  .final-top {
-    grid-area: top;
-    text-align: center;
-    gap: 0.6vh;
-  }
-
-  .final-kicker {
-    font-size: 2.4vh;
-  }
-
-  .final-verse {
-    font-size: calc(6vh * var(--text-scale));
-    line-height: 1.25;
-  }
-
-  .final-verse .en {
-    font-size: 0.56em;
-  }
-
-  .final-verse__ref {
-    margin-top: 0.6vh;
-    font-size: 2.3vh;
-  }
-
-  .blanks {
-    grid-area: blanks;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.6vw;
-    padding: 1.4vh 0;
-  }
-
-  .blank {
-    font-size: calc(2.8vh * var(--text-scale));
-    line-height: 1.55;
-    padding: 1vh 1.2vw;
-  }
-
-  .blank--mine {
-    margin: 0;
-    border-radius: 1vh;
-  }
-
-  .blank .en {
-    font-size: calc(2.4vh * var(--text-scale));
-    line-height: 1.5;
-  }
-
-  .blank__input {
-    width: 7.5em;
-    max-width: 72%;
-    min-height: 5.6vh;
-    margin: 0 0.3vw;
-    padding: 0.4vh 1vh;
-    border-bottom-width: 0.4vh;
-    border-radius: 0.8vh 0.8vh 0 0;
-  }
-
-  .blank__line {
-    min-width: 4em;
-  }
-
-  /* While typing, a slim ring is enough; the room-scale halo would cover the sentence. */
-  .blank__input:focus-visible {
-    outline: 0.4vh solid var(--galilee);
-    outline-offset: 0.2vh;
-    box-shadow: none;
-  }
-
-  .blank__saved {
-    font-size: 2.2vh;
-  }
-
-  .final-hint {
-    grid-area: hint;
-    margin: 0;
-    font-size: 2.4vh;
-  }
-
-  .final-hint .en {
-    display: inline;
-  }
-
-  .final-hint .en::before {
-    content: " \00B7  ";
-  }
-
-  .final-q {
-    grid-area: q;
-    align-self: center;
-    font-size: calc(3.1vh * var(--text-scale));
-  }
-
-  .final-q .en {
-    font-size: 0.87em;
-  }
-
-  .final-page .final-next {
-    grid-area: next;
-    justify-self: end;
-    align-self: center;
-    width: auto;
-    min-width: 40vh;
-    min-height: 7.5vh;
-  }
-
-  .closing {
-    grid-area: closing;
-    grid-template-columns: 1.3fr 1fr 1fr;
-    gap: 2vw;
-    padding: 1.6vh 2vw;
-    border-radius: 1vh;
-    font-size: calc(2.4vh * var(--text-scale));
-    line-height: 1.45;
-  }
-
-  .closing__ref {
-    display: inline;
-    margin-left: 0.6em;
-    font-size: 2.2vh;
-    white-space: nowrap;
   }
 
   .gallery-page {
@@ -2949,7 +2609,7 @@ html.is-test .echo mark {
   <noscript><p class="noscript">이 게임은 자바스크립트가 필요해요. · This game needs JavaScript.</p></noscript>
 </div>
 
-<script>window.BHS = window.BHS || {}; window.BHS.config = { teacherHref: "https://bagmk.github.io/before-he-stood/teacher.html", build: "single" };</script>
+<script>window.BHS = window.BHS || {}; window.BHS.config = { build: "single" };</script>
 <script>/* data/meta.js */
 /* Game metadata: titles, lenses, route cards, ending titles, notices. Owner: lead. */
 (function () {
@@ -3449,7 +3109,7 @@ html.is-test .echo mark {
 
 </script>
 <script>/* data/common.js */
-/* Shared narrative: prologue, route select, mismatch line, final screen. Owner: lead. */
+/* Shared narrative: prologue, route select, mismatch line. Owner: lead. */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
 
@@ -3492,21 +3152,6 @@ html.is-test .echo mark {
     mismatchLine: {
       ko: "마지막 말은 다른 데로 가려 했다. 그런데 하루 종일 네 눈이 머문 곳은 따로 있었다.",
       en: "Your last words leaned one way. But all day, your eyes kept resting somewhere else."
-    },
-
-    final: {
-      key: "MT_9_2B2",
-      blanks: {
-        scribe: { ko: "서기관에게 이 말은 ___였다.", en: "To the scribe, these words were ___." },
-        friend: { ko: "친구에게 이 말은 ___였다.", en: "To the friend, these words were ___." },
-        asher: { ko: "아셀에게 이 말은 ___였다.", en: "To Asher, these words were ___." }
-      },
-      othersHint: { ko: "나머지 두 칸은 모임 시간에 함께 채워요.", en: "Fill in the other two together as a class." },
-      question: {
-        ko: "네 인물은 무엇을 들었지? 그리고 예수님은 무엇을 알게 하려 하셨지?",
-        en: "What did your character hear? And what did Jesus say he wanted them to know?"
-      },
-      closing: ["MT_9_6A", "MT_9_6B", "MT_9_7"]
     }
   };
 })();
@@ -3527,7 +3172,6 @@ html.is-test .echo mark {
     continueGame: T("이어서 하기", "Continue"),
     continueFrom: T("저장된 곳", "Saved at"),
     galleryOpen: T("엔딩 모음", "Endings"),
-    teacherLink: T("선생님용", "For teachers"),
     langPrompt: T("어떤 말로 볼까요?", "Choose a language"),
     langKo: T("한국어", "한국어"),
     langEn: T("English", "English"),
@@ -3569,13 +3213,8 @@ html.is-test .echo mark {
     actionsGroup: T("할 수 있는 일", "Things you can try"),
     pinnedThought: T("속생각", "Unspoken thought"),
 
-    // Ending + final screen
+    // Ending
     endingCardHint: T("눌러서 계속", "Tap to continue"),
-    finalHeading: T("그날의 첫마디", "The first words that day"),
-    finalBlankLabel: T("내 인물의 빈칸", "Your character's blank"),
-    finalBlankPlaceholder: T("여기에 적어 보세요", "Write here"),
-    finalSaved: T("이 기기에 저장됐어요", "Saved on this device"),
-    finalNext: T("엔딩 모음 보기", "See the endings"),
 
     // Gallery
     galleryTitle: T("엔딩 모음", "Endings"),
@@ -6017,7 +5656,7 @@ html.is-test .echo mark {
  * Game (driven by the UI):
  *   game.step                 current blocking step (see STEP KINDS below)
  *   game.view()               { step, now: {hush, echo}, stage, actions, ending, routeId }
- *   game.next()               advance from line / verse / endingTitle / last / final
+ *   game.next()               advance from line / verse / endingTitle / last
  *   game.choose(optionId)     answer the current choice
  *   game.press()              answer the current press beat
  *   game.tapAction(actionId)  tap a persistent action (Asher); returns { id, text, count } or null
@@ -6027,7 +5666,8 @@ html.is-test .echo mark {
  *
  * STEP KINDS: line {speaker, text} | verse {key, speaker} | choice {id, prompt, options:[{id,text}]}
  *   | press {action?, label?, hint?} | endingTitle {lens, lensLabel, title} | last {text}
- *   | final {routeId, lens} | routeSelect {} | end {}
+ *   | routeSelect {} | end {}
+ * A route ends: ... ending beats -> last -> endingCoda -> end (the UI then opens the gallery).
  * Choice steps never expose lens tags, so the UI cannot leak them (SPEC 7.2-7.3).
  */
 (function () {
@@ -6401,6 +6041,8 @@ html.is-test .echo mark {
       if (!this.state || this.state.v !== STATE_VERSION || this.state.routeId !== routeId) {
         throw new Error("Incompatible saved state");
       }
+      // A save from version 1.0 may sit on the removed final screen; move on to the end step.
+      if (this.state.step && this.state.step.kind === "final") this._run();
     } else {
       this.state = initialState(routeId, this.route, !!this.custom);
       this._run();
@@ -6504,7 +6146,7 @@ html.is-test .echo mark {
         if (res.mismatch && BHS.common && BHS.common.mismatchLine) tail.push("@mismatch");
         tail.push("endingPreface", "@title");
         if (hasEnding) tail.push("ending:" + res.lens, "@last");
-        tail.push("endingCoda", "@final", "@end");
+        tail.push("endingCoda", "@end");
         Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
         return false;
       }
@@ -6538,10 +6180,8 @@ html.is-test .echo mark {
         return true;
       }
       case "@final":
-        st.at = { list: "@final", index: 0 };
-        this._castClear();
-        this._setStep({ kind: "final", routeId: st.routeId, lens: st.ending ? st.ending.lens : null });
-        return true;
+        // Saves from version 1.0 still list "@final" (the removed final screen) before "@end": skip it.
+        return false;
       case "@end":
         this._setStep({ kind: "end" });
         st.done = true;
@@ -9286,7 +8926,7 @@ html.is-test .echo mark {
  * js/ui.js - DOM rendering for "Before He Stood" (BHS.view).
  * Draws the stage (art, light, POV, hush, caption, echo verse, pinned thought), the text box with a
  * typewriter, choices, press buttons, Asher's persistent actions, and the page screens (title, route
- * select, final, gallery), plus the header, settings, and in-page confirm dialog.
+ * select, gallery), plus the header, settings, and in-page confirm dialog.
  * It never decides story flow; js/main.js drives it with views from BHS.engine.
  */
 (function () {
@@ -10284,7 +9924,6 @@ html.is-test .echo mark {
     if (o.hasSave) actions.push(btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null));
     actions.push(btn("btn--text", u("galleryOpen"), "gallery-open", o.onGallery));
 
-    var teacherHref = (BHS.config && BHS.config.teacherHref) || "teacher.html";
     var kids = [
       h("div", { class: "title-head" }, [
         meta.subtitle ? h("p", { class: "title-sub" }, bi(meta.subtitle)) : null,
@@ -10300,17 +9939,6 @@ html.is-test .echo mark {
         ]),
         h("div", { class: "title-actions" }, actions),
         h("div", { class: "title-foot" }, [
-          h(
-            "a",
-            {
-              class: "teacher-link",
-              href: teacherHref,
-              "data-testid": "teacher-link",
-              target: /^https?:/.test(teacherHref) ? "_blank" : null,
-              rel: /^https?:/.test(teacherHref) ? "noopener" : null
-            },
-            u("teacherLink").ko + " · " + u("teacherLink").en
-          ),
           // The English notice already carries the Korean credit, so "both" shows it alone.
           meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
         ])
@@ -10346,98 +9974,6 @@ html.is-test .echo mark {
       );
     });
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
-  }
-
-  function blankParts(str) {
-    var i = str.indexOf("___");
-    if (i < 0) return [str, ""];
-    var j = i;
-    while (str.charAt(j) === "_") j++;
-    return [str.slice(0, i), str.slice(j)];
-  }
-
-  function renderFinal(o) {
-    var common = BHS.common || {};
-    var fin = common.final || {};
-    var meta = BHS.meta || {};
-    var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var ls = langs();
-    var key = fin.key || "MT_9_2B2";
-    var value = (o.blanks && o.blanks[o.routeId]) || "";
-
-    var verse = h("h2", { class: "final-verse" });
-    ls.forEach(function (l, idx) {
-      verse.appendChild(h("span", { class: idx > 0 ? "en" : "ko", lang: l }, verseOf(key, l)));
-    });
-    verse.appendChild(h("span", { class: "final-verse__ref" }, refLine(key)));
-
-    var mirror = null;
-    var savedNote = null;
-    var items = order.map(function (rid) {
-      var t = (fin.blanks && fin.blanks[rid]) || null;
-      if (!t) return null;
-      var mine = rid === o.routeId;
-      var li = h("li", { class: "blank" + (mine ? " blank--mine" : "") });
-      ls.forEach(function (l, idx) {
-        var parts = blankParts(pick(t, l));
-        var line = h("span", { class: idx > 0 ? "en" : "ko", lang: l });
-        line.appendChild(doc.createTextNode(parts[0]));
-        if (mine && idx === 0) {
-          var input = h("input", {
-            class: "blank__input",
-            type: "text",
-            "data-testid": "final-blank",
-            maxlength: "40",
-            autocomplete: "off",
-            enterkeyhint: "done",
-            placeholder: pick(u("finalBlankPlaceholder"), l),
-            "aria-label": flat(u("finalBlankLabel"))
-          });
-          input.value = value;
-          input.addEventListener("input", function () {
-            if (mirror) mirror.textContent = input.value || "___";
-            if (o.onBlank) o.onBlank(input.value);
-            if (savedNote) savedNote.textContent = o.storageOK ? flat(u("finalSaved")) : "";
-          });
-          input.addEventListener("keydown", function (ev) {
-            if (ev.key === "Enter") input.blur();
-          });
-          line.appendChild(input);
-        } else if (mine) {
-          mirror = h("span", { class: "blank__mirror" }, value || "___");
-          line.appendChild(mirror);
-        } else {
-          line.appendChild(h("span", { class: "blank__line", "aria-label": "___" }));
-        }
-        line.appendChild(doc.createTextNode(parts[1]));
-        li.appendChild(line);
-      });
-      if (mine) {
-        savedNote = h("span", { class: "blank__saved", "aria-live": "polite" }, value && o.storageOK ? flat(u("finalSaved")) : "");
-        li.appendChild(savedNote);
-      }
-      return li;
-    });
-
-    var closing = h("div", { class: "closing" });
-    (fin.closing || []).forEach(function (k) {
-      var row = h("p", { class: "closing__v" });
-      ls.forEach(function (l, idx) {
-        var span = h("span", { class: idx > 0 ? "en" : "ko", lang: l }, verseOf(k, l));
-        if (idx === ls.length - 1) span.appendChild(h("span", { class: "closing__ref" }, refLine(k)));
-        row.appendChild(span);
-      });
-      closing.appendChild(row);
-    });
-
-    page("final-page", [
-      h("div", { class: "final-top" }, [h("p", { class: "final-kicker" }, flat(u("finalHeading"))), verse]),
-      h("ol", { class: "blanks" }, items),
-      fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null,
-      fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null,
-      closing,
-      btn("btn--primary final-next", u("finalNext"), "final-next", o.onNext)
-    ]);
   }
 
   function renderGallery(o) {
@@ -10684,7 +10220,6 @@ html.is-test .echo mark {
     renderPlay: renderPlay,
     renderTitle: renderTitle,
     renderRouteSelect: renderRouteSelect,
-    renderFinal: renderFinal,
     renderGallery: renderGallery,
     renderHeader: renderHeader,
     openSettings: openSettings,
@@ -10705,9 +10240,9 @@ html.is-test .echo mark {
 <script>/* js/main.js */
 /*
  * js/main.js - app controller for "Before He Stood".
- * Owns screen flow (title -> prologue -> route select -> route -> ending card -> ending -> final ->
- * gallery), persistence (SPEC 5.3), keyboard input, deep links (#scribe/#friend/#asher), the
- * ?debug=1 panel, and the automated-test hooks:
+ * Owns screen flow (title -> prologue -> route select -> route -> ending card -> ending -> gallery),
+ * persistence (SPEC 5.3), keyboard input, deep links (#scribe/#friend/#asher), the ?debug=1 panel,
+ * and the automated-test hooks:
  *   document.body.dataset.screen, window.BHS_DEBUG.state(), BHS.ui.debugState(), ?test=1.
  */
 (function () {
@@ -10721,8 +10256,7 @@ html.is-test .echo mark {
   var KEYS = {
     settings: "bhs.v1.settings",
     save: "bhs.v1.save",
-    gallery: "bhs.v1.gallery",
-    blanks: "bhs.v1.blanks"
+    gallery: "bhs.v1.gallery"
   };
   var SAVE_VERSION = 1;
   var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true };
@@ -10825,7 +10359,7 @@ html.is-test .echo mark {
     app.settings.size = V.state.size;
   }
 
-  // ------------------------------------------------------------------ save / gallery / blanks
+  // ------------------------------------------------------------------ save / gallery
 
   function persist() {
     if (!app.game) return;
@@ -10866,18 +10400,6 @@ html.is-test .echo mark {
     if (g.indexOf(id) < 0) g.push(id);
     app.memGallery = g;
     store.set(KEYS.gallery, g);
-  }
-
-  function loadBlanks() {
-    var b = store.get(KEYS.blanks);
-    return b && typeof b === "object" ? b : app.memBlanks || {};
-  }
-
-  function saveBlank(routeId, value) {
-    var b = loadBlanks();
-    b[routeId] = String(value || "").slice(0, 40);
-    app.memBlanks = b;
-    store.set(KEYS.blanks, b);
   }
 
   // ------------------------------------------------------------------ screens
@@ -11006,11 +10528,6 @@ html.is-test .echo mark {
       showRouteSelect();
       return;
     }
-    if (kind === "final") {
-      showFinal();
-      persist();
-      return;
-    }
     if (kind === "end") {
       finishRoute();
       return;
@@ -11026,29 +10543,16 @@ html.is-test .echo mark {
     refreshDebug();
   }
 
-  function showFinal() {
-    var g = app.game;
-    var routeId = g.state.routeId;
-    if (g.state.ending) app.lastEnding = g.state.ending.id;
-    setScreen("final");
-    V.renderFinal({
-      routeId: routeId,
-      blanks: loadBlanks(),
-      storageOK: app.storageOK,
-      onBlank: function (val) {
-        saveBlank(routeId, val);
-      },
-      onNext: function () {
-        if (app.game && app.game.step && app.game.step.kind === "final") app.game.next();
-        finishRoute();
-      }
-    });
-    refreshDebug();
-  }
-
+  // The route is over: record the ending (also when the game was resumed after its title card)
+  // and open the gallery with it highlighted.
   function finishRoute() {
+    var g = app.game;
+    var current = g && g.state.ending ? g.state.ending.id : app.lastEnding;
+    if (current) {
+      markSeen(current);
+      app.lastEnding = current;
+    }
     clearSave();
-    var current = app.lastEnding;
     app.game = null;
     showGallery({ current: current });
   }
@@ -11176,7 +10680,7 @@ html.is-test .echo mark {
       V.closeModal();
       return;
     }
-    if (PLAY_SCREENS[app.screen] || app.screen === "final") {
+    if (PLAY_SCREENS[app.screen]) {
       ev.preventDefault();
       askHome();
     }
@@ -11292,7 +10796,7 @@ html.is-test .echo mark {
     V.closeSettings();
     if (app.screen === "title") return;
     // Nothing to lose outside the story itself.
-    if (!PLAY_SCREENS[app.screen] && app.screen !== "final") {
+    if (!PLAY_SCREENS[app.screen]) {
       showTitle();
       return;
     }
@@ -11315,9 +10819,6 @@ html.is-test .echo mark {
         break;
       case "routeSelect":
         showRouteSelect();
-        break;
-      case "final":
-        showFinal();
         break;
       case "gallery":
         showGallery({ current: app.lastEnding });
@@ -11457,12 +10958,13 @@ html.is-test .echo mark {
     renderGame({ instant: true });
   }
 
+  // Plays the rest of the route, ending included; renderGame then opens the gallery.
   function autoPlay() {
     var g = app.game;
     if (!g || !PLAY_SCREENS[app.screen]) return;
     g.fastForward({
       until: function (s) {
-        return s.kind === "final";
+        return s.kind === "end";
       },
       pick: randomPick
     });

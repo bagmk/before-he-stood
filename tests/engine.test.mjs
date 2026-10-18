@@ -340,7 +340,7 @@ test("scribe: scene sets bg + caption; light levels follow fx", () => {
 
 // ---------------------------------------------------------------- endings
 
-test("ending sequence: preface, title, beats with c10lens, last, coda, final, end (no mismatch)", () => {
+test("ending sequence: preface, title, beats with c10lens, last, coda, end (no mismatch)", () => {
   const g = E.createGame("scribe");
   const log = stepsUntilEnd(g, {}); // all "a" -> lens 1, c10 a (lens 1)
   const kinds = log.map((s) => s.kind);
@@ -358,9 +358,13 @@ test("ending sequence: preface, title, beats with c10lens, last, coda, final, en
   const iLast = kinds.indexOf("last");
   assert.equal(log[iLast].text.ko, "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.");
   assert.equal(log[iLast + 1].speaker, "sign", "endingCoda after the last line");
-  assert.equal(kinds[kinds.length - 2], "final");
-  assert.equal(kinds[kinds.length - 1], "end");
+  assert.equal(log[iLast + 1].text.ko, "― 등잔이 꺼진다 ―");
+  assert.equal(kinds[kinds.length - 1], "end", "the route ends right after the coda");
+  assert.equal(kinds.length - 1, iLast + 2, "nothing between the coda and the end");
+  assert.ok(!kinds.includes("final"), "there is no final screen step");
+  assert.ok(!g.state.segs.includes("@final"));
   assert.equal(g.state.ending.id, "scribe-1");
+  assert.equal(g.state.done, true);
 });
 
 test("ending sequence: mismatch line plays before endingPreface", () => {
@@ -577,6 +581,43 @@ test("restoreGame rejects incompatible snapshots", () => {
   assert.throws(() => E.restoreGame(null));
   assert.throws(() => E.restoreGame({ routeId: "scribe", v: 999 }));
   assert.throws(() => E.createGame("nope"));
+});
+
+// Version 1.0 ended a route with ... "endingCoda", "@final", "@end" and a "final" step (a screen
+// that no longer exists). Rebuild such snapshots from a current game.
+function oldTail(snap) {
+  snap.segs.splice(snap.segs.lastIndexOf("@end"), 0, "@final");
+  return snap;
+}
+
+test("restore: a 1.0 save whose ending tail still lists @final skips it", () => {
+  const g = E.createGame("scribe");
+  playTo(g, (s) => s.kind === "last");
+  const r = E.restoreGame(oldTail(JSON.parse(JSON.stringify(g.serialize()))));
+  assert.equal(r.step.kind, "last");
+  const warned = E.warnings.length;
+  const log = stepsUntilEnd(r, {});
+  assert.equal(E.warnings.length, warned, "@final is a known no-op, not an unknown segment");
+  assert.ok(!log.some((s) => s.kind === "final"), "no final step");
+  assert.equal(log[log.length - 2].speaker, "sign", "the coda still plays");
+  assert.equal(log[log.length - 1].kind, "end");
+  assert.equal(r.state.ending.id, "scribe-1");
+});
+
+test("restore: a 1.0 save sitting on the final screen resumes at the end", () => {
+  const g = E.createGame("scribe");
+  playTo(g, (s, game) => game.state.at.list === "endingCoda");
+  const snap = oldTail(JSON.parse(JSON.stringify(g.serialize())));
+  // The state 1.0 kept while its final screen was shown.
+  snap.seg = snap.segs.indexOf("@final");
+  snap.stack = [];
+  snap.at = { list: "@final", index: 0 };
+  snap.step = { kind: "final", routeId: "scribe", lens: 1 };
+  const r = E.restoreGame(snap);
+  assert.equal(r.step.kind, "end");
+  assert.equal(r.state.done, true);
+  assert.equal(r.state.ending.id, "scribe-1");
+  assert.equal(r.next(), false);
 });
 
 // ---------------------------------------------------------------- prologue + sequence

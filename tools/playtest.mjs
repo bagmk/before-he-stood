@@ -6,7 +6,7 @@
  * Usage:
  *   node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,far]
  *                           [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick]
- *                           [--root DIR] [--headed] [--no-dist] [--no-teacher] [--no-shots]
+ *                           [--root DIR] [--headed] [--no-dist] [--no-shots]
  *                           [--step-timeout MS] [--run-timeout S] [--budget-min N]
  *
  * One-time setup (outside the project; the version must match the preinstalled chromium-1194 build):
@@ -20,13 +20,15 @@
  *   tv1080 keyboard only (Space/Enter/ArrowRight/PageDown/ArrowDown advance, 1-4 pick, Tab+Enter for
  *          page buttons, no mouse): strategy r3
  *   tv720  1280x720, DPR 1, mouse: strategy c, language ko (scribe) / en (friend) / both (asher)
- * Every run starts at the title, goes through the prologue, route select, every beat, the ending card,
- * the final screen (types an answer) and the gallery. Checks on every screen: console/page errors,
- * failed local requests, unresolved text, horizontal overflow, tap targets >= 44 px. The shown text
- * screens must match the SPEC reference sequence (tools/validate.mjs simulate) one by one, and the ending
- * lens must match SPEC 5.1. TV runs also check SPEC 5.6: story text >= 36 px and options >= 30 px at
- * 1080p (>= 24 / 20 px at 720p), nothing outside the viewport, and the text panel below the top 60%.
- * Also loads teacher.html and plays one route from dist/before-he-stood.html via file:// when present.
+ * Every run starts at the title, goes through the prologue, route select, every beat, the ending card
+ * and the ending, and lands on the gallery (the ending marked seen and highlighted). Checks on every
+ * screen: console/page errors, failed local requests, unresolved text, horizontal overflow, tap targets
+ * >= 44 px. The shown text screens must match the SPEC reference sequence (tools/validate.mjs simulate)
+ * one by one, and the ending lens must match SPEC 5.1. TV runs also check SPEC 5.6: story text >= 36 px
+ * and options >= 30 px at 1080p (>= 24 / 20 px at 720p), nothing outside the viewport, and the text panel
+ * below the top 60%. The first phone run also leaves and resumes on an ending screen, and keyboard runs
+ * open and close the Esc menu there. Also plays one route from dist/before-he-stood.html via file://
+ * when present.
  *
  * Output: qa/reports/playtest.txt and screenshots in qa/playtest/.
  * Exit code: 0 = all checks passed, 1 = failures, 2 = skipped (index.html or Playwright missing).
@@ -61,7 +63,7 @@ const REQUIRED_KEYS = ['Space', 'Enter', 'ArrowRight'];
 function parseArgs(argv) {
   const a = {
     root: DEFAULT_ROOT, routes: null, strategies: ['a', 'd', 'b', 'r1', 'r2', 'far'], profiles: ['phone', 'tv1080', 'tv720'],
-    keyboard: true, quick: false, headed: false, dist: true, teacher: true, shots: true,
+    keyboard: true, quick: false, headed: false, dist: true, shots: true,
     stepTimeout: 5000, runTimeout: 150, budgetMin: 9.5
   };
   for (let i = 0; i < argv.length; i++) {
@@ -75,7 +77,6 @@ function parseArgs(argv) {
     else if (x === '--quick') a.quick = true;
     else if (x === '--headed') a.headed = true;
     else if (x === '--no-dist') a.dist = false;
-    else if (x === '--no-teacher') a.teacher = false;
     else if (x === '--no-shots') a.shots = false;
     else if (x === '--step-timeout') a.stepTimeout = Number(val());
     else if (x === '--run-timeout') a.runTimeout = Number(val());
@@ -274,7 +275,7 @@ function initQa() {
     const el = document.querySelector(sel);
     return el && vis(el) ? (el.innerText || '').trim() : '';
   };
-  const KEY_IDS = /^(choice-[a-d]|press|final-blank|final-next|route-\w+|start|ending-title|verse-card|confirm-yes|gallery-cell-.*)$/;
+  const KEY_IDS = /^(choice-[a-d]|press|route-\w+|start|ending-title|verse-card|confirm-yes|gallery-cell-.*)$/;
   const sig = () => {
     const b = dbg().d;
     const ids = visibleIds().filter((x) => KEY_IDS.test(x)).join(',');
@@ -726,7 +727,7 @@ async function playRun(browser, R, cfg) {
     checkSnapshot(s, run, R);
     await takeShot('phone-title', phoneShots && firstShots);
     await takeShot('tv-title', tvShots && firstShots);
-    for (const id of ['start', 'lang-ko', 'lang-en', 'lang-both', 'gallery-open', 'teacher-link']) {
+    for (const id of ['start', 'lang-ko', 'lang-en', 'lang-both', 'gallery-open']) {
       if (!s.ids.includes(id)) run.fail(`title screen: data-testid="${id}" not visible`, true);
     }
     if (kbd) {
@@ -845,16 +846,15 @@ async function playRun(browser, R, cfg) {
           break;
         }
         case 'ending':
+          // The Esc menu and leave/resume must also work on ending screens (the save lasts until the gallery).
+          if (kbd && !did.escEnding && s.textbox) { did.escEnding = true; await escMenuCheck(page, run, args); continue; }
+          if (extras && p.profile === 'phone' && !did.resumeEnding && s.textbox) {
+            did.resumeEnding = true;
+            if (!(await resumeCheck(page, run, s, p.input))) throw new Error('stop');
+            continue;
+          }
           acted = kbd ? 'key' : await tap(page, 'advance', run, p.input);
           break;
-        case 'final': {
-          await finalChecks(page, run, s, kbd, p.input);
-          await takeShot(`phone-${rid}-5-final`, phoneShots);
-          await takeShot(`tv-${rid}-final`, tvShots);
-          if (!s.ids.includes('final-next')) { run.fail('final screen: data-testid="final-next" not visible'); throw new Error('stop'); }
-          acted = await press('final-next');
-          break;
-        }
         case 'gallery': {
           await galleryChecks(page, run, rid);
           await takeShot('phone-gallery', phoneShots && firstShots);
@@ -990,34 +990,20 @@ function transcriptCheck(run, data, rid, p) {
   else if (j < got.length) run.fail(`transcript: ${got.length - j} extra text screen(s) after the reference ended (first "${snip(run.texts[j], 40)}")`, true);
 }
 
-async function finalChecks(page, run, s, kbd, input) {
-  if (!s.ids.includes('final-blank')) { run.fail('final screen: data-testid="final-blank" not visible', true); return; }
-  const answer = '테스트 answer';
-  if (kbd) {
-    for (let i = 0; i < 60; i++) {
-      const f = await page.evaluate(() => (document.activeElement ? document.activeElement.getAttribute('data-testid') : null));
-      if (f === 'final-blank') break;
-      await page.keyboard.press('Tab');
-    }
-    await page.keyboard.type(answer);
-  } else {
-    await loc(page, 'final-blank').fill(answer).catch((e) => run.fail(`could not type into final-blank: ${snip(e.message, 80)}`));
-  }
-  const value = await page.evaluate(() => { const el = document.querySelector('[data-testid="final-blank"]'); return el ? el.value || el.textContent : ''; });
-  if (!String(value).includes('answer')) run.fail(`final-blank did not receive the typed answer (value ${JSON.stringify(value)})`, true);
-  const stored = await page.evaluate(() => { try { return localStorage.getItem('bhs.v1.blanks') || ''; } catch (e) { return 'ERR'; } });
-  if (!stored.includes('answer')) run.warn('final-blank text was not saved to localStorage bhs.v1.blanks (SPEC 5.3)', true);
-}
-
 async function galleryChecks(page, run, rid) {
   const lens = run.expected ? run.expected.lens : null;
-  const cells = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="gallery-cell-"]')).map((el) => [el.getAttribute('data-testid'), el.getAttribute('data-seen')]));
-  const map = new Map(cells);
+  const cells = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="gallery-cell-"]')).map((el) => [el.getAttribute('data-testid'), el.getAttribute('data-seen'), el.getAttribute('data-current')]));
+  const map = new Map(cells.map((c) => [c[0], c[1]]));
   for (const r of ROUTE_IDS) for (const l of [1, 2, 3]) if (!map.has(`gallery-cell-${r}-${l}`)) run.fail(`gallery: data-testid="gallery-cell-${r}-${l}" missing`, true);
   if (lens != null) {
-    const v = map.get(`gallery-cell-${rid}-${lens}`);
-    if (v !== 'true') run.fail(`gallery: gallery-cell-${rid}-${lens} has data-seen="${v}", expected "true"`, true);
+    const want = `gallery-cell-${rid}-${lens}`;
+    const v = map.get(want);
+    if (v !== 'true') run.fail(`gallery: ${want} has data-seen="${v}", expected "true"`, true);
+    // The route ends straight on the gallery, with the ending just seen highlighted.
+    const current = cells.filter((c) => c[2] === 'true').map((c) => c[0]);
+    if (current.length !== 1 || current[0] !== want) run.fail(`gallery: highlighted cell is ${current.join(', ') || 'none'}, expected ${want}`, true);
   } else run.fail('gallery reached without an ending card', true);
+  for (const id of ['gallery-replay', 'gallery-home']) if (!(await visible(page, id))) run.fail(`gallery: data-testid="${id}" not visible after the ending`, true);
   const seen = cells.filter((c) => c[1] === 'true').length;
   if (seen !== 1) run.note(`gallery shows ${seen} seen cells in a fresh browser profile`);
 }
@@ -1097,27 +1083,29 @@ async function grayActionCheck(page, run, s, choiceCount, tapped, replies, input
 }
 
 async function resumeCheck(page, run, s, input) {
-  // Home -> confirm-no keeps the place; home -> confirm-yes -> continue resumes at the same place.
+  // Home -> confirm-no keeps the place; home -> confirm-yes -> continue resumes at the same place
+  // (on the same screen: "play" mid-route, "ending" during an ending).
+  const screen = s.screen;
   const where = { text: s.textbox, beat: s.dbg ? s.dbg.beatIndex : null, choices: s.dbg ? JSON.stringify(s.dbg.choices || {}) : null };
-  if (!(await visible(page, 'home'))) { run.fail('home button not visible during play', true); return true; }
+  if (!(await visible(page, 'home'))) { run.fail(`home button not visible on "${screen}"`, true); return true; }
   await tap(page, 'home', run, input);
-  try { await loc(page, 'confirm-no').waitFor({ state: 'visible', timeout: 2000 }); } catch (e) { run.fail('home did not open a confirm dialog with confirm-no', true); return true; }
+  try { await loc(page, 'confirm-no').waitFor({ state: 'visible', timeout: 2000 }); } catch (e) { run.fail(`home did not open a confirm dialog with confirm-no on "${screen}"`, true); return true; }
   await tap(page, 'confirm-no', run, input);
   await sleep(150);
   let a = await snapOf(page, false);
-  if (a.screen !== 'play' || a.textbox !== where.text) run.fail(`confirm-no did not return to the same place (screen ${a.screen}, text "${snip(a.textbox, 40)}")`, true);
+  if (a.screen !== screen || a.textbox !== where.text) run.fail(`confirm-no did not return to the same place on "${screen}" (screen ${a.screen}, text "${snip(a.textbox, 40)}")`, true);
   await tap(page, 'home', run, input);
-  try { await loc(page, 'confirm-yes').waitFor({ state: 'visible', timeout: 2000 }); } catch (e) { run.fail('second home press did not open the confirm dialog', true); return false; }
+  try { await loc(page, 'confirm-yes').waitFor({ state: 'visible', timeout: 2000 }); } catch (e) { run.fail(`second home press did not open the confirm dialog on "${screen}"`, true); return false; }
   await tap(page, 'confirm-yes', run, input);
-  if (!(await waitScreen(page, 'title', 3000))) { run.fail('confirm-yes did not go to the title screen', true); return false; }
-  if (!(await visible(page, 'continue'))) { run.fail('title screen has no "continue" button after leaving mid-route (SPEC 5.3 resume)', true); return false; }
+  if (!(await waitScreen(page, 'title', 3000))) { run.fail(`confirm-yes did not go to the title screen from "${screen}"`, true); return false; }
+  if (!(await visible(page, 'continue'))) { run.fail(`title screen has no "continue" button after leaving from "${screen}" (SPEC 5.3 resume)`, true); return false; }
   await tap(page, 'continue', run, input);
-  if (!(await waitScreen(page, 'play', 3000))) { run.fail('"continue" did not return to the play screen', true); return false; }
+  if (!(await waitScreen(page, screen, 3000))) { run.fail(`"continue" did not return to the "${screen}" screen`, true); return false; }
   await sleep(100);
   a = await snapOf(page, false);
-  if (where.beat != null && a.dbg && a.dbg.beatIndex !== where.beat) run.fail(`resume: beatIndex ${a.dbg.beatIndex}, expected ${where.beat}`, true);
-  if (a.textbox !== where.text) run.warn(`resume: text after "continue" differs ("${snip(a.textbox, 40)}" vs "${snip(where.text, 40)}")`, true);
-  if (where.choices && a.dbg && JSON.stringify(a.dbg.choices || {}) !== where.choices) run.fail('resume: choices differ after "continue"', true);
+  if (where.beat != null && a.dbg && a.dbg.beatIndex !== where.beat) run.fail(`resume on "${screen}": beatIndex ${a.dbg.beatIndex}, expected ${where.beat}`, true);
+  if (a.textbox !== where.text) run.warn(`resume on "${screen}": text after "continue" differs ("${snip(a.textbox, 40)}" vs "${snip(where.text, 40)}")`, true);
+  if (where.choices && a.dbg && JSON.stringify(a.dbg.choices || {}) !== where.choices) run.fail(`resume on "${screen}": choices differ after "continue"`, true);
   return true;
 }
 
@@ -1183,13 +1171,6 @@ async function titleSmoke(browser, R, base, args, data) {
   try {
     await page.goto(base + 'index.html?test=1', { waitUntil: 'load', timeout: 20000 });
     if (!(await waitScreen(page, 'title', 8000))) { out.push('FAIL title screen did not appear'); return out; }
-    const href = await page.locator('[data-testid="teacher-link"]').first().getAttribute('href').catch(() => null);
-    if (!href || !/teacher\.html/.test(href)) out.push(`FAIL teacher-link href is ${JSON.stringify(href)}`);
-    else {
-      const r = await page.request.get(new URL(href, page.url()).href).catch(() => null);
-      if (!r || r.status() !== 200) out.push(`FAIL teacher-link target ${href} is not reachable`);
-      else out.push('ok   teacher-link points to teacher.html');
-    }
     await tap(page, 'gallery-open', null, 'touch');
     if (await waitScreen(page, 'gallery', 3000)) {
       const n = await page.locator('[data-testid^="gallery-cell-"]').count();
@@ -1220,35 +1201,6 @@ async function titleSmoke(browser, R, base, args, data) {
     for (const pe of log.pageErrors) out.push(`FAIL page error (title/deep-link/debug checks): ${pe}`);
     for (const r of log.requestFailed) out.push(`FAIL failed request: ${r}`);
     await context.close().catch(() => {});
-  }
-  return out;
-}
-
-async function teacherCheck(browser, R, base, args) {
-  const out = [];
-  const modes = [
-    { name: 'phone 390x844', profile: 'phone', shot: 'teacher-phone.png' },
-    { name: 'TV 1920x1080', profile: 'tv1080', shot: 'teacher-tv.png' }
-  ];
-  for (const mode of modes) {
-    const { context, page, log } = await newPage(browser, R, { profile: mode.profile, stepTimeout: args.stepTimeout });
-    try {
-      const resp = await page.goto(base + 'teacher.html', { waitUntil: 'load', timeout: 20000 });
-      if (!resp || resp.status() !== 200) { out.push(`FAIL teacher.html (${mode.name}) returned ${resp ? resp.status() : 'no response'}`); continue; }
-      await sleep(600);
-      const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, title: document.title, text: (document.body.innerText || '').length }));
-      if (m.sw > m.iw + 1) out.push(`WARN teacher.html (${mode.name}) overflows horizontally (scrollWidth ${m.sw} > ${m.iw})`);
-      if (m.text < 200) out.push(`WARN teacher.html (${mode.name}) shows very little text (${m.text} chars)`);
-      if (args.shots) await shot(page, path.join(args.shotDir, mode.shot), R);
-      for (const c of log.console) out.push(`FAIL teacher.html (${mode.name}) console error: ${c}`);
-      for (const pe of log.pageErrors) out.push(`FAIL teacher.html (${mode.name}) page error: ${pe}`);
-      for (const r of log.requestFailed) out.push(`FAIL teacher.html (${mode.name}) failed request: ${r}`);
-      if (!log.console.length && !log.pageErrors.length && !log.requestFailed.length) out.push(`ok   teacher.html (${mode.name}) loads without console errors ("${snip(m.title, 50)}")`);
-    } catch (e) {
-      out.push(`FAIL teacher.html (${mode.name}) threw: ${snip(e.message, 160)}`);
-    } finally {
-      await context.close().catch(() => {});
-    }
   }
   return out;
 }
@@ -1311,11 +1263,6 @@ function formatReport(R, ctx) {
     L.push('Title, gallery, deep links, debug panel');
     ctx.titleSmoke.forEach((m) => L.push('  ' + m));
   }
-  if (ctx.teacher && ctx.teacher.length) {
-    L.push('');
-    L.push('Teacher page');
-    ctx.teacher.forEach((m) => L.push('  ' + m));
-  }
   L.push('');
   L.push('Single-file build (dist/before-he-stood.html via file://)');
   L.push('  ' + (ctx.distLine || 'not run'));
@@ -1352,7 +1299,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || args.bad) {
     if (args.bad) console.error(`Unknown argument: ${args.bad}`);
-    console.log('Usage: node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,far] [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick] [--root DIR] [--headed] [--no-dist] [--no-teacher] [--no-shots] [--step-timeout MS] [--run-timeout S] [--budget-min N]');
+    console.log('Usage: node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,far] [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick] [--root DIR] [--headed] [--no-dist] [--no-shots] [--step-timeout MS] [--run-timeout S] [--budget-min N]');
     process.exit(args.bad ? 2 : 0);
   }
   const root = args.root;
@@ -1431,9 +1378,6 @@ async function main() {
       R.runs.push(run);
       console.log(`${run.result} (${(run.ms / 1000).toFixed(1)}s, ${run.steps} steps${run.failures.length ? ', ' + run.failures.length + ' failure(s): ' + snip(run.failures[0], 90) : ''})`);
     }
-    if (args.teacher && fs.existsSync(path.join(root, 'teacher.html'))) {
-      ctx.teacher = await withTimeout(teacherCheck(browser, R, srv.url, args), 60000, () => ['FAIL teacher.html check timed out']);
-    } else ctx.teacher = [args.teacher ? 'teacher.html not found; skipped' : 'skipped (--no-teacher)'];
     const distFile = path.join(root, 'dist', 'before-he-stood.html');
     if (!args.dist) ctx.distLine = 'skipped (--no-dist)';
     else if (!fs.existsSync(distFile)) ctx.distLine = 'dist/before-he-stood.html not found; skipped (run node tools/build-single.mjs)';
@@ -1464,7 +1408,7 @@ async function main() {
       console.log(`${run.result} (${(run.ms / 1000).toFixed(1)}s)`);
       ctx.distLine = `${run.result}: played ${rid} with strategy "a" at 1920x1080 from file:// (${run.steps} steps)`;
     }
-    for (const t of [...(ctx.titleSmoke || []), ...(ctx.teacher || [])]) if (/^FAIL/.test(t)) R.fail(t.replace(/^FAIL\s*/, ''));
+    for (const t of ctx.titleSmoke || []) if (/^FAIL/.test(t)) R.fail(t.replace(/^FAIL\s*/, ''));
     const dbgSources = [...new Set(R.runs.map((r) => r.dbgSource).filter(Boolean))];
     if (dbgSources.length) R.info(`debug state read via ${dbgSources.join(', ')}`);
   } catch (e) {

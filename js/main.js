@@ -1,8 +1,8 @@
 /*
  * js/main.js - app controller for "Before He Stood".
- * Owns screen flow (title -> prologue -> route select -> route -> ending card -> ending -> final ->
- * gallery), persistence (SPEC 5.3), keyboard input, deep links (#scribe/#friend/#asher), the
- * ?debug=1 panel, and the automated-test hooks:
+ * Owns screen flow (title -> prologue -> route select -> route -> ending card -> ending -> gallery),
+ * persistence (SPEC 5.3), keyboard input, deep links (#scribe/#friend/#asher), the ?debug=1 panel,
+ * and the automated-test hooks:
  *   document.body.dataset.screen, window.BHS_DEBUG.state(), BHS.ui.debugState(), ?test=1.
  */
 (function () {
@@ -16,8 +16,7 @@
   var KEYS = {
     settings: "bhs.v1.settings",
     save: "bhs.v1.save",
-    gallery: "bhs.v1.gallery",
-    blanks: "bhs.v1.blanks"
+    gallery: "bhs.v1.gallery"
   };
   var SAVE_VERSION = 1;
   var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true };
@@ -120,7 +119,7 @@
     app.settings.size = V.state.size;
   }
 
-  // ------------------------------------------------------------------ save / gallery / blanks
+  // ------------------------------------------------------------------ save / gallery
 
   function persist() {
     if (!app.game) return;
@@ -161,18 +160,6 @@
     if (g.indexOf(id) < 0) g.push(id);
     app.memGallery = g;
     store.set(KEYS.gallery, g);
-  }
-
-  function loadBlanks() {
-    var b = store.get(KEYS.blanks);
-    return b && typeof b === "object" ? b : app.memBlanks || {};
-  }
-
-  function saveBlank(routeId, value) {
-    var b = loadBlanks();
-    b[routeId] = String(value || "").slice(0, 40);
-    app.memBlanks = b;
-    store.set(KEYS.blanks, b);
   }
 
   // ------------------------------------------------------------------ screens
@@ -301,11 +288,6 @@
       showRouteSelect();
       return;
     }
-    if (kind === "final") {
-      showFinal();
-      persist();
-      return;
-    }
     if (kind === "end") {
       finishRoute();
       return;
@@ -321,29 +303,16 @@
     refreshDebug();
   }
 
-  function showFinal() {
-    var g = app.game;
-    var routeId = g.state.routeId;
-    if (g.state.ending) app.lastEnding = g.state.ending.id;
-    setScreen("final");
-    V.renderFinal({
-      routeId: routeId,
-      blanks: loadBlanks(),
-      storageOK: app.storageOK,
-      onBlank: function (val) {
-        saveBlank(routeId, val);
-      },
-      onNext: function () {
-        if (app.game && app.game.step && app.game.step.kind === "final") app.game.next();
-        finishRoute();
-      }
-    });
-    refreshDebug();
-  }
-
+  // The route is over: record the ending (also when the game was resumed after its title card)
+  // and open the gallery with it highlighted.
   function finishRoute() {
+    var g = app.game;
+    var current = g && g.state.ending ? g.state.ending.id : app.lastEnding;
+    if (current) {
+      markSeen(current);
+      app.lastEnding = current;
+    }
     clearSave();
-    var current = app.lastEnding;
     app.game = null;
     showGallery({ current: current });
   }
@@ -471,7 +440,7 @@
       V.closeModal();
       return;
     }
-    if (PLAY_SCREENS[app.screen] || app.screen === "final") {
+    if (PLAY_SCREENS[app.screen]) {
       ev.preventDefault();
       askHome();
     }
@@ -587,7 +556,7 @@
     V.closeSettings();
     if (app.screen === "title") return;
     // Nothing to lose outside the story itself.
-    if (!PLAY_SCREENS[app.screen] && app.screen !== "final") {
+    if (!PLAY_SCREENS[app.screen]) {
       showTitle();
       return;
     }
@@ -610,9 +579,6 @@
         break;
       case "routeSelect":
         showRouteSelect();
-        break;
-      case "final":
-        showFinal();
         break;
       case "gallery":
         showGallery({ current: app.lastEnding });
@@ -752,12 +718,13 @@
     renderGame({ instant: true });
   }
 
+  // Plays the rest of the route, ending included; renderGame then opens the gallery.
   function autoPlay() {
     var g = app.game;
     if (!g || !PLAY_SCREENS[app.screen]) return;
     g.fastForward({
       until: function (s) {
-        return s.kind === "final";
+        return s.kind === "end";
       },
       pick: randomPick
     });

@@ -13,6 +13,7 @@ Version 1.0 (2026-10-18). Single source of truth for every agent on this project
 - Each student picks one of three characters and plays ~8–9 minutes on their own phone: 10 choices × 4 options, 3 endings per character (9 total). Then the class fills a 3×3 grid on the whiteboard (columns = three lenses, rows = three characters) and the sermon on Matthew 8:23–9:8 follows.
 - Choices never change the biblical event. They change how the protagonist hears it. Endings are never graded (no good/bad/true endings, no visible score).
 - Static site: plain HTML/CSS/JS. No framework, no build step to play, no network required (Google Fonts optional, always with fallbacks). Must run (a) by double-clicking index.html (file://), (b) on GitHub Pages, (c) as a claude.ai artifact (single-file build, see §5.7).
+- The site is the game only: index.html (plus the single-file builds). There is no teacher page and no final screen with fill-in blanks; after an ending the player goes straight to the endings gallery (both removed 2026-10-18).
 - **All code comments in English only. Never write Korean in code comments.** Korean is fine inside data strings.
 - No audio. No external images. All art is code (SVG).
 
@@ -23,14 +24,13 @@ Version 1.0 (2026-10-18). Single source of truth for every agent on this project
 | docs/SPEC.md, docs/scenario-v2.md | lead | read-only for agents |
 | data/meta.js | lead | titles, lenses, route cards, ending titles, notices |
 | data/characters.js | lead | speaker ids, names, colors |
-| data/common.js | lead | prologue, route-select prompt, mismatch line, final screen |
+| data/common.js | lead | prologue, route-select prompt, mismatch line |
 | data/scripture.js, docs/scripture-sources.md | scripture agent | exact verse text; keys fixed in §4.3 |
 | data/routes/scribe.js | scribe writer | |
 | data/routes/friend.js | friend writer | |
 | data/routes/asher.js | asher writer | |
 | index.html, css/style.css, js/engine.js, js/ui.js, js/main.js, data/ui-strings.js, tools/build-single.mjs, tests/fixtures/* | engine agent | |
 | js/art.js | art agent | scene backgrounds as SVG |
-| teacher.html, css/teacher.css, js/teacher.js, tools/make-qr.mjs, assets/qr.svg | teacher agent | |
 | tools/validate.mjs, tools/playtest.mjs, qa/* | QA agent (phase 2) | |
 | README.md | lead | |
 
@@ -106,7 +106,7 @@ Route files do not define titles. The engine reads route titles and ending title
 `BHS.characters[id] = { name: T, role: T, color: "#hex", drawn?: false }`. Speaker ids for `line` beats come from here, plus the pseudo-speakers in §4.5.
 
 ### 4.3 data/scripture.js (scripture agent)
-`BHS.scripture[KEY] = { ref: T, ko: string, en: string, speaker?: "jesus"|"scribes"|"narrator", refOnly?: true, full?: { ko: string, en: string } }`. `full` holds the whole verse for keys that are cuts of a verse (QA checks the cut is an exact substring; the teacher page uses it to print the passage).
+`BHS.scripture[KEY] = { ref: T, ko: string, en: string, speaker?: "jesus"|"scribes"|"narrator", refOnly?: true, full?: { ko: string, en: string } }`. `full` holds the whole verse for keys that are cuts of a verse (QA checks the cut is an exact substring).
 - Korean = 성경전서 개역개정판. English = ESV. Exact wording and punctuation of the published text (partial verses are exact substrings of the verse).
 - `refOnly` keys have empty `ko`/`en` and may only be used with `{{r:KEY}}`.
 - Writers may use ONLY these keys. Need another? Ask in your report; do not invent keys.
@@ -162,7 +162,7 @@ Reference-only (`refOnly: true`): MT_8_19_20 (마 8:19–20), MT_8_23_27 (마 8:
 Reference format: ko uses 개역개정 abbreviations (마, 막, 눅, 요, 시, 신, 사, 레, 삼하, 왕상, 욥); en uses Matt, Mark, Luke, John, Ps, Deut, Isa, Lev, 2 Sam, 1 Kgs, Job. Ranges use an en dash (–).
 
 ### 4.4 data/common.js (lead)
-`BHS.common = { prologue: [Beat], routeSelect: {prompt: T}, mismatchLine: T, final: {key, blanks: {routeId: T}, othersHint: T, question: T, closing: [KEY...]} }`.
+`BHS.common = { prologue: [Beat], routeSelect: {prompt: T}, mismatchLine: T }`.
 
 ### 4.5 Route files (writers)
 
@@ -222,9 +222,9 @@ Gray buttons sit under the text box from the first beat until `actionsHide` or t
 2. plays `common.mismatchLine` if the ending lens ≠ c10 lens;
 3. plays `endingPreface`;
 4. shows the ending title card: lens label + title from `meta.endings` (e.g. 「① 누가? · 누가 말했는가」);
-5. plays `endings[lens].beats`, then `endings[lens].last` as a large final line;
+5. plays `endings[lens].beats`, then `endings[lens].last` as a large last line;
 6. plays `endingCoda`;
-7. shows the final screen (`common.final`), then the gallery.
+7. ends the route (step `end`): the UI marks the ending seen, clears the save and opens the endings gallery with that ending highlighted; the gallery offers 「다른 인물로 하기 / Play another character」 and 「처음 화면 / Title screen」.
 
 ### 4.6 data/ui-strings.js (engine agent)
 All UI chrome strings (buttons, labels, settings, gallery, errors) as T objects in `BHS.ui`.
@@ -242,9 +242,8 @@ All UI chrome strings (buttons, labels, settings, gallery, errors) as T objects 
 
 ### 5.3 Persistence (localStorage, every access in try/catch; game must work without it)
 - `bhs.v1.settings` — language, text speed, text size.
-- `bhs.v1.save` — current route, position, state (resume after an accidental refresh).
+- `bhs.v1.save` — current route, position, state (resume after an accidental refresh). A save written by 1.0 during an ending or on its (removed) final screen still resumes; it then ends straight on the gallery.
 - `bhs.v1.gallery` — endings seen on this device (`"scribe-1"` …).
-- `bhs.v1.blanks` — what the player typed on the final screen.
 
 ### 5.4 Controls and accessibility
 Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (slow/normal/instant); text size (A−/A+); tap targets ≥ 44px; visible focus; `aria-live` on the text box; `prefers-reduced-motion` → no typewriter, no shake, fades ≤ 150ms.
@@ -264,6 +263,8 @@ Tablets and laptops in between should also look right.
 `node tools/build-single.mjs` writes:
 - `dist/before-he-stood.html` — one self-contained file (all CSS/JS/data inlined) that runs offline.
 - `dist/artifact.html` — same content as a body fragment for claude.ai artifacts: no doctype/html/head/body tags, `<title>` and `<style>` first, `<meta name="claude:viewport-fit-sides" content="cover">`, side gutters `max(16px, env(safe-area-inset-*))`, explicit body background, colors as tokens on `:root`, no external scripts, Google Fonts stylesheet allowed.
+
+Both builds play exactly like index.html. The only thing they add is the marker `window.BHS.config = { build: "single" }` before the data scripts; there are no links to other pages.
 
 ## 6. Canon
 
@@ -364,7 +365,7 @@ Name spellings are fixed. Forbidden variants (validator errors): 메나헴, 므�
 2. The game never states or implies that Asher's illness was caused by his sin. Characters may fear it in thoughts or options; narration never confirms it. No "sin removed → body released" visuals. No option gets a correct-answer sound, sparkle, or score.
 3. No ending is better than another. Never write "true/good/bad ending", never show scores or ranks to players.
 4. Scribes are sincere, not villains. Menahem's concern (what belongs to God) is right; the open question is the premise "he is just a man".
-5. Mark- or Luke-only details (roof, four men, house, "who can forgive sins but God alone" as spoken words) appear only as clearly labeled Easter eggs or teacher notes.
+5. Mark- or Luke-only details (roof, four men, house, "who can forgive sins but God alone" as spoken words) appear only as clearly labeled Easter eggs.
 6. The crowd's response is exactly 9:8.
 7. Cultural views are individual characters' views, never "everyone back then believed X".
 8. Invented material (names, families, backstories, how rumors traveled, dialogue, endings) is acknowledged on the start screen (meta.disclaimer).

@@ -1,4 +1,4 @@
-/* Shared narrative: prologue, route select, mismatch line, final screen. Owner: lead. */
+/* Shared narrative: prologue, route select, mismatch line. Owner: lead. */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
 
@@ -41,21 +41,6 @@
     mismatchLine: {
       ko: "마지막 말은 다른 데로 가려 했다. 그런데 하루 종일 네 눈이 머문 곳은 따로 있었다.",
       en: "Your last words leaned one way. But all day, your eyes kept resting somewhere else."
-    },
-
-    final: {
-      key: "MT_9_2B2",
-      blanks: {
-        scribe: { ko: "서기관에게 이 말은 ___였다.", en: "To the scribe, these words were ___." },
-        friend: { ko: "친구에게 이 말은 ___였다.", en: "To the friend, these words were ___." },
-        asher: { ko: "아셀에게 이 말은 ___였다.", en: "To Asher, these words were ___." }
-      },
-      othersHint: { ko: "나머지 두 칸은 모임 시간에 함께 채워요.", en: "Fill in the other two together as a class." },
-      question: {
-        ko: "네 인물은 무엇을 들었지? 그리고 예수님은 무엇을 알게 하려 하셨지?",
-        en: "What did your character hear? And what did Jesus say he wanted them to know?"
-      },
-      closing: ["MT_9_6A", "MT_9_6B", "MT_9_7"]
     }
   };
 })();

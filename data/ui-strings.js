@@ -12,7 +12,6 @@
     continueGame: T("이어서 하기", "Continue"),
     continueFrom: T("저장된 곳", "Saved at"),
     galleryOpen: T("엔딩 모음", "Endings"),
-    teacherLink: T("선생님용", "For teachers"),
     langPrompt: T("어떤 말로 볼까요?", "Choose a language"),
     langKo: T("한국어", "한국어"),
     langEn: T("English", "English"),
@@ -54,13 +53,8 @@
     actionsGroup: T("할 수 있는 일", "Things you can try"),
     pinnedThought: T("속생각", "Unspoken thought"),
 
-    // Ending + final screen
+    // Ending
     endingCardHint: T("눌러서 계속", "Tap to continue"),
-    finalHeading: T("그날의 첫마디", "The first words that day"),
-    finalBlankLabel: T("내 인물의 빈칸", "Your character's blank"),
-    finalBlankPlaceholder: T("여기에 적어 보세요", "Write here"),
-    finalSaved: T("이 기기에 저장됐어요", "Saved on this device"),
-    finalNext: T("엔딩 모음 보기", "See the endings"),
 
     // Gallery
     galleryTitle: T("엔딩 모음", "Endings"),

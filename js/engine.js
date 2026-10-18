@@ -17,7 +17,7 @@
  * Game (driven by the UI):
  *   game.step                 current blocking step (see STEP KINDS below)
  *   game.view()               { step, now: {hush, echo}, stage, actions, ending, routeId }
- *   game.next()               advance from line / verse / endingTitle / last / final
+ *   game.next()               advance from line / verse / endingTitle / last
  *   game.choose(optionId)     answer the current choice
  *   game.press()              answer the current press beat
  *   game.tapAction(actionId)  tap a persistent action (Asher); returns { id, text, count } or null
@@ -27,7 +27,8 @@
  *
  * STEP KINDS: line {speaker, text} | verse {key, speaker} | choice {id, prompt, options:[{id,text}]}
  *   | press {action?, label?, hint?} | endingTitle {lens, lensLabel, title} | last {text}
- *   | final {routeId, lens} | routeSelect {} | end {}
+ *   | routeSelect {} | end {}
+ * A route ends: ... ending beats -> last -> endingCoda -> end (the UI then opens the gallery).
  * Choice steps never expose lens tags, so the UI cannot leak them (SPEC 7.2-7.3).
  */
 (function () {
@@ -401,6 +402,8 @@
       if (!this.state || this.state.v !== STATE_VERSION || this.state.routeId !== routeId) {
         throw new Error("Incompatible saved state");
       }
+      // A save from version 1.0 may sit on the removed final screen; move on to the end step.
+      if (this.state.step && this.state.step.kind === "final") this._run();
     } else {
       this.state = initialState(routeId, this.route, !!this.custom);
       this._run();
@@ -504,7 +507,7 @@
         if (res.mismatch && BHS.common && BHS.common.mismatchLine) tail.push("@mismatch");
         tail.push("endingPreface", "@title");
         if (hasEnding) tail.push("ending:" + res.lens, "@last");
-        tail.push("endingCoda", "@final", "@end");
+        tail.push("endingCoda", "@end");
         Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
         return false;
       }
@@ -538,10 +541,8 @@
         return true;
       }
       case "@final":
-        st.at = { list: "@final", index: 0 };
-        this._castClear();
-        this._setStep({ kind: "final", routeId: st.routeId, lens: st.ending ? st.ending.lens : null });
-        return true;
+        // Saves from version 1.0 still list "@final" (the removed final screen) before "@end": skip it.
+        return false;
       case "@end":
         this._setStep({ kind: "end" });
         st.done = true;
