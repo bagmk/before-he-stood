@@ -8,6 +8,7 @@
  *   resolveText(t, lang, state)          -> string, tokens resolved, *emphasis* markers kept
  *   plainText(t, lang, state)            -> string, tokens resolved, emphasis markers removed
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
+ *   quoteVerse(text)                     -> “text” with inner double quotes turned into ‘ ’
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
@@ -248,6 +249,27 @@
     return typeof t[other] === "string" ? t[other] : "";
   }
 
+  // Inside our curly double quotes, any double quote in the verse becomes a single curly quote,
+  // so quotes never nest double-in-double. Straight quotes open after whitespace or an opening
+  // bracket/dash, and close otherwise.
+  function nestQuotes(text) {
+    var out = "";
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (ch === "“") out += "‘";
+      else if (ch === "”") out += "’";
+      else if (ch === '"') {
+        var prev = i > 0 ? text.charAt(i - 1) : "";
+        out += prev === "" || /[\s(\[{—–]/.test(prev) ? "‘" : "’";
+      } else out += ch;
+    }
+    return out;
+  }
+
+  function quoteVerse(text) {
+    return OPEN_Q + nestQuotes(String(text)) + CLOSE_Q;
+  }
+
   function tokenValue(kind, key, lang, state) {
     if (kind === "v") {
       var v = verseText(key, lang);
@@ -255,7 +277,7 @@
         warn("missing verse text for " + key);
         return isDebug(state) ? "[" + key + "]" : OPEN_Q + "…" + CLOSE_Q;
       }
-      return OPEN_Q + v + CLOSE_Q;
+      return quoteVerse(v);
     }
     if (kind === "r") {
       var r = verseRef(key, lang);
@@ -828,6 +850,8 @@
     resolveSegments: resolveSegments,
     plainText: plainText,
     pickLang: pickLang,
+    quoteVerse: quoteVerse,
+    nestQuotes: nestQuotes,
     verseText: verseText,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,

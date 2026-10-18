@@ -45,8 +45,8 @@
   --focus: #2a5d75;
   --shadow: 0 1px 0 rgba(43, 41, 37, 0.04), 0 8px 24px -16px rgba(43, 41, 37, 0.25);
 
-  /* Type. Google Fonts first, then real local fallbacks. */
-  --font-serif: "Hahmlet", "Noto Serif KR", "Noto Serif CJK KR", "Source Han Serif K", "Nanum Myeongjo", "AppleMyungjo", "Batang", Georgia, "Times New Roman", serif;
+  /* Type: the game's pair (Gowun Batang, IBM Plex Sans KR), then real local fallbacks. */
+  --font-serif: "Gowun Batang", "Nanum Myeongjo", "AppleMyungjo", "Batang", "Noto Serif KR", "Noto Serif CJK KR", "Source Han Serif K", Georgia, "Times New Roman", serif;
   --font-sans: "IBM Plex Sans KR", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "Malgun Gothic", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "D2Coding", "Liberation Mono", monospace;
 
@@ -1654,13 +1654,13 @@ main {
   :root {
     color-scheme: light;
     --paper: #ffffff;
-    --paper-2: #f2f2f2;
+    --paper-2: #efefef;
     --card: #ffffff;
     --ink: #000000;
     --ink-2: #333333;
     --ink-3: #555555;
-    --rule: #b5b5b5;
-    --rule-strong: #6b6b6b;
+    --rule: #b0b0b0;
+    --rule-strong: #666666;
     --blue: #000000;
     --amber: #000000;
     --amber-line: #555555;
@@ -1668,14 +1668,14 @@ main {
     --olive: #333333;
     --jesus-ink: #000000;
     --shadow: none;
-    --ph-1: #c8c8c8;
-    --ph-2: #6b6b6b;
+    --ph-1: #cfcfcf;
+    --ph-2: #5f5f5f;
     --ph-3: #9a9a9a;
-    --ph-4: #3a3a3a;
+    --ph-4: #2f2f2f;
   }
 
   @page {
-    margin: 14mm 14mm 16mm;
+    margin: 14mm 14mm 15mm;
   }
 
   html,
@@ -1684,15 +1684,27 @@ main {
   }
 
   body {
-    font-size: 10.5pt;
-    line-height: 1.6;
+    font-size: 9.75pt;
+    line-height: 1.5;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
+  p {
+    orphans: 2;
+    widows: 2;
+  }
+
+  a {
+    color: #000000;
+    text-decoration: none;
+  }
+
+  /* Screen-only chrome. */
   .no-print,
   .toc,
   .skip-link,
+  .facts,
   #copy-btn,
   #lastlines-toggle,
   .reveal-hint,
@@ -1700,8 +1712,55 @@ main {
     display: none !important;
   }
 
+  /* Sections 5-7 print only when the "print all" box is checked. */
   html:not(.print-all) .print-optional {
     display: none !important;
+  }
+
+  /* Masthead becomes a plain title block. */
+  .masthead {
+    background: none;
+    color: #000000;
+    border-bottom: 1.25pt solid #000000;
+  }
+
+  .masthead-inner {
+    max-width: none;
+    padding: 0 0 6pt;
+  }
+
+  .kicker,
+  .kicker-en,
+  .masthead .title-en,
+  .subtitle,
+  .lede {
+    color: #000000;
+  }
+
+  .kicker {
+    margin-bottom: 2pt;
+    font-size: 8.5pt;
+  }
+
+  .masthead h1 {
+    font-size: 20pt;
+  }
+
+  .masthead .title-en {
+    margin-top: 1pt;
+    font-size: 10.5pt;
+  }
+
+  .subtitle {
+    margin-top: 3pt;
+    font-size: 9.5pt;
+  }
+
+  .lede {
+    max-width: none;
+    margin-top: 4pt;
+    font-size: 9pt;
+    opacity: 1;
   }
 
   .layout {
@@ -1710,118 +1769,153 @@ main {
     padding: 0;
   }
 
-  .masthead {
-    background: none;
-    color: #000000;
-    border-bottom: 1.5pt solid #000000;
-  }
-
-  .masthead-inner {
-    max-width: none;
-    padding: 0 0 8pt;
-  }
-
-  .kicker,
-  .kicker-en,
-  .masthead .title-en,
-  .subtitle,
-  .lede,
-  .facts li {
-    color: #000000;
-  }
-
-  .masthead h1 {
-    font-size: 22pt;
-  }
-
-  .lede {
-    opacity: 1;
-    font-size: 10pt;
-  }
-
-  .facts li {
-    border-color: #6b6b6b;
-  }
-
   .section {
-    padding-top: 12pt;
+    padding-top: 9pt;
   }
 
   .section + .section {
-    margin-top: 12pt;
+    margin-top: 9pt;
   }
 
   .section h2 {
-    font-size: 15pt;
+    margin-bottom: 3pt;
+    font-size: 13.5pt;
     break-after: avoid;
   }
 
   .section h3 {
+    margin: 8pt 0 3pt;
+    font-size: 10.5pt;
     break-after: avoid;
   }
 
-  a {
-    color: #000000;
-    text-decoration: none;
+  .section-lede,
+  .prose {
+    max-width: none;
+    margin-bottom: 3pt;
+    font-size: 9pt;
   }
 
-  .linkcard,
-  .step,
-  .board-sheet,
-  .lastlines,
-  .card {
-    box-shadow: none;
+  /* 1. Run sheet. */
+  .timebar {
+    max-width: none;
+    margin: 4pt 0 0;
   }
 
+  .timebar-head {
+    margin-bottom: 2pt;
+    font-size: 8pt;
+  }
+
+  .timebar-track {
+    height: 7pt;
+  }
+
+  .timebar-ticks {
+    height: 11pt;
+    font-size: 7.5pt;
+  }
+
+  .runsheet {
+    max-width: none;
+    margin-top: 2pt;
+  }
+
+  .runsheet li {
+    grid-template-columns: 20mm minmax(0, 1fr);
+    gap: 4mm;
+    padding: 4pt 0;
+  }
+
+  .runsheet h3 {
+    margin: 0;
+    font-size: 10pt;
+  }
+
+  .tips {
+    max-width: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 4pt 7mm;
+  }
+
+  .tips li {
+    padding-left: 6pt;
+    line-height: 1.45;
+  }
+
+  /* 2. Link and QR. */
   .linkcard {
-    grid-template-columns: 34mm minmax(0, 1fr);
-    gap: 8mm;
-    padding: 4mm;
+    max-width: none;
+    grid-template-columns: 30mm minmax(0, 1fr);
+    gap: 7mm;
+    margin-top: 4pt;
+    padding: 3mm 4mm;
+    box-shadow: none;
     break-inside: avoid;
   }
 
   .qr {
-    max-width: 34mm;
+    max-width: 30mm;
+  }
+
+  .qr figcaption {
+    margin-top: 2pt;
+    font-size: 8pt;
   }
 
   .url {
-    background: #ffffff;
     min-height: 0;
+    padding: 3pt 6pt;
+    font-size: 9pt;
+    background: #ffffff;
   }
 
-  .runsheet li,
-  .tips li,
-  .step,
-  .say,
-  .frame,
-  .notes li,
-  .principles li,
-  .sc-row,
-  .ll-route,
-  .card {
-    break-inside: avoid;
+  .link-body h3 {
+    margin-top: 6pt;
   }
 
-  /* The endings board gets a page of its own, always in table form. */
-  .board-sheet {
+  .link-body p {
+    margin-bottom: 0;
+  }
+
+  /* 3. Endings board: its own page, always a table, sized to fit A4 and US Letter. */
+  #board {
     break-before: page;
-    break-after: page;
-    border: 0;
-    padding: 0;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  #board > h2,
+  #board > .section-lede {
+    display: none;
+  }
+
+  .board-sheet {
+    max-width: none;
     margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    break-after: page;
   }
 
   .sheet-kicker {
-    font-size: 10pt;
+    font-size: 9pt;
   }
 
   .section h3.sheet-title {
-    font-size: 20pt;
     margin: 2pt 0 4pt;
+    font-size: 20pt;
   }
 
   .sheet-instr {
+    margin-bottom: 6pt;
     font-size: 11pt;
+  }
+
+  .board-grid {
+    margin-top: 4pt;
   }
 
   .lens-legend {
@@ -1833,6 +1927,7 @@ main {
     width: 100% !important;
     border: 1.5pt solid #000000;
     border-radius: 0;
+    overflow: visible;
   }
 
   .board-table thead {
@@ -1847,17 +1942,19 @@ main {
     display: table-row-group !important;
   }
 
-  .board-table tr {
+  .board-table tr,
+  .board-table tbody tr {
     display: table-row !important;
+    margin: 0 !important;
     border: 0 !important;
   }
 
   .board-table th,
   .board-table td {
     display: table-cell !important;
+    padding: 3mm;
     border-right: 1pt solid #000000 !important;
     border-bottom: 1pt solid #000000 !important;
-    padding: 3mm;
   }
 
   .board-table tr > :last-child {
@@ -1870,12 +1967,12 @@ main {
 
   .board-table thead th,
   .board-table tbody th {
-    background: #f0f0f0;
+    background: #efefef;
   }
 
-  .board-table tbody td,
-  .board-table tbody th {
-    height: 52mm;
+  .board-table tbody th,
+  .board-table tbody td {
+    height: 46mm;
   }
 
   .cell-lens {
@@ -1884,17 +1981,27 @@ main {
 
   .name-line {
     display: flex !important;
-    height: 18mm;
+    height: 16mm;
     border-bottom: 1pt dashed #000000;
+    font-size: 7.5pt;
     color: #555555;
   }
 
-  .ending-ko {
-    font-size: 14pt;
+  .ending-ko,
+  .lens-label {
+    font-size: 13pt;
   }
 
-  .lens-label {
-    font-size: 14pt;
+  .ending-en {
+    font-size: 9pt;
+  }
+
+  .lens-desc {
+    font-size: 8.5pt;
+  }
+
+  .lens-desc-en {
+    font-size: 8pt;
   }
 
   .who-ko {
@@ -1905,40 +2012,240 @@ main {
   .who-route {
     display: block !important;
     margin-left: 0 !important;
+    font-size: 8.5pt;
   }
 
   .sheet-note {
-    font-size: 9.5pt;
+    margin-top: 6pt;
+    font-size: 9pt;
   }
 
+  /* Ending last lines print only if opened on screen; they follow the board on a new page. */
   .reveal {
+    max-width: none;
     margin: 0;
   }
 
   .lastlines {
-    border: 0;
+    margin: 0;
     padding: 0;
+    border: 0;
+  }
+
+  .ll-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 4. Steps: plain blocks with rules instead of cards. */
+  #gather {
+    break-before: page;
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .steps {
+    max-width: none;
+    gap: 0;
+    margin-top: 4pt;
+  }
+
+  .step {
+    padding: 6pt 0 7pt;
+    border: 0;
+    border-top: 0.75pt solid #999999;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .step:first-child {
+    border-top: 0;
+  }
+
+  .step-num {
+    font-size: 13pt;
+  }
+
+  .section .step h3 {
+    font-size: 10.5pt;
+  }
+
+  .step-time {
+    font-size: 8pt;
+  }
+
+  .do,
+  .aside {
+    max-width: none;
+    margin-top: 3pt;
+    font-size: 9pt;
   }
 
   .say,
   .read-together {
+    margin-top: 4pt;
+    padding: 2pt 0 2pt 8pt;
     background: none;
-    border-left: 2pt solid #000000;
+    border-left: 1.5pt solid #000000;
+    border-radius: 0;
+  }
+
+  .read-together {
+    border-left-style: dotted;
+  }
+
+  .say-label {
+    margin-bottom: 1pt;
+    font-size: 7.5pt;
+  }
+
+  .say-ko {
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+
+  .say-en {
+    margin-top: 1pt;
+    font-size: 9pt;
+  }
+
+  .verse-quote {
+    font-size: 11pt;
+  }
+
+  .verse-quote-en {
+    font-size: 9.5pt;
+  }
+
+  .blanks {
+    gap: 3pt;
+  }
+
+  .blanks li {
+    padding-top: 3pt;
+    border-top-color: #cccccc;
+  }
+
+  .read-verse-ko {
+    font-size: 10pt;
+    line-height: 1.6;
+  }
+
+  .read-verse-en {
+    font-size: 9pt;
   }
 
   .frame {
+    margin-top: 5pt;
+    padding: 7pt;
     background: none;
-    border: 1.5pt solid #000000;
+    border: 1.25pt solid #000000;
+    border-radius: 6pt;
+  }
+
+  .frame-ko {
+    font-size: 14pt;
+  }
+
+  .frame-en {
+    margin-top: 2pt;
+    font-size: 10.5pt;
+  }
+
+  /* 5-7 when printed. */
+  .scripture,
+  .notes,
+  .split,
+  .principles,
+  .notices {
+    max-width: none;
+  }
+
+  .sc-head,
+  .sc-row {
+    grid-template-columns: 6mm minmax(0, 1fr) minmax(0, 1fr);
+    gap: 5mm;
+    padding: 4pt 0;
+  }
+
+  .sc-head {
+    display: grid;
+  }
+
+  .sc-num {
+    grid-row: auto;
+  }
+
+  .sc-ko {
+    font-size: 10pt;
+    line-height: 1.6;
+  }
+
+  .sc-en {
+    font-size: 9.5pt;
+    line-height: 1.5;
+    color: #000000;
+  }
+
+  .legend {
+    font-size: 8.5pt;
+  }
+
+  .notes li {
+    padding: 3pt 0;
+    line-height: 1.55;
+  }
+
+  .split {
+    grid-template-columns: 1fr 1fr;
+    gap: 5mm;
+  }
+
+  .card {
+    padding: 4pt 8pt 2pt;
+  }
+
+  .principles {
+    gap: 4pt;
+  }
+
+  .principles li {
+    line-height: 1.5;
+  }
+
+  .notices {
+    font-size: 8.5pt;
+    line-height: 1.5;
+  }
+
+  .notice {
+    margin-bottom: 6pt;
+  }
+
+  /* Keep blocks whole. */
+  .runsheet li,
+  .tips li,
+  .step,
+  .say,
+  .frame,
+  .notes li,
+  .principles li,
+  .sc-row,
+  .ll-route,
+  .card,
+  .notice {
+    break-inside: avoid;
   }
 
   .site-footer {
     background: none;
     border-top: 1pt solid #000000;
     color: #000000;
+    font-size: 8pt;
   }
 
   .footer-inner {
     max-width: none;
-    padding: 6pt 0 0;
+    padding: 4pt 0 0;
   }
 }

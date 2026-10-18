@@ -93,7 +93,7 @@
           opt("a", "{{v:PS_38_3}}", "{{v:PS_38_3}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
           ]),
-          opt("b", "{{v:PS_41_4}}", "{{v:PS_41_4}}", 3, [
+          opt("b", "{{v:PS_41_4Q}}", "{{v:PS_41_4Q}}", 3, [
             thought("고쳐 달라는 대목에서, 눈이 자꾸 문 쪽으로 간다.", "When I get to the part about healing, my eyes keep drifting to the door."),
             thought("저 문을 내 발로 나가 본 게 언제였더라.", "When did I last walk out that door on my own?")
           ]),
@@ -498,7 +498,7 @@
     endingCoda: [
       sign(
         "일어나기 시도 {{var:getup_count}}번 · 걸린 문장 1개",
-        "Attempts to get up: {{var:getup_count}} · Sentences that stuck: 1"
+        "Attempts to get up: {{var:getup_count}} · Sentences it took: 1"
       )
     ]
   };
