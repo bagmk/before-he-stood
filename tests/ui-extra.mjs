@@ -56,7 +56,8 @@ async function toStep(page, pred, max = 400, picks = {}) {
   for (let i = 0; i < max; i++) {
     const s = await page.evaluate(() => {
       const g = window.BHS_DEBUG.game();
-      return { st: window.BHS_DEBUG.state(), step: g && g.step };
+      const echo = document.getElementById("echo");
+      return { st: window.BHS_DEBUG.state(), step: g && g.step, echo: !!(echo && !echo.hidden) };
     });
     if (pred(s)) return s;
     const k = s.step && s.step.kind;
@@ -463,6 +464,64 @@ try {
     const cards = await page.locator(".routecard").count();
     check(n === 0 && cards === 3, `no portrait module: text-only cards (${n} portraits, ${cards} cards)`);
     check(errors.length === 0, "no portrait module: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+
+  // 8d. Verse display rule (SPEC 4.3): an English excerpt that starts with a lowercase letter is shown
+  //     with a leading "…" on verse cards, in echo boxes and in {{v:}} tokens inside options. Korean is
+  //     unchanged and the stored data stays an exact substring of the verse.
+  {
+    const { ctx, page, errors } = await open(browser, index + "?test=1");
+    await page.click('[data-testid="lang-en"]');
+    await page.click('[data-testid="start"]');
+    await toStep(page, (s) => s.st.screen === "routeSelect");
+    await page.click('[data-testid="route-scribe"]');
+    const ps = await page.evaluate(() => window.BHS.scripture.PS_103_3);
+    await toStep(page, (x) => x.step && x.step.kind === "verse" && x.step.key === "PS_103_3");
+    const card = (await page.textContent('[data-testid="textbox"]')).trim();
+    check(/^[a-z]/.test(ps.en) && card === "…" + ps.en, `en verse card: "…" before a lowercase excerpt (${card.slice(0, 32)})`);
+    await toStep(page, (x) => x.echo, 200);
+    const echo = await page.evaluate(() => {
+      const e = document.getElementById("echo");
+      const span = e.querySelector('[lang="en"]');
+      return { text: span ? span.textContent : "", marks: e.querySelectorAll("mark").length };
+    });
+    check(echo.text === "…" + ps.en && echo.marks >= 1, `en echo box: "…" kept and the noted word still marked (${echo.text.slice(0, 32)}, ${echo.marks} marks)`);
+    await shot(page, "tv-verse-ellipsis-echo");
+    check(errors.length === 0, "verse ellipsis (en): console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+  {
+    // "Both" mode: the English line gets the "…", the Korean line never does; options with {{v:}} tokens too.
+    const { ctx, page, errors } = await open(browser, index + "?test=1#scribe");
+    const ps = await page.evaluate(() => window.BHS.scripture.PS_103_3);
+    await toStep(page, (x) => x.step && x.step.kind === "verse" && x.step.key === "PS_103_3");
+    const both = await page.evaluate(() => {
+      const box = document.querySelector('[data-testid="textbox"]');
+      const ko = box.querySelector('[lang="ko"]');
+      const en = box.querySelector('[lang="en"]');
+      return { lang: window.BHS_DEBUG.state().lang, ko: ko ? ko.textContent : null, en: en ? en.textContent : null };
+    });
+    check(both.lang === "both" && both.ko === ps.ko && both.en === "…" + ps.en, `both: Korean unchanged, English with "…" (${JSON.stringify(both).slice(0, 120)})`);
+    await page.goto(index + "?test=1#asher");
+    await page.waitForFunction(() => window.BHS_DEBUG && document.body.dataset.screen);
+    const s = await toStep(page, (x) => x.step && x.step.kind === "choice" && x.step.id === "c1");
+    const opts = await page.evaluate(() => {
+      const S = window.BHS.scripture;
+      const out = [];
+      document.querySelectorAll('[data-testid^="choice-"]').forEach((b) => {
+        const ko = b.querySelector('[lang="ko"]');
+        const en = b.querySelector('[lang="en"]');
+        out.push({ id: b.getAttribute("data-testid"), ko: ko ? ko.textContent : "", en: en ? en.textContent : "" });
+      });
+      return { out, ps38: S.PS_38_3B, ps103: S.PS_103_3 };
+    });
+    const optA = opts.out.find((o) => o.id === "choice-a") || {};
+    const optD = opts.out.find((o) => o.id === "choice-d") || {};
+    check(optA.en === "“…" + opts.ps38.en + "”" && optA.ko === "“" + opts.ps38.ko + "”", `asher c1 a: {{v:PS_38_3B}} shows "…" in English only (${optA.en && optA.en.slice(0, 30)} / ${optA.ko && optA.ko.slice(0, 12)})`);
+    check(optD.en === "“…" + opts.ps103.en + "”" && optD.ko === "“" + opts.ps103.ko + "”", `asher c1 d: {{v:PS_103_3}} shows "…" in English only (${optD.en && optD.en.slice(0, 30)})`);
+    await shot(page, "tv-verse-ellipsis-options");
+    check(errors.length === 0, "verse ellipsis (both): console errors " + errors.join(" | "));
     await ctx.close();
   }
 

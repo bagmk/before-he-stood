@@ -13,7 +13,9 @@
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
  *   quoteVerse(text)                     -> “text” with inner double quotes turned into ‘ ’
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
- *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
+ *   verseDisplay(key, lang)              -> verse text as shown: an English excerpt that starts with a
+ *                                           lowercase letter gets a leading "…" (SPEC 4.3); data unchanged
+ *   fingerprint(routeOrId)              -> short structural hash of a route ("prologue" = common.prologue)
  *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
@@ -153,6 +155,16 @@
     if (!s || s.refOnly) return null;
     var txt = s[lang === "en" ? "en" : "ko"];
     return typeof txt === "string" && txt.length ? txt : null;
+  }
+
+  // Display form of a verse text (SPEC 4.3). An English excerpt that starts mid-sentence (its first
+  // character is a lowercase letter, e.g. "your sins are forgiven.") is shown with a leading ellipsis.
+  // The stored text stays an exact substring of the verse; Korean text is never changed.
+  var ELLIPSIS = "…";
+  function verseDisplay(key, lang) {
+    var txt = verseText(key, lang);
+    if (txt == null) return null;
+    return lang === "en" && /^[a-z]/.test(txt) ? ELLIPSIS + txt : txt;
   }
 
   function verseRef(key, lang) {
@@ -332,7 +344,7 @@
 
   function tokenValue(kind, key, lang, state) {
     if (kind === "v") {
-      var v = verseText(key, lang);
+      var v = verseDisplay(key, lang);
       if (v == null) {
         warn("missing verse text for " + key);
         return isDebug(state) ? "[" + key + "]" : OPEN_Q + "…" + CLOSE_Q;
@@ -1111,6 +1123,7 @@
     quoteVerse: quoteVerse,
     nestQuotes: nestQuotes,
     verseText: verseText,
+    verseDisplay: verseDisplay,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,
     fingerprint: fingerprint,

@@ -228,7 +228,34 @@ test("evalCond: unknown condition is false; var extension works", () => {
 test("resolveText: verse tokens get curly quotes in both languages", () => {
   const t = { ko: "읽는다. {{v:PS_103_3}}", en: "You read. {{v:PS_103_3}}" };
   assert.equal(E.resolveText(t, "ko", {}), "읽는다. “그가 네 모든 죄악을 사하시며 네 모든 병을 고치시며”");
-  assert.equal(E.resolveText(t, "en", {}), "You read. “who forgives all your iniquity, who heals all your diseases,”");
+  assert.equal(E.resolveText(t, "en", {}), "You read. “…who forgives all your iniquity, who heals all your diseases,”");
+});
+
+test("verse display rule (SPEC 4.3): an English excerpt that starts with a lowercase letter gets a leading …", () => {
+  // Display only: the stored text stays an exact substring of the verse.
+  assert.equal(E.verseText("MT_9_2B2", "en"), "your sins are forgiven.");
+  assert.equal(E.verseDisplay("MT_9_2B2", "en"), "…your sins are forgiven.");
+  assert.equal(E.verseDisplay("PS_103_3", "en"), "…who forgives all your iniquity, who heals all your diseases,");
+  // Capitalized English, a text that starts with a dash, and Korean are unchanged; missing keys give null.
+  assert.equal(E.verseDisplay("MT_9_2B1", "en"), "Take heart, my son;");
+  assert.equal(E.verseDisplay("MT_9_6N", "en"), "—he then said to the paralytic—");
+  assert.equal(E.verseDisplay("MT_9_2B2", "ko"), "네 죄 사함을 받았느니라");
+  assert.equal(E.verseDisplay("PS_103_3", "ko"), E.verseText("PS_103_3", "ko"));
+  assert.equal(E.verseDisplay("MT_20_2", "en"), null);
+  assert.equal(E.verseDisplay("NOPE_1", "en"), null);
+  // {{v:}} tokens in lines and options show the display form inside the quotes.
+  const t = { ko: "그 말 {{v:MT_9_2B2}}", en: "The words {{v:MT_9_2B2}}" };
+  assert.equal(E.resolveText(t, "en", {}), "The words “…your sins are forgiven.”");
+  assert.equal(E.resolveText(t, "ko", {}), "그 말 “네 죄 사함을 받았느니라”");
+  assert.equal(E.plainText(t, "en", {}), "The words “…your sins are forgiven.”");
+  const seg = E.resolveSegments(t, "en", {}).find((s) => s.kind === "v");
+  assert.equal(seg.key, "MT_9_2B2");
+  assert.equal(seg.text, "“…your sins are forgiven.”");
+  assert.equal(E.resolveText({ ko: "x", en: "{{v:MT_9_2B1}} {{v:MT_9_2B2}}" }, "en", {}), "“Take heart, my son;” “…your sins are forgiven.”");
+  // Verse steps keep the key; renderers ask verseDisplay for the text.
+  const g = E.createSequence([{ type: "verse", key: "MT_9_2B2" }]);
+  assert.equal(g.step.kind, "verse");
+  assert.equal(g.step.key, "MT_9_2B2");
 });
 
 test("resolveText: inner double quotes become single curly quotes inside the token quotes", () => {

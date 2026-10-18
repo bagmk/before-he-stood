@@ -46,7 +46,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startServer } from './serve.mjs';
 import {
-  loadProject, computeLensFor, simulate, renderText, Report, mulberry32, CHOICE_IDS, OPTION_IDS, ROUTE_IDS, isObj, isCutOption
+  loadProject, computeLensFor, simulate, renderText, verseDisplayText, Report, mulberry32, CHOICE_IDS, OPTION_IDS, ROUTE_IDS, isObj, isCutOption
 } from './validate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -203,7 +203,8 @@ function runLabel(p) {
   return `${p.rid}/${p.st.name}@${p.profile}${p.input === 'keyboard' ? '+kbd' : ''}${p.lang !== 'both' ? '(' + p.lang + ')' : ''}`;
 }
 
-// Expected text screens (textbox contents) for a route path, as normalized prefixes.
+// Expected text screens (textbox contents) for a route path, as normalized prefixes. Verse cards use
+// the display form (SPEC 4.3: English excerpts that start mid-sentence get a leading "…").
 function expectedTranscript(data, rid, picks, lang) {
   const l = lang === 'en' ? 'en' : 'ko';
   const out = [];
@@ -211,7 +212,7 @@ function expectedTranscript(data, rid, picks, lang) {
     let s = String(raw || '');
     const cut = s.indexOf('{{var:');
     if (cut >= 0) s = s.slice(0, cut);
-    const r = norm(kind === 'verse' ? s : renderText(s, l, data.scripture)).replace(/[“”"]/g, '');
+    const r = norm(kind === 'verse' ? verseDisplayText(s, l) : renderText(s, l, data.scripture)).replace(/[“”"]/g, '');
     out.push(r.slice(0, 14));
   };
   for (const b of (data.common && data.common.prologue) || []) {

@@ -177,8 +177,11 @@
     return frag;
   }
 
+  // Verse text as displayed (verse cards, echo boxes, pinned thoughts): verseDisplay adds the leading
+  // "…" to English excerpts that start mid-sentence (SPEC 4.3).
   function verseOf(key, l) {
-    var txt = E() && E().verseText(key, l);
+    var eng = E();
+    var txt = eng && (eng.verseDisplay ? eng.verseDisplay(key, l) : eng.verseText(key, l));
     if (txt) return txt;
     return S.debug ? "[" + key + "]" : "…";
   }

@@ -3102,13 +3102,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         1: { ko: "누가 말했는가", en: "Who Spoke" },
         2: { ko: "다시 읽는 시편", en: "The Psalm, Read Again" },
         3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" },
-        cut: { ko: "끝까지 듣지 않은 사람", en: "The One Who Left Early" }
+        cut: { ko: "먼저 자리를 뜬 사람", en: "The One Who Left Early" }
       },
       friend: {
         1: { ko: "우리가 구했던 것보다", en: "More Than We Asked For" },
         2: { ko: "첫마디도 기억한다", en: "I Remember the First Words" },
         3: { ko: "집까지 같이", en: "All the Way Home" },
-        cut: { ko: "멀리서 들은 사람", en: "Heard from Afar" }
+        cut: { ko: "골목에 남은 사람", en: "The One Who Stayed in the Lane" }
       },
       asher: {
         1: { ko: "그분은 누구신가", en: "Who Is He?" },
@@ -3680,10 +3680,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     };
   }
 
-  // Pins his unspoken thought (Matt 9:3) and his c2 pick. Placed first in each non-cut c2
-  // reaction so the bubble is seen unread for one screen before the read receipt at 9:4.
+  // Pins his unspoken thought (Matt 9:3). Placed first in each non-cut c2 reaction so the bubble
+  // is seen unread for one screen before the read receipt at 9:4. Only the 9:3 thought is pinned:
+  // the rebuke in 9:4 answers that thought, not whatever he thought next (c2).
   function pinThought() {
-    return { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q", "choice:c2"] };
+    return { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q"] };
   }
 
   BHS.routes.scribe = {
@@ -3748,7 +3749,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // They step aside, his eyes meet Asher's, nobody speaks to anybody.
       // ---------------------------------------------------------------
       { id: "lane", type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
-      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문에, 므나헴과 하난도 골목을 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is back by boat. Menahem and Hanan head down the lane. Behind them, some men are carrying a man on a bed." } },
+      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문에, 므나헴과 하난도 골목을 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is coming back by boat. Menahem and Hanan head down the lane. Behind them, some men are carrying a man on a bed." } },
       { type: "line", speaker: "passerby", text: { ko: "고통 뒤에 무슨 사연이 있는지 누가 알겠어. 저 사람은 무슨 잘못을 했기에 저렇게 됐을까.", en: "Who knows what's behind suffering like that. What did he do to end up like that?" } },
       { type: "line", text: { ko: "두 사람은 벽 쪽으로 비켜선다. 므나헴은 침상을 힐끗 보다가, 침상 위의 아셀과 눈이 마주친다. 서로 아무 말이 없다.", en: "They step back against the wall. Menahem glances at the bed, and for a moment his eyes meet Asher's. Neither says a word to the other." } },
 
@@ -3874,7 +3875,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             lens: 3,
             text: { ko: "어느 쪽이든, 침상 위 저 사람에겐 둘 다 필요하다.", en: "Either way, the man on the bed needs both." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "다리만 낫거나, 마음만 놓이거나. 어느 쪽도 반쪽이다.", en: "Healed legs and a heavy heart, or the other way around. Either would be half." } }
+              { type: "line", speaker: "thought", text: { ko: "하나님 앞에 설 자리와, 땅을 디딜 다리. 어느 하나만으로는 반쪽이다.", en: "A place to stand before God, and legs to stand on. Either one alone is half." } }
             ]
           }
         ]
@@ -3935,7 +3936,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 므나헴은 ‘병’이라고 적었다. 오늘 한 사람이 죄를 사하는 권한을 말하고, 병까지 고쳤다.", en: "This morning Menahem wrote *diseases*. Today a man claimed the authority to forgive sins, and healed the disease too." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 므나헴은 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning Menahem read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the line he will write (c4).
-          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "므나헴이 적을 말은 ‘신성모독’. 마태복음 끝에서 대제사장도 같은 말을 한다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "Menahem will write *blasphemy*. At the end of Matthew, the high priest makes the same charge: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
+          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "므나헴이 적을 말은 ‘신성모독’. 마태복음 뒷부분에서 대제사장도 같은 말을 한다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "Menahem will write *blasphemy*. Near the end of Matthew, the high priest makes the same charge: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
           { when: { choice: "c4", is: "d" }, type: "line", text: { ko: "결론 칸은 비어 있다. 그는 누구인가. 그 질문이 내일도 므나헴을 그 자리로 데려갈 것이다.", en: "The space for a conclusion stays empty. Who is he? That question will take Menahem back there tomorrow." } }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.", en: "About God, you were right. What's left is a question about him." }
@@ -3948,7 +3949,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 ‘그가’라는 낱말이 다시 보인다. 사하시는 일도, 고치시는 일도 오늘 한 사람의 말로 일어났다.", en: "He sees this morning's word again: *who*. Forgiving and healing both happened today, at one man's word." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 꼭 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in exactly that order, at one man's word." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in that order, at one man's word." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 ‘병’이라는 말이 다시 보인다. 오늘 그 병이 한 사람의 말로 나았다. 죄 사함의 말 다음에.", en: "He sees this morning's word again: *diseases*. Today a disease was healed at one man's word, right after the words of forgiveness." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
@@ -3964,7 +3965,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         // First-person thoughts, matching the last line; "he" is always Jesus here.
         beats: [
           { type: "line", speaker: "thought", text: { ko: "그는 하나님만 가지신 권한을 말했다. 그러고는 우리를 벌하지도, 무리를 모으지도 않고, 한 사람을 집에 보냈다.", en: "He claimed an authority that belongs to God alone. Then, instead of punishing us or rallying the crowd, he sent one man home." } },
-          { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 누구에게 하시는지가 눈에 걸린다.", en: "This morning I wrote down who does it. Now what catches my eye is who it is done for." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 그 일이 누구에게 일어났는지가 눈에 걸린다.", en: "This morning I wrote down who does it. Now what catches my eye is who it is done for." } },
           { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning I saw only a dot between two words. Today I saw a man lying in between." } },
           { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 적은 ‘병’이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word I wrote this morning, *diseases*, I now see a face from today." } },
           { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 그 시가, 이제는 한 사람의 이야기로 읽힌다.", en: "The psalm I read from the top this morning now reads like one man's story." } }
@@ -4073,7 +4074,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "d",
             text: { ko: "“왜 이렇게 됐는지는 나도 몰라.”", en: "“I don't know why this happened either.”" },
-            lens: 1,
+            lens: 2,
             reaction: [{ type: "line", speaker: "asher", text: { ko: "그래. 아무도 모르지.", en: "Yeah. Nobody does." } }]
           }
         ]
@@ -4213,9 +4214,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               {
                 type: "line",
                 speaker: "thought",
+                // Points at fear (what "take heart" answers), never at his question about a cause (SPEC 7.2).
                 text: {
-                  ko: "아침에 아셀이 붙들고 있던 질문도, 다리 얘기가 아니었다.",
-                  en: "The question Asher was holding onto this morning wasn't about his legs either."
+                  ko: "아침에 아셀을 짓누르던 것도 다리가 아니었다. 두려움이었다.",
+                  en: "What weighed on Asher this morning wasn't his legs either. It was fear."
                 }
               }
             ]
@@ -4335,8 +4337,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             id: "e1-callback-c1a",
             when: { choice: "c1", is: "a" },
             text: {
-              ko: "아침에 아셀이 물었다. “네가 그걸 어떻게 알아?” 그 질문에 답하실 수 있는 분이, 오늘 거기 계셨다.",
-              en: "This morning Asher asked, “How would you know?” Today, the one who could answer that was there."
+              ko: "아침에 아셀이 물었다. “네가 그걸 어떻게 알아?” 오늘 그분은 이유를 따지지 않으셨다. 하나님만 하실 수 있는 말을 하셨다.",
+              en: "This morning Asher asked, “How would you know?” Today Jesus didn't weigh reasons. He said what only God can say."
             }
           }
         ],
@@ -4404,14 +4406,19 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             }
           },
           {
+            // Asher's own words carry the forgiveness this path never heard (Jesus still forgives and heals).
             type: "line",
             id: "cut-smile",
-            text: { ko: "아셀이 요나를 지나며 웃는다.", en: "As he passes Yonah, Asher smiles at him." }
+            text: {
+              ko: "아셀이 요나를 지나며 웃는다. “그분이 나한테 먼저 하신 말이 있어. 나중에 들려줄게.”",
+              en: "As he passes Yonah, Asher smiles. “He said something to me first. I'll tell you later.”"
+            }
           }
         ],
+        // Lands on the others' hands and on grace, not a verdict on the player; echoes the route title.
         last: {
-          ko: "그분은 *그들의* 믿음을 보셨다. 그날 침상을 든 손들 가운데 네 손은 없었다.",
-          en: "He saw *their* faith. That day, your hands weren't among the ones carrying the bed."
+          ko: "네가 놓은 귀퉁이는 다른 손들이 들었다. 그분이 보신 믿음은 그 손들에 있었다.",
+          en: "Other hands took the corner you let go. The faith he saw was in those hands."
         }
       }
     }
@@ -4660,7 +4667,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who raised me to my feet said what only God can say.")
           )
         ],
-        last: t("다리를 고칠 분을 만나러 갔다. 죄를 사하는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
+        last: t("다리를 고쳐 주실 분을 만나러 갔다. 죄를 사하시는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
       },
 
       // Lens 2: why these words first?
@@ -4724,7 +4731,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
  *   quoteVerse(text)                     -> “text” with inner double quotes turned into ‘ ’
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
- *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
+ *   verseDisplay(key, lang)              -> verse text as shown: an English excerpt that starts with a
+ *                                           lowercase letter gets a leading "…" (SPEC 4.3); data unchanged
+ *   fingerprint(routeOrId)              -> short structural hash of a route ("prologue" = common.prologue)
  *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
@@ -4864,6 +4873,16 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     if (!s || s.refOnly) return null;
     var txt = s[lang === "en" ? "en" : "ko"];
     return typeof txt === "string" && txt.length ? txt : null;
+  }
+
+  // Display form of a verse text (SPEC 4.3). An English excerpt that starts mid-sentence (its first
+  // character is a lowercase letter, e.g. "your sins are forgiven.") is shown with a leading ellipsis.
+  // The stored text stays an exact substring of the verse; Korean text is never changed.
+  var ELLIPSIS = "…";
+  function verseDisplay(key, lang) {
+    var txt = verseText(key, lang);
+    if (txt == null) return null;
+    return lang === "en" && /^[a-z]/.test(txt) ? ELLIPSIS + txt : txt;
   }
 
   function verseRef(key, lang) {
@@ -5043,7 +5062,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   function tokenValue(kind, key, lang, state) {
     if (kind === "v") {
-      var v = verseText(key, lang);
+      var v = verseDisplay(key, lang);
       if (v == null) {
         warn("missing verse text for " + key);
         return isDebug(state) ? "[" + key + "]" : OPEN_Q + "…" + CLOSE_Q;
@@ -5822,6 +5841,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     quoteVerse: quoteVerse,
     nestQuotes: nestQuotes,
     verseText: verseText,
+    verseDisplay: verseDisplay,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,
     fingerprint: fingerprint,
@@ -8364,8 +8384,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return frag;
   }
 
+  // Verse text as displayed (verse cards, echo boxes, pinned thoughts): verseDisplay adds the leading
+  // "…" to English excerpts that start mid-sentence (SPEC 4.3).
   function verseOf(key, l) {
-    var txt = E() && E().verseText(key, l);
+    var eng = E();
+    var txt = eng && (eng.verseDisplay ? eng.verseDisplay(key, l) : eng.verseText(key, l));
     if (txt) return txt;
     return S.debug ? "[" + key + "]" : "…";
   }
@@ -9303,7 +9326,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     });
   }
 
-  // "✓ 함 · Played" in both languages (one check mark), or the one language.
+  // The played stamp: in "both" mode the two languages share one check mark; otherwise one language.
   function playedText() {
     var t = u("routePlayed");
     if (S.lang === "ko") return t.ko;

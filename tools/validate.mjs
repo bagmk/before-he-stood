@@ -801,11 +801,18 @@ function checkCond(cond, cx, w) {
 // ---------------------------------------------------------------------------------------------
 // Text rendering for length and reading time
 
+// Display form of a verse text (mirrors BHS.engine.verseDisplay, SPEC 4.3): an English excerpt that
+// starts with a lowercase letter is shown with a leading ellipsis. Korean is never changed.
+export function verseDisplayText(txt, lang) {
+  const s = String(txt == null ? '' : txt);
+  return lang === 'en' && /^[a-z]/.test(s) ? '…' + s : s;
+}
+
 export function renderText(str, lang, scripture, vars) {
   return String(str)
     .replace(TOKEN_RE, (m, kind, key) => {
       const s = scripture ? scripture[key] : null;
-      if (kind === 'v') return s && s[lang] ? '“' + s[lang] + '”' : m;
+      if (kind === 'v') return s && s[lang] ? '“' + verseDisplayText(s[lang], lang) + '”' : m;
       if (kind === 'r') return s && s.ref && s.ref[lang] ? s.ref[lang] : m;
       return String(vars && vars[key] != null ? vars[key] : 0);
     })
@@ -1323,13 +1330,13 @@ function textsOfItem(it, lang, data) {
     case 'line': return [r(b.text)];
     case 'verse': {
       const e = isObj(scr) ? scr[b.key] : null;
-      return e ? [e[lang] || '', e.ref ? e.ref[lang] || '' : ''] : [];
+      return e ? [verseDisplayText(e[lang] || '', lang), e.ref ? e.ref[lang] || '' : ''] : [];
     }
     case 'choice': return [r(b.prompt)].concat((b.options || []).map((o) => r(o && o.text)));
     case 'press': return [r(b.label), r(b.hint)];
     case 'scene': return [r(b.caption)];
     case 'fx': {
-      if (b.fx === 'echoVerse' && isObj(scr) && scr[b.key]) return [scr[b.key][lang] || ''];
+      if (b.fx === 'echoVerse' && isObj(scr) && scr[b.key]) return [verseDisplayText(scr[b.key][lang] || '', lang)];
       if (b.fx === 'actionReply') return [];
       return [];
     }
@@ -2204,6 +2211,29 @@ function checkEngineExtras(rep, data, routes) {
     if (bad) rep.error('engine', 'js/engine.js', `resolveText leaves unresolved text in ${bad}/${n} strings; e.g. "${snip(first.t, 40)}" -> "${snip(first.s, 60)}"`);
     else if (n) rep.info('engine', 'js/engine.js', `resolveText resolved ${n} strings without leftovers`);
   }
+  // Verse display rule (SPEC 4.3): the engine must show the same text as the reference for every key.
+  if (typeof eng.verseDisplay === 'function' && isObj(data.scripture)) {
+    let bad = 0;
+    let first = null;
+    let n = 0;
+    let marked = 0;
+    for (const [key, e] of Object.entries(data.scripture)) {
+      if (!isObj(e) || e.refOnly) continue;
+      for (const lang of ['ko', 'en']) {
+        if (typeof e[lang] !== 'string' || !e[lang]) continue;
+        const want = verseDisplayText(e[lang], lang);
+        let got;
+        try { got = eng.verseDisplay(key, lang); } catch (err) { got = 'THREW ' + err.message; }
+        n++;
+        if (want !== e[lang]) marked++;
+        if (got !== want) { bad++; if (!first) first = { key, lang, got, want }; }
+      }
+    }
+    if (bad) rep.error('engine', 'js/engine.js', `verseDisplay disagrees with the display rule (SPEC 4.3) on ${bad}/${n} texts; e.g. ${first.key} ${first.lang}: "${snip(String(first.got), 40)}", expected "${snip(first.want, 40)}"`);
+    else if (n) rep.info('engine', 'js/engine.js', `verseDisplay follows the display rule on ${n} texts (${marked} English excerpt(s) shown with a leading "…")`);
+  } else if (typeof eng.verseText === 'function') {
+    rep.warn('engine', 'js/engine.js', 'BHS.engine.verseDisplay is not exposed (SPEC 4.3 display rule for excerpts)');
+  }
 }
 
 export function formatText(res, meta) {
@@ -2692,6 +2722,24 @@ function selfTest() {
     const lines = rep.stats.find((x) => x.title === 'Engine cross-check');
     return !engErr.length && lines && lines.lines.filter((l) => /matches the reference step by step on 256\/256 paths/.test(l)).length === 3 &&
       lines.lines.some((l) => /scribe .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /friend .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /asher .*\(0 cut\)/.test(l));
+  });
+  t('verse display rule: lowercase English excerpts get a leading "…"; Korean and capitalized text unchanged', () => {
+    const scr = { MT_9_2B2: { ko: '네 죄 사함을 받았느니라', en: 'your sins are forgiven.' }, MT_9_2B1: { ko: '작은 자야 안심하라', en: 'Take heart, my son;' } };
+    return verseDisplayText('your sins are forgiven.', 'en') === '…your sins are forgiven.' &&
+      verseDisplayText('Take heart, my son;', 'en') === 'Take heart, my son;' &&
+      verseDisplayText('…already marked', 'en') === '…already marked' &&
+      verseDisplayText('네 죄 사함을 받았느니라', 'ko') === '네 죄 사함을 받았느니라' &&
+      renderText('x {{v:MT_9_2B2}}', 'en', scr) === 'x “…your sins are forgiven.”' &&
+      renderText('{{v:MT_9_2B1}}', 'en', scr) === '“Take heart, my son;”' &&
+      renderText('{{v:MT_9_2B2}}', 'ko', scr) === '“네 죄 사함을 받았느니라”';
+  });
+  t('engine cross-check: verseDisplay without the leading "…" -> ERROR engine', () => {
+    const fx = fixtureData(root, { withEngine: true });
+    if (!fx.engine || !fx.bhs) return false;
+    fx.bhs.routes = fx.data.routes;
+    const hasLower = Object.values(fx.data.scripture || {}).some((e) => e && !e.refOnly && /^[a-z]/.test(e.en || ''));
+    fx.data.engine = Object.assign({}, fx.engine, { verseDisplay: (key, lang) => fx.engine.verseText(key, lang) });
+    return hasLower && run(fx.data).has('ERROR', 'engine', /verseDisplay disagrees/);
   });
   t('lexer: Korean inside strings is not a comment', () => {
     const lx = lexJs('var a = "// 가"; /* ok */ var r = /\\/\\*x/; // 나\n`${"/*"}` // end');
