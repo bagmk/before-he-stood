@@ -151,7 +151,7 @@
         options: [
           {
             id: "a",
-            text: { ko: "죄 사함이지. 아무도 확인 못 하니까.", en: "Forgiveness. Nobody can check that." },
+            text: { ko: "말로는 죄 사함이 쉽지. 아무도 확인 못 하니까.", en: "Forgiveness is easier to say. Nobody can check it." },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "확인 못 하는 말은 누구나 할 수 있지.", en: "Anyone can say something nobody can check." } }
             ]
@@ -237,14 +237,15 @@
           last: { ko: "그날 므나헴은 ‘고치시며’라는 단어를 백 번은 확인했다. 정작 병이 나은 건 바닷가에서였다.", en: "That day, Menahem checked the word ‘heals’ a hundred times. The actual healing happened down at the shore." }
         },
 
-        // c3 a: he shouts; a Roman soldier keeps the peace (the centurion of Matt 8:5-13 lives here).
+        // c3 a: he shouts; a soldier keeps the peace (the centurion of Matt 8:5-13 lives here). Not called
+        // "Roman": Galilee was Herod Antipas's territory, and a Roman garrison there is doubtful.
         guardhouse: {
           title: { ko: "경비대 하룻밤", en: "A Night in the Guardhouse" },
           beats: [
             { type: "fx", fx: "unpinThought" },
-            { type: "line", text: { ko: "무리가 웅성거린다. 로마 군인 하나가 므나헴 앞을 막아선다. “어르신, 소란은 곤란합니다. 따라오시죠.”", en: "The crowd stirs. A Roman soldier steps in front of Menahem. “Sir, no disturbances. Come with me.”" } },
+            { type: "line", text: { ko: "무리가 웅성거린다. 군인 하나가 므나헴 앞을 막아선다. “어르신, 소란은 곤란합니다. 따라오시죠.”", en: "The crowd stirs. A soldier steps in front of Menahem. “Sir, no disturbances. Come with me.”" } },
             { type: "fx", fx: "light", level: "off" },
-            { type: "scene", bg: "black", caption: { ko: "밤 · 로마 경비대", en: "Night · The Roman guardhouse" } },
+            { type: "scene", bg: "black", caption: { ko: "밤 · 경비대", en: "Night · The guardhouse" } },
             { type: "line", text: { ko: "므나헴은 밤새 레위기를 처음부터 설명한다. 군인은 하품을 참다가, 결국 포기한다.", en: "All night, Menahem explains Leviticus from the very beginning. The soldier fights a yawn, then gives up." } },
             { type: "line", text: { ko: "새벽녘, 군인이 하품하며 말한다. “어제 그 침상 사람, 걸어서 집에 갔대요. 우리 백부장님은 놀라지도 않으시던데요.”", en: "Near dawn, the soldier yawns and says, “The man on the bed yesterday? Walked home, I heard. My centurion wasn't even surprised.”" } }
           ],

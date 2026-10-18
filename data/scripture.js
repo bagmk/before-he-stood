@@ -54,6 +54,15 @@
       en: "And getting into a boat he crossed over and came to his own city.",
       speaker: "narrator"
     },
+    // The whole verse (verified text, same as `full` below). Used as the friend's memory verse,
+    // because MT_9_2A alone stops mid-sentence ("he said to the paralytic,").
+    MT_9_2: {
+      ref: r("마 9:2", "Matt 9:2"),
+      ko: MT_9_2.ko,
+      en: MT_9_2.en,
+      speaker: "narrator",
+      full: MT_9_2
+    },
     MT_9_2A: {
       ref: r("마 9:2", "Matt 9:2"),
       ko: "침상에 누운 중풍병자를 사람들이 데리고 오거늘 예수께서 그들의 믿음을 보시고 중풍병자에게 이르시되",

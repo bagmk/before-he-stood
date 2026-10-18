@@ -191,7 +191,8 @@
       {
         type: "choice",
         id: "c4",
-        prompt: t("다리 얘기는 한마디도 없다.", "Not one word about his legs."),
+        // Also says that no cause was given: the passerby and Asher both asked about one (SPEC 7.2).
+        prompt: t("다리 얘기는 한마디도 없다. 아셀이 왜 이렇게 됐는지도.", "Not one word about his legs. Or about why this happened to him."),
         options: [
           {
             id: "a",
@@ -263,7 +264,8 @@
       // True ending (engine): title card, memory verse card, beats, last line, then the story tree.
       good: {
         title: t("집까지 같이", "All the Way Home"),
-        verse: "MT_9_2A",
+        // The whole verse: a complete sentence for the memory card (MT_9_2A stops at "said to the paralytic,").
+        verse: "MT_9_2",
         beats: [
           // Asher returns Yonah's morning words ("Come with me"); one variant per c5 pick.
           {

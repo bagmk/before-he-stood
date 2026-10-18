@@ -15,6 +15,7 @@ Status legend:
 | Key | Ref | Speaker | Korean | English |
 | --- | --- | --- | --- | --- |
 | MT_9_1 | 마 9:1 / Matt 9:1 | narrator | VERIFIED | VERIFIED |
+| MT_9_2 | 마 9:2 / Matt 9:2 | narrator | VERIFIED | VERIFIED |
 | MT_9_2A | 마 9:2 / Matt 9:2 | narrator | VERIFIED | VERIFIED |
 | MT_9_2B | 마 9:2 / Matt 9:2 | jesus | VERIFIED | VERIFIED |
 | MT_9_2B1 | 마 9:2 / Matt 9:2 | jesus | VERIFIED | VERIFIED |
@@ -530,3 +531,10 @@ These carry no text (`ko`/`en` empty, `refOnly: true`) and may only be used as `
 - Engine: `en` values that contain curly double quotes inside the text are MT_9_3 (“This man is blaspheming.”), MT_9_4 (opening “ with no closing mark, as published) and PS_41_4 (“O LORD, … against you!”). Wrapped in the engine's own “…” by a `{{v:KEY}}` token, they will nest double-in-double. Prefer showing these as `verse` beats; or, when wrapping a token, swap inner “” to ‘’. MT_9_5 already uses single inner quotes.
 - Writers: MT_9_4 (whole verse) ends inside an open quotation in ESV; for the crowd sequence use MT_9_4N + MT_9_4Q (SPEC §6.4). PS_41_4 is the whole verse including 내가 말하기를 … 하였나이다 / As for me, I said, …; scenario-v2 quotes only the prayer part (여호와여 … 고치소서), which has no key of its own.
 - Lead (possible key request, not created): if Asher should pray Ps 41:4 in his own voice, a key such as PS_41_4Q = 「여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서」 / "O LORD, be gracious to me; heal me, for I have sinned against you!" would be an exact substring of the verified verse.
+
+### MT_9_2 — 마 9:2 / Matt 9:2 (whole verse; added for v4)
+
+The friend route's memory verse. The text is the whole verse already verified as the `full` of MT_9_2A/2B/2B1/2B2 (re-verified 2026-10-18 on bskorea.or.kr and churchofjesuschrist.org for Korean, esv.org and BibleGateway for English, in qa/reports/v4-scripture-theology.md).
+
+- KO: 침상에 누운 중풍병자를 사람들이 데리고 오거늘 예수께서 그들의 믿음을 보시고 중풍병자에게 이르시되 작은 자야 안심하라 네 죄 사함을 받았느니라
+- EN: And behold, some people brought to him a paralytic, lying on a bed. And when Jesus saw their faith, he said to the paralytic, “Take heart, my son; your sins are forgiven.”

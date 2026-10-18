@@ -148,7 +148,7 @@
       fx("light", { level: "bright" }),
       verse("MT_9_2B1", "first-words-1"),
       // Route title moment. The word means "child"; paraphrased, never quoted.
-      thought("나를 뭐라고 부르셨지? 꼭 어린아이를 부르듯이.", "What did he just call me? Son—like I'm a little kid.", "what-did-he-call-me"),
+      thought("나를 뭐라고 부르셨지? 꼭 어린아이를 부르듯이.", "What did he just call me? Son—the way you'd call a little kid.", "what-did-he-call-me"),
       fx("hush"),
       verse("MT_9_2B2", "first-words-2"),
       fx("light", { level: "soft" }),
@@ -197,7 +197,7 @@
       verse("MT_9_8"),
 
       // c5: his first words standing. The question leads straight into the memory verse card.
-      choice("c5", "집으로 가는 길. 네 해 만에 사람들과 눈높이가 같다. 첫마디는?", "On the way home, eye to eye with people for the first time in four years. What do I say first?", [
+      choice("c5", "집으로 가는 길. 네 해 만에 사람들과 눈높이가 같다. 요나한테 뭐라고 하지?", "On the way home, eye to eye with people for the first time in four years. What do I tell Yonah?", [
         nope("a", "“요나, 침상은 네가 들어.”", "“Yonah, you carry the bed.”", "yonah", "그건 아니지! 네 침상은 네가 들어!", "No way! Your bed—you carry it!"),
         go("b", "“요나, 들었어? 나를 뭐라고 부르셨는지.”", "“Yonah, did you hear what he called me?”")
       ]),
@@ -242,7 +242,8 @@
             scene("asher_ceiling", "lying", "정오 무렵 · 아셀의 집", "Around noon · Asher's house"),
             sign("― 바닷가 쪽에서 함성이 들려온다 ―", "— A roar goes up from the shore —", "home-roar")
           ],
-          last: t("안 나가면 아무 일도 안 생긴다. 오늘은 그게 문제였다.", "Stay inside, and nothing happens. Today, that was the problem.")
+          // A story beat, not a rule: a housebound student must not hear "staying in is the problem".
+          last: t("요나는 같이 가자고 했다. 나는 들보랑 남았다.", "Yonah said, “Come with me.” I stayed with the beams.")
         },
 
         // c2 b: the hot springs of Tiberias instead (Korean text uses the Korean Revised Version spelling,
