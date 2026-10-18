@@ -1,9 +1,11 @@
 /*
  * data/scripture.js - exact verse text for every key in SPEC section 4.3.
- * Korean: Korean Revised Version, New Edition (Gaeyeok Gaejeong). English: ESV (2016 text).
+ * Korean: Korean Revised Version, New Edition (Gaeyeok Gaejeong). English: ESV (2016 text;
+ * none of these verses changed in the ESV 2025 text edition).
  *
- * STATUS: DRAFT - texts below are from memory / SPEC approximations and are
- * NOT YET VERIFIED against published sources. See docs/scripture-sources.md.
+ * STATUS: every non-refOnly key was verified against published sources (Korean Bible
+ * Society reader + a second site for Korean; esv.org + a second site for English).
+ * Sources, whole verses and cut points per key: docs/scripture-sources.md.
  *
  * Conventions:
  * - Speech keys (speaker "jesus" or "scribes") hold only the spoken words,
@@ -13,13 +15,18 @@
  *   verse) carry `full: { ko, en }` with the whole published verse so QA can
  *   check that `ko`/`en` are exact contiguous substrings.
  * - refOnly keys have empty ko/en and may only be used with {{r:KEY}}.
+ * - Typography follows the printed ESV: curly quotes, em dashes. The small-caps divine
+ *   name is written "LORD" (plain text cannot carry small caps).
+ * - DT_6_4 and IS_43_25: the ESV verse opens with a speech quotation mark that is not
+ *   closed within the verse; it is dropped here (kept in `full`) because the engine
+ *   adds its own quotes.
  */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
 
   // Whole verses shared by several partial keys.
   var MT_9_2 = {
-    ko: "침상에 누운 중풍병자를 사람들이 데리고 오거늘 예수께서 그들의 믿음을 보시고 중풍병자에게 이르시되 작은 자야 안심하라 네 죄 사함을 받았느니라 하시니",
+    ko: "침상에 누운 중풍병자를 사람들이 데리고 오거늘 예수께서 그들의 믿음을 보시고 중풍병자에게 이르시되 작은 자야 안심하라 네 죄 사함을 받았느니라",
     en: "And behold, some people brought to him a paralytic, lying on a bed. And when Jesus saw their faith, he said to the paralytic, “Take heart, my son; your sins are forgiven.”"
   };
   var MT_9_3 = {
@@ -183,11 +190,11 @@
     },
     MT_26_65Q: {
       ref: r("마 26:65", "Matt 26:65"),
-      ko: "그가 신성 모독하는 말을 하였으니",
+      ko: "그가 신성모독 하는 말을 하였으니",
       en: "He has uttered blasphemy.",
       speaker: "narrator",
       full: r(
-        "이에 대제사장이 자기 옷을 찢으며 이르되 그가 신성 모독하는 말을 하였으니 어찌 더 증인을 요구하리요 보라 너희가 지금 이 신성 모독하는 말을 들었도다",
+        "이에 대제사장이 자기 옷을 찢으며 이르되 그가 신성모독 하는 말을 하였으니 어찌 더 증인을 요구하리요 보라 너희가 지금 이 신성모독 하는 말을 들었도다",
         "Then the high priest tore his robes and said, “He has uttered blasphemy. What further witnesses do we need? You have now heard his blasphemy."
       )
     },
@@ -243,9 +250,20 @@
     },
     PS_41_4: {
       ref: r("시 41:4", "Ps 41:4"),
-      ko: "내가 말하기를 여호와여 나에게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 하였나이다",
+      ko: "내가 말하기를 여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 하였나이다",
       en: "As for me, I said, “O LORD, be gracious to me; heal me, for I have sinned against you!”",
       speaker: "narrator"
+    },
+    // The prayer itself, for a character praying it in his own voice (exact substring of PS_41_4).
+    PS_41_4Q: {
+      ref: r("시 41:4", "Ps 41:4"),
+      ko: "여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서",
+      en: "O LORD, be gracious to me; heal me, for I have sinned against you!",
+      speaker: "narrator",
+      full: {
+        ko: "내가 말하기를 여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 하였나이다",
+        en: "As for me, I said, “O LORD, be gracious to me; heal me, for I have sinned against you!”"
+      }
     },
     PS_22_1A: {
       ref: r("시 22:1", "Ps 22:1"),
@@ -253,7 +271,7 @@
       en: "My God, my God, why have you forsaken me?",
       speaker: "narrator",
       full: r(
-        "내 하나님이여 내 하나님이여 어찌 나를 버리셨나이까 어찌 나를 멀리 하여 돕지 아니하옵시며 내 신음 소리를 듣지 아니하시나이까",
+        "내 하나님이여 내 하나님이여 어찌 나를 버리셨나이까 어찌 나를 멀리 하여 돕지 아니하시오며 내 신음 소리를 듣지 아니하시나이까",
         "My God, my God, why have you forsaken me? Why are you so far from saving me, from the words of my groaning?"
       )
     },
@@ -289,11 +307,11 @@
     },
     LV_24_16A: {
       ref: r("레 24:16", "Lev 24:16"),
-      ko: "여호와의 이름을 모독하는 자는 반드시 죽일지니 온 회중이 돌로 그를 칠 것이니라",
+      ko: "여호와의 이름을 모독하면 그를 반드시 죽일지니 온 회중이 돌로 그를 칠 것이니라",
       en: "Whoever blasphemes the name of the LORD shall surely be put to death. All the congregation shall stone him.",
       speaker: "narrator",
       full: r(
-        "여호와의 이름을 모독하는 자는 반드시 죽일지니 온 회중이 돌로 그를 칠 것이니라 거류민이든지 본토인이든지 여호와의 이름을 모독하면 그를 죽일지니라",
+        "여호와의 이름을 모독하면 그를 반드시 죽일지니 온 회중이 돌로 그를 칠 것이니라 거류민이든지 본토인이든지 여호와의 이름을 모독하면 그를 죽일지니라",
         "Whoever blasphemes the name of the LORD shall surely be put to death. All the congregation shall stone him. The sojourner as well as the native, when he blasphemes the Name, shall be put to death."
       )
     },
@@ -309,11 +327,11 @@
     },
     KI1_8_39B: {
       ref: r("왕상 8:39", "1 Kgs 8:39"),
-      ko: "주만 홀로 모든 인생들의 마음을 다 아심이니이다",
+      ko: "주만 홀로 사람의 마음을 다 아심이니이다",
       en: "for you, you only, know the hearts of all the children of mankind",
       speaker: "narrator",
       full: r(
-        "주는 계신 곳 하늘에서 들으시고 사하시며 각 사람의 마음을 아시오니 그들의 모든 행위대로 행하사 갚으시옵소서 주만 홀로 모든 인생들의 마음을 다 아심이니이다",
+        "주는 계신 곳 하늘에서 들으시고 사하시며 각 사람의 마음을 아시오니 그들의 모든 행위대로 행하사 갚으시옵소서 주만 홀로 사람의 마음을 다 아심이니이다",
         "then hear in heaven your dwelling place and forgive and act and render to each whose heart you know, according to all his ways (for you, you only, know the hearts of all the children of mankind),"
       )
     },
