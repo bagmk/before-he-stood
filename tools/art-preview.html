@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art preview</title>
+<!--
+  Dev tool for js/art.js (owner: art agent).
+  Gallery:      tools/art-preview.html            every scene at 390x844 and 1280x720 (shown at 50%)
+  Single scene: tools/art-preview.html?id=lane    the scene fills the viewport (used for screenshots)
+  Options:      &panel=1  shades the bottom 35% where the text panel sits
+                &pov=lying|standing|normal
+-->
+<style>
+  :root {
+    --page: #24262a;
+    --ink: #e9e4d8;
+    --muted: #a7a194;
+    --panel: #efe3c8;
+    --rule: #3a3d43;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--ink); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; }
+  header { padding: 20px 24px 8px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  header p { margin: 0; color: var(--muted); }
+  label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  main { padding: 8px 24px 40px; display: grid; gap: 28px; }
+  section { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; border-top: 1px solid var(--rule); padding-top: 16px; }
+  section h2 { flex: 0 0 100%; margin: 0; font-size: 15px; font-weight: 600; }
+  section h2 small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+  figure { margin: 0; }
+  figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .frame { position: relative; overflow: hidden; background: #000; }
+  .frame svg { position: absolute; inset: 0; display: block; }
+  .phone { width: 390px; height: 844px; }
+  .land-wrap { width: 640px; height: 360px; overflow: hidden; }
+  .land { width: 1280px; height: 720px; transform: scale(0.5); transform-origin: 0 0; }
+  .panel-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 35%; background: var(--panel); opacity: 0.86;
+    border-top: 2px solid #9a7a4a; display: none; }
+  body.show-panel .panel-shade { display: block; }
+  /* Single-scene mode fills the viewport exactly. */
+  body.single { overflow: hidden; }
+  body.single header, body.single main { display: none; }
+  #single { position: fixed; inset: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Before He Stood: scene art</h1>
+  <p>Every background from js/art.js at phone size (390x844) and landscape (1280x720, shown at half size).</p>
+  <label><input type="checkbox" id="panelToggle"> Shade the text panel area (bottom 35%)</label>
+</header>
+<main id="gallery"></main>
+<div id="single" hidden></div>
+<script src="../js/art.js"></script>
+<script>
+(function () {
+  var art = window.BHS && window.BHS.art;
+  var q = new URLSearchParams(location.search);
+  var shade = '<div class="panel-shade"></div>';
+  if (q.get("panel") === "1") document.body.classList.add("show-panel");
+
+  if (!art) {
+    document.getElementById("gallery").textContent = "js/art.js did not load.";
+    return;
+  }
+
+  var single = q.get("id");
+  if (single) {
+    document.body.classList.add("single");
+    var box = document.getElementById("single");
+    box.hidden = false;
+    box.className = "frame";
+    box.innerHTML = art.render(single, { pov: q.get("pov") || undefined }) + shade;
+    return;
+  }
+
+  var toggle = document.getElementById("panelToggle");
+  toggle.checked = document.body.classList.contains("show-panel");
+  toggle.addEventListener("change", function () { document.body.classList.toggle("show-panel", toggle.checked); });
+
+  var html = "";
+  art.ids.forEach(function (id) {
+    var a = art.render(id), b = art.render(id);
+    html += '<section><h2>' + id + '<small>' + (a.length / 1024).toFixed(1) + ' KB</small></h2>' +
+      '<figure><div class="frame phone">' + a + shade + '</div><figcaption>390 x 844</figcaption></figure>' +
+      '<figure><div class="land-wrap"><div class="frame land">' + b + shade + '</div></div><figcaption>1280 x 720 (50%)</figcaption></figure>' +
+      '</section>';
+  });
+  document.getElementById("gallery").innerHTML = html;
+})();
+</script>
+</body>
+</html>
