@@ -1339,6 +1339,30 @@ async function staleSaveChecks(page, base, out) {
   await page.evaluate(() => { localStorage.clear(); });
 }
 
+// Class flow (SPEC 5.8): a played route is stamped and the focus waits on the next unplayed route.
+async function classFlowChecks(page, base, out) {
+  const url = base + 'index.html?test=1';
+  await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem('bhs.v1.gallery', JSON.stringify(['scribe-cut']));
+    localStorage.setItem('bhs.v1.save', JSON.stringify({ v: 2, at: 1, screen: 'routeSelect', routeId: null, state: null }));
+  });
+  await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+  await tap(page, 'continue', null, 'touch');
+  if (!(await waitScreen(page, 'routeSelect', 3000))) { out.push('FAIL continue did not reopen the route select'); return; }
+  const r = await page.evaluate(() => ({
+    hint: !!document.querySelector('[data-testid="routes-hint"]'),
+    played: Array.from(document.querySelectorAll('.routecard[data-played="true"]')).map((c) => c.getAttribute('data-route')).join(','),
+    stamp: !!document.querySelector('[data-testid="routecard-played-scribe"]'),
+    focus: document.activeElement && document.activeElement.getAttribute('data-testid')
+  }));
+  out.push(r.hint && r.played === 'scribe' && r.stamp && r.focus === 'route-friend'
+    ? 'ok   route select: suggested order shown; a played route is stamped; focus waits on the next unplayed route'
+    : `FAIL route select class flow: hint ${r.hint}, played "${r.played}", stamp ${r.stamp}, focus ${r.focus}`);
+  await page.evaluate(() => { localStorage.clear(); });
+}
+
 async function titleSmoke(browser, R, base, args, data) {
   const out = [];
   const { context, page, log } = await newPage(browser, R, { profile: 'phone', stepTimeout: args.stepTimeout });
@@ -1372,6 +1396,7 @@ async function titleSmoke(browser, R, base, args, data) {
     out.push(jumpIds === CHOICE_IDS_JS ? `ok   the debug jump list offers ${jumpIds}` : `FAIL the debug jump list offers "${jumpIds}", expected ${CHOICE_IDS_JS}`);
     await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
     await staleSaveChecks(page, base, out);
+    await classFlowChecks(page, base, out);
   } catch (e) {
     out.push(`FAIL title smoke test threw: ${snip(e.message, 160)}`);
   } finally {

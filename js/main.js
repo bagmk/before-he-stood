@@ -252,6 +252,7 @@
     V.pageStage("shore_dawn");
     persistRouteSelect();
     V.renderRouteSelect({
+      seen: loadGallery(),
       notice: opts && opts.notice ? BHS.ui[opts.notice] : null,
       onPick: function (id) {
         if (!routeExists(id)) {

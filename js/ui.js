@@ -1116,14 +1116,42 @@
     });
   }
 
+  // "✓ 함 · Played" in both languages (one check mark), or the one language.
+  function playedText() {
+    var t = u("routePlayed");
+    if (S.lang === "ko") return t.ko;
+    if (S.lang === "en") return t.en;
+    return t.ko + " · " + t.en.replace(/^\s*✓\s*/, "");
+  }
+
+  function routePlayed(seen, rid) {
+    return [1, 2, 3, "cut"].some(function (k) {
+      return seen.indexOf(rid + "-" + k) >= 0;
+    });
+  }
+
+  // Route select. o.seen (ending ids seen on this device) marks the routes already played; once any
+  // route has been played, the keyboard focus starts on the first unplayed route in meta.routeOrder,
+  // so the class can go on with Enter (SPEC 5.8).
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var prompt = (BHS.common && BHS.common.routeSelect && BHS.common.routeSelect.prompt) || { ko: "", en: "" };
+    var rs = (BHS.common && BHS.common.routeSelect) || {};
+    var prompt = rs.prompt || { ko: "", en: "" };
+    var seen = (o.seen || []).filter(function (x) {
+      return typeof x === "string";
+    });
     var cards = order.map(function (id, idx) {
       var r = (meta.routes && meta.routes[id]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var ready = !!(BHS.routes && BHS.routes[id]);
+      var played = routePlayed(seen, id);
+      var art = routeArt(id, r.protagonist, c.color);
+      // The badge sits in the free top-left corner of the portrait band (never on the figure or the
+      // text); the band is aria-hidden, so a hidden copy carries the status for screen readers.
+      // Without a portrait band it follows the tagline in the text flow.
+      var badge = played ? h("span", { class: "routecard__played" + (art ? "" : " routecard__played--flow"), "data-testid": "routecard-played-" + id }, playedText()) : null;
+      if (badge && art) art.appendChild(badge);
       var plateKids = langs().length === 1 ? [pick(r.name, langs()[0])] : [pick(r.name, "ko"), h("span", { class: "plate__en plate__en--stack", lang: "en" }, pick(r.name, "en"))];
       var plate = h("span", { class: "plate", style: c.color ? "--plate:" + c.color : null }, plateKids);
       return h(
@@ -1133,6 +1161,7 @@
           class: "routecard" + (ready ? "" : " routecard--missing"),
           "data-testid": "route-" + id,
           "data-route": id,
+          "data-played": played ? "true" : null,
           "aria-keyshortcuts": idx < 9 ? String(idx + 1) : null,
           on: {
             click: function () {
@@ -1144,14 +1173,37 @@
           plate,
           h("span", { class: "routecard__title" }, bi(r.title || { ko: id, en: id })),
           r.tagline ? h("span", { class: "routecard__tag" }, bi(r.tagline)) : null,
-          routeArt(id, r.protagonist, c.color),
+          badge && !art ? badge : null,
+          art,
+          played && art ? h("span", { class: "vh" }, " " + flat(u("routePlayed"))) : null,
           r.firstLine ? h("span", { class: "routecard__first" }, bi(r.firstLine)) : null
         ]
       );
     });
     var list = h("div", { class: "routes-list" }, cards);
-    page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, list]);
+    var head = h("div", { class: "routes-head" }, [h("h2", { class: "routes-prompt" }, bi(prompt)), rs.hint ? h("p", { class: "routes-hint", "data-testid": "routes-hint" }, bi(rs.hint)) : null]);
+    page("routes-page", [head, o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, list]);
     watchRouteArt(list);
+    var anyPlayed = order.some(function (id) {
+      return routePlayed(seen, id);
+    });
+    if (anyPlayed) {
+      for (var i = 0; i < order.length; i++) {
+        if (routePlayed(seen, order[i])) continue;
+        var next = list.querySelector('[data-route="' + order[i] + '"]');
+        if (next) {
+          // Focus set by script on arrival shows no :focus-visible ring; data-next keeps it visible.
+          next.setAttribute("data-next", "true");
+          // The page stays at its top (prompt and hint first); on a TV all cards are on screen anyway.
+          try {
+            next.focus({ preventScroll: true });
+          } catch (err) {
+            next.focus();
+          }
+        }
+        break;
+      }
+    }
   }
 
   // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).

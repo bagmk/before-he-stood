@@ -404,6 +404,54 @@ try {
     await ctx.close();
   }
   {
+    // Class flow: the suggested order under the prompt; played routes get a "Played" stamp that covers
+    // neither text nor figure, and the focus starts on the first unplayed route (none of this when
+    // nothing has been played; no focus change when everything has).
+    const { ctx, page, errors } = await open(browser, index + "?test=1");
+    const look = async (seen) => {
+      await page.evaluate((g) => {
+        localStorage.setItem("bhs.v1.gallery", JSON.stringify(g));
+      }, seen);
+      await toRouteSelect(page);
+      return page.evaluate(() => {
+        const r = (el) => (el ? el.getBoundingClientRect() : null);
+        const cards = {};
+        document.querySelectorAll(".routecard").forEach((c) => {
+          const badge = c.querySelector('[data-testid^="routecard-played-"]');
+          const b = r(badge);
+          const fig = r(c.querySelector(".routecard__fig"));
+          const tag = r(c.querySelector(".routecard__tag"));
+          const first = r(c.querySelector(".routecard__first"));
+          cards[c.getAttribute("data-route")] = {
+            played: c.getAttribute("data-played"),
+            badge: badge ? badge.innerText.trim() : null,
+            clear: b ? b.top >= tag.bottom - 0.5 && b.bottom <= first.top + 0.5 && (!fig || b.right <= fig.left + 0.5) : null,
+            sr: (c.querySelector(".vh") || {}).textContent || null
+          };
+        });
+        const hint = document.querySelector('[data-testid="routes-hint"]');
+        return { cards, focus: document.activeElement && document.activeElement.getAttribute("data-testid"), hint: hint ? hint.innerText : null, next: (document.querySelector('[data-next="true"]') || {}).id || (document.querySelector('[data-next="true"]') ? "set" : null) };
+      });
+    };
+    const none = await look([]);
+    check(none.hint && /서기관/.test(none.hint) && /Suggested order/.test(none.hint), `route select: the suggested order shows under the prompt ("${none.hint}")`);
+    check(Object.values(none.cards).every((c) => !c.played && !c.badge) && none.focus !== "route-scribe" && none.focus !== "route-friend" && none.focus !== "route-asher", `nothing played: no stamp, no focus on a card (${none.focus})`);
+    const one = await look(["scribe-cut"]);
+    check(one.cards.scribe.played === "true" && one.cards.scribe.badge === "✓ 함 · Played" && one.cards.scribe.clear, `scribe played (cut): stamp shown clear of text and figure (${JSON.stringify(one.cards.scribe)})`);
+    check(/Played|함/.test(one.cards.scribe.sr || ""), "the played status is also in the card's accessible text");
+    check(!one.cards.friend.played && !one.cards.asher.played, "only the played route is stamped");
+    check(one.focus === "route-friend", `focus starts on the next unplayed route (${one.focus})`);
+    await page.keyboard.press("Enter");
+    const st = await state(page);
+    check(st.screen === "play" && st.routeId === "friend", `Enter starts the focused next route (${st.screen} ${st.routeId})`);
+    const two = await look(["scribe-1", "asher-2"]);
+    check(two.focus === "route-friend" && two.cards.asher.played === "true" && two.cards.asher.clear, `scribe + asher played: focus on friend, Asher's stamp clear of his figure (${two.focus})`);
+    const three = await look(["scribe-1", "friend-cut", "asher-3"]);
+    check(["scribe", "friend", "asher"].every((k) => three.cards[k].played === "true") && !/^route-/.test(three.focus || ""), `all played: every card stamped, no focus change (${three.focus})`);
+    check(errors.length === 0, "played routes: console errors " + errors.join(" | "));
+    await ctx.close();
+  }
+  {
     // Without the portrait module the cards stay text-only, silently.
     const init = () => {
       const B = (window.BHS = window.BHS || {});

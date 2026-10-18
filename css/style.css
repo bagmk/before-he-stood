@@ -1559,6 +1559,37 @@ body.is-last .veil {
   color: var(--limestone);
 }
 
+.routes-head {
+  display: grid;
+  gap: 4px;
+}
+
+/* The suggested order (BHS.common.routeSelect.hint): a small line under the prompt. */
+.routes-hint {
+  margin: 0;
+  font: 500 calc(13px * var(--text-scale)) / 1.45 var(--sans);
+  color: var(--amber-soft);
+  word-break: keep-all;
+}
+
+.routes-hint .en {
+  font-weight: 400;
+  color: var(--limestone-dim);
+}
+
+/* Visually hidden, still read by screen readers. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .routes-list {
   display: grid;
   gap: 14px;
@@ -1684,6 +1715,28 @@ body.is-last .veil {
   inset: 0;
 }
 
+/* "✓ Played": a small stamp in the free top-left corner of the portrait band. */
+.routecard__played {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 6px;
+  padding: 2px 9px 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(38, 29, 21, 0.28);
+  background: rgba(251, 247, 236, 0.7);
+  font: 600 12px/1.35 var(--sans);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* Without a portrait band the stamp follows the tagline. */
+.routecard__played--flow {
+  position: static;
+  display: inline-block;
+  margin-top: 8px;
+}
+
 .routecard__svg svg {
   display: block;
   width: 100%;
@@ -1724,39 +1777,52 @@ body.is-last .veil {
 }
 
 .routecard:hover .routecard__wash,
-.routecard:focus-visible .routecard__wash {
+.routecard:focus-visible .routecard__wash,
+.routecard[data-next="true"]:focus .routecard__wash {
   opacity: 1;
 }
 
 .routecard:hover .routecard__fig,
-.routecard:focus-visible .routecard__fig {
+.routecard:focus-visible .routecard__fig,
+.routecard[data-next="true"]:focus .routecard__fig {
   transform: translateY(calc(40% - 6px));
 }
 
 .routecard:hover .routecard__art--lying .routecard__fig,
-.routecard:focus-visible .routecard__art--lying .routecard__fig {
+.routecard:focus-visible .routecard__art--lying .routecard__fig,
+.routecard[data-next="true"]:focus .routecard__art--lying .routecard__fig {
   transform: translateY(-6px);
+}
+
+/* The next character to play (focused on arrival, SPEC 5.8) shows the focus ring at once. */
+.routecard[data-next="true"]:focus {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* No lift without motion: reduced motion and the ?test=1 mode keep the figure still. */
 @media (prefers-reduced-motion: reduce) {
   .routecard:hover .routecard__fig,
-  .routecard:focus-visible .routecard__fig {
+  .routecard:focus-visible .routecard__fig,
+  .routecard[data-next="true"]:focus .routecard__fig {
     transform: translateY(40%);
   }
   .routecard:hover .routecard__art--lying .routecard__fig,
-  .routecard:focus-visible .routecard__art--lying .routecard__fig {
+  .routecard:focus-visible .routecard__art--lying .routecard__fig,
+  .routecard[data-next="true"]:focus .routecard__art--lying .routecard__fig {
     transform: none;
   }
 }
 
 html.is-test .routecard:hover .routecard__fig,
-html.is-test .routecard:focus-visible .routecard__fig {
+html.is-test .routecard:focus-visible .routecard__fig,
+html.is-test .routecard[data-next="true"]:focus .routecard__fig {
   transform: translateY(40%);
 }
 
 html.is-test .routecard:hover .routecard__art--lying .routecard__fig,
-html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
+html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig,
+html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecard__fig {
   transform: none;
 }
 
@@ -2258,7 +2324,8 @@ html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
   }
 
   /* A focus ring that reads from across the room: light ring with a dark halo. */
-  :focus-visible {
+  :focus-visible,
+  .routecard[data-next="true"]:focus {
     outline: var(--focus-w) solid var(--focus-light);
     outline-offset: 0.35vh;
     box-shadow: 0 0 0 1.1vh rgba(16, 15, 13, 0.75);
@@ -2553,13 +2620,41 @@ html.is-test .routecard:focus-visible .routecard__art--lying .routecard__fig {
 
   .routes-page {
     gap: 3vh;
-    padding-top: calc(var(--safe-top) + 12vh);
+    padding-top: calc(var(--safe-top) + 9.6vh);
+    padding-bottom: calc(var(--safe-bottom) + 3.1vh);
     background: linear-gradient(180deg, rgba(16, 15, 13, 0.55), rgba(16, 15, 13, 0.82) 45%, rgba(16, 15, 13, 0.92));
   }
 
   .routes-prompt {
     margin: 0;
     font-size: calc(4.8vh * var(--text-scale));
+  }
+
+  .routes-head {
+    gap: 0.8vh;
+  }
+
+  .routes-hint {
+    font-size: calc(2.4vh * var(--text-scale));
+  }
+
+  .routes-hint .en {
+    display: inline;
+  }
+
+  .routes-hint .en::before {
+    content: "  \00B7  ";
+    color: var(--limestone-dim);
+  }
+
+  .routecard__played {
+    top: 0.8vh;
+    padding: 0.3vh 1.2vh 0.4vh;
+    font-size: 2.2vh;
+  }
+
+  .routecard__played--flow {
+    margin-top: 1.2vh;
   }
 
   .routes-list {
