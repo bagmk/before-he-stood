@@ -1,13 +1,24 @@
 /*
- * js/engine.js - pure game logic for "Before He Stood".
+ * js/engine.js - pure game logic for "Before He Stood" (SPEC version 4: story mode).
  * No DOM access anywhere in this file. Loadable in Node with `globalThis.window = globalThis`.
  *
+ * Route shape (SPEC 4.5): one story with choices c1..cN of 2-4 options. Each option has exactly one
+ * outcome (optionOutcome):
+ *   continue (default)  its reaction plays, then the story goes on;
+ *   bad: "<id>"         its reaction plays, then the cut branch endings.bad[id]: beats -> last -> snip card;
+ *   scold: {speaker?, text}  its reaction plays, then the scold line, then the option is removed and the
+ *                       same choice is asked again.
+ * One true ending: endingPreface (optional) -> title card (endings.good.title) -> memory-verse card
+ * (endings.good.verse) -> endings.good.beats -> last -> endingCoda -> end.
+ *
  * Public API (BHS.engine):
- *   computeLens(routeOrId, choices)      -> { lens, scores: {1,2,3}, lastLens, c10Lens, mismatch, cut }   (SPEC 5.1)
- *                                           c10Lens is an alias of lastLens (older callers); a picked cut
- *                                           option gives { lens: null, lastLens: null, mismatch: false, cut: true }
- *   lastChoiceId(routeOrId)              -> id of the double-weight choice (the highest cN in the route), or null
- *   evalCond(cond, state)                -> boolean                                         (SPEC 4.5)
+ *   optionOutcome(option)                -> "continue" | "bad" | "scold"
+ *   goodId(routeId) / branchId(routeId, badId) / parseSeenId(id)
+ *                                        -> seen ids "<route>-good" and "<route>-bad-<id>"
+ *   treeOf(routeOrId)                    -> { routeId, levels: [{ id, branches: [{ badId, id, title, last }] }],
+ *                                             good: { id, title, verse } }  (the story tree, SPEC 5.8)
+ *   badTargets(routeOrId)                -> [{ choice, option, badId }] every option that cuts the story
+ *   evalCond(cond, state)                -> boolean                                      (SPEC 4.5)
  *   resolveText(t, lang, state)          -> string, tokens resolved, *emphasis* markers kept
  *   plainText(t, lang, state)            -> string, tokens resolved, emphasis markers removed
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
@@ -15,7 +26,7 @@
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
  *   verseDisplay(key, lang)              -> verse text as shown: an English excerpt that starts with a
  *                                           lowercase letter gets a leading "…" (SPEC 4.3); data unchanged
- *   fingerprint(routeOrId)              -> short structural hash of a route ("prologue" = common.prologue)
+ *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
  *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
@@ -24,23 +35,24 @@
  * Game (driven by the UI):
  *   game.step                 current blocking step (see STEP KINDS below)
  *   game.view()               { step, now: {hush, echo}, stage, actions, ending, routeId }
- *   game.next()               advance from line / verse / endingTitle / last
- *   game.choose(optionId)     answer the current choice
+ *   game.next()               advance from line / verse / endingTitle / memory / last
+ *   game.choose(optionId)     answer the current choice (only options still shown)
  *   game.press()              answer the current press beat
- *   game.tapAction(actionId)  tap a persistent action (Asher); returns { id, text, count } or null
+ *   game.retry()              "Try again": back to the last choice exactly as it was shown
+ *   game.canRetry()           true once a choice has been shown
+ *   game.continueOption(step) first option of a choice step whose outcome is "continue"
+ *   game.optionMarks(seenIds) { optionId: true } for options whose cut branch was already seen
+ *   game.tapAction(actionId)  tap a persistent action (route-level `actions`, optional)
  *   game.serialize()          JSON-safe snapshot; restore with restoreGame(snapshot)
- *   game.lens()               computeLens on the choices so far
- *   game.fastForward(opts)    debug helper: auto-play until a predicate holds
+ *   game.fastForward(opts)    debug helper: auto-play until a predicate holds (default pick: continue)
  *
- * STEP KINDS: line {speaker, text} | verse {key, speaker} | choice {id, prompt, options:[{id,text}]}
- *   | press {action?, label?, hint?} | endingTitle {lens, cut, lensLabel, title} | last {text}
- *   | routeSelect {} | end {}
- * A route ends: [mismatch line] -> endingPreface -> ending card -> ending beats -> last -> endingCoda -> end.
- * A cut option (option.cut === true) plays its reaction, skips the rest of the route's beats, then runs
- * ending card (meta.cut.label + meta.endings[route].cut) -> endings.cut.beats -> last -> endingCoda -> end,
- * with no mismatch line and no endingPreface; at the cut the pinned thought is cleared, the light goes off
- * and persistent actions hide. Ending ids: "<route>-1|2|3" and "<route>-cut".
- * Choice steps never expose lens tags or cut flags, so the UI cannot leak them (SPEC 7.2-7.3).
+ * STEP KINDS: line {speaker, text} | verse {key, speaker} | memory {key, speaker}
+ *   | choice {id, prompt, options:[{id,text}], removed:[ids], justRemoved: {id,text,at}|null, again}
+ *   | press {action?, label?, hint?} | endingTitle {routeId, title} | last {text}
+ *   | snip {routeId, id, badId, title} | routeSelect {} | end {}
+ * Choice steps never expose outcomes, so the UI cannot leak which option cuts the story (SPEC 7.2).
+ * Every choice presentation (the re-ask after a scold included) stores a snapshot in state.retry;
+ * retry() restores it, so scolded options stay removed and picks made before stay made.
  */
 (function () {
   "use strict";
@@ -48,16 +60,15 @@
   var root = typeof window !== "undefined" ? window : globalThis;
   var BHS = (root.BHS = root.BHS || {});
 
-  var LENSES = [1, 2, 3];
   var LIGHT_LEVELS = { off: true, soft: true, bright: true };
   var POVS = { normal: true, lying: true, standing: true };
   var TIMES = { day: true, evening: true, night: true };
   // Speakers that may appear as portraits (never Jesus; the protagonist is excluded per route).
   var PORTRAIT_IDS = { menahem: true, hanan: true, yonah: true, asher: true, mother: true, brother: true, neighbor: true, passerby: true, partners: true, scribes: true };
   var MAX_CAST = 2;
-  // 2 = short routes (version 3): last-choice weighting, cut endings, route fingerprints.
-  // Snapshots of version 1 (10-choice routes) are never restored.
-  var STATE_VERSION = 2;
+  // 3 = story mode (version 4): option outcomes, scold re-asks, retry snapshots.
+  // Snapshots of earlier versions (lens routes) are never restored.
+  var STATE_VERSION = 3;
 
   var warnings = [];
 
@@ -72,15 +83,6 @@
 
   function clone(x) {
     return x == null ? x : JSON.parse(JSON.stringify(x));
-  }
-
-  function normLens(v) {
-    var n = typeof v === "string" ? parseInt(v, 10) : v;
-    return n === 1 || n === 2 || n === 3 ? n : null;
-  }
-
-  function isCutOption(opt) {
-    return !!opt && opt.cut === true;
   }
 
   // ---------------------------------------------------------------------------
@@ -100,7 +102,7 @@
       var b = route.beats[i];
       if (b && b.type === "choice") {
         if (seen[b.id]) {
-          warn("duplicate choice id " + b.id + " in route " + route.id + "; only the first counts for scoring");
+          warn("duplicate choice id " + b.id + " in route " + route.id + "; only the first counts");
           continue;
         }
         seen[b.id] = true;
@@ -108,28 +110,6 @@
       }
     }
     return out;
-  }
-
-  function choiceNumber(id) {
-    var m = /^c(\d+)$/.exec(String(id));
-    return m ? parseInt(m[1], 10) : -1;
-  }
-
-  // The double-weight choice: the highest cN in the route (c4 in the short routes). Falls back to the
-  // last choice in beat order when no id has the cN form.
-  function lastChoiceId(routeOrId) {
-    var list = choiceBeats(getRoute(routeOrId));
-    var best = null;
-    var bestN = -1;
-    for (var i = 0; i < list.length; i++) {
-      var n = choiceNumber(list[i].id);
-      if (n > bestN) {
-        bestN = n;
-        best = list[i].id;
-      }
-    }
-    if (best === null && list.length) best = list[list.length - 1].id;
-    return best;
   }
 
   function findChoice(route, id) {
@@ -144,6 +124,80 @@
       if (choiceBeat.options[i] && choiceBeat.options[i].id === optId) return choiceBeat.options[i];
     }
     return null;
+  }
+
+  // The outcome of an option (SPEC 4.5). Unknown old fields (lens, cut) are ignored.
+  function optionOutcome(opt) {
+    if (!opt || typeof opt !== "object") return "continue";
+    if (typeof opt.bad === "string" && opt.bad) return "bad";
+    if (opt.scold && typeof opt.scold === "object") return "scold";
+    return "continue";
+  }
+
+  function goodEnding(route) {
+    var e = route && route.endings && route.endings.good;
+    return e && typeof e === "object" ? e : null;
+  }
+
+  function badEnding(route, badId) {
+    var bad = route && route.endings && route.endings.bad;
+    return bad && typeof bad === "object" && own(bad, badId) && bad[badId] && typeof bad[badId] === "object" ? bad[badId] : null;
+  }
+
+  function routeIdOf(route, fallback) {
+    return (route && typeof route.id === "string" && route.id) || (typeof fallback === "string" ? fallback : "");
+  }
+
+  function goodId(routeId) {
+    return routeId + "-good";
+  }
+
+  function branchId(routeId, badId) {
+    return routeId + "-bad-" + badId;
+  }
+
+  // "<route>-good" -> { routeId, kind: "good" }; "<route>-bad-<id>" -> { routeId, kind: "bad", badId }.
+  // Anything else (ids from the lens releases such as "scribe-1" or "friend-cut") -> null.
+  function parseSeenId(id) {
+    if (typeof id !== "string") return null;
+    var m = /^([a-z][a-z0-9]*)-good$/.exec(id);
+    if (m) return { routeId: m[1], kind: "good" };
+    m = /^([a-z][a-z0-9]*)-bad-([A-Za-z][A-Za-z0-9_]*)$/.exec(id);
+    if (m) return { routeId: m[1], kind: "bad", badId: m[2] };
+    return null;
+  }
+
+  // Every option that cuts the story, in beat order.
+  function badTargets(routeOrId) {
+    var route = getRoute(routeOrId);
+    var out = [];
+    choiceBeats(route).forEach(function (cb) {
+      (cb.options || []).forEach(function (o) {
+        if (optionOutcome(o) === "bad") out.push({ choice: cb.id, option: o.id, badId: o.bad });
+      });
+    });
+    return out;
+  }
+
+  // The story tree of a route (SPEC 5.8): the trunk runs through every choice point to the true ending;
+  // each cut branch grows at the first choice point that leads to it. Scolded options are not part of it.
+  function treeOf(routeOrId) {
+    var route = getRoute(routeOrId);
+    if (!route) return null;
+    var rid = routeIdOf(route, routeOrId);
+    var placed = {};
+    var levels = choiceBeats(route).map(function (cb) {
+      var branches = [];
+      (cb.options || []).forEach(function (o) {
+        if (optionOutcome(o) !== "bad" || placed[o.bad]) return;
+        placed[o.bad] = true;
+        var e = badEnding(route, o.bad);
+        branches.push({ badId: o.bad, id: branchId(rid, o.bad), title: (e && e.title) || null, last: (e && e.last) || null });
+      });
+      return { id: cb.id, branches: branches };
+    });
+    var good = goodEnding(route);
+    return { routeId: rid, levels: levels, good: { id: goodId(rid), title: (good && good.title) || null, verse: (good && good.verse) || null } };
   }
 
   function scriptureEntry(key) {
@@ -180,49 +234,6 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Lens scoring (SPEC 5.1)
-  // ---------------------------------------------------------------------------
-
-  // Each pick adds its weight (1; 2 for the last choice) to its lens. Ending lens = highest score; a tie
-  // goes to the last choice's lens when it is among the tied lenses, otherwise to the smallest tied lens.
-  // Picks for choice ids the route does not have (for example c5-c10 from an old save) are ignored.
-  function computeLens(routeOrId, choices) {
-    var route = getRoute(routeOrId);
-    var lastId = lastChoiceId(route);
-    var scores = { 1: 0, 2: 0, 3: 0 };
-    var lastLens = null;
-    var cut = false;
-    choices = choices || {};
-    var list = choiceBeats(route);
-    for (var i = 0; i < list.length; i++) {
-      var cb = list[i];
-      var pick = choices[cb.id];
-      if (pick == null) continue;
-      var opt = findOption(cb, pick);
-      if (!opt) continue;
-      if (isCutOption(opt)) cut = true;
-      var lens = normLens(opt.lens);
-      if (cb.id === lastId) lastLens = lens;
-      if (lens === null) continue;
-      scores[lens] += cb.id === lastId ? 2 : 1;
-    }
-    if (cut) return { lens: null, scores: scores, lastLens: null, c10Lens: null, mismatch: false, cut: true };
-    var max = Math.max(scores[1], scores[2], scores[3]);
-    var tied = LENSES.filter(function (l) {
-      return scores[l] === max;
-    });
-    var lensOut = lastLens !== null && tied.indexOf(lastLens) >= 0 ? lastLens : tied[0];
-    return {
-      lens: lensOut,
-      scores: scores,
-      lastLens: lastLens,
-      c10Lens: lastLens,
-      mismatch: lastLens !== null && lensOut !== lastLens,
-      cut: false
-    };
-  }
-
-  // ---------------------------------------------------------------------------
   // Conditions (SPEC 4.5)
   // ---------------------------------------------------------------------------
 
@@ -243,23 +254,6 @@
     }
     // A bare `{ flag: "x" }` tests truthiness.
     return v !== undefined && v !== null && v !== false;
-  }
-
-  // Lens of the option picked at the last (double-weight) choice: from the state when known,
-  // otherwise looked up in the route. Accepts `c10Lens` from older callers.
-  function lastLensOf(state) {
-    if (!state) return null;
-    if (state.lastLens !== undefined && state.lastLens !== null) return state.lastLens;
-    if (state.c10Lens !== undefined && state.c10Lens !== null) return state.c10Lens;
-    if (state.routeId && state.choices) {
-      var route = getRoute(state.routeId);
-      var id = lastChoiceId(route);
-      if (id && state.choices[id] != null) {
-        var opt = findOption(findChoice(route, id), state.choices[id]);
-        return opt ? normLens(opt.lens) : null;
-      }
-    }
-    return null;
   }
 
   function evalCond(cond, state) {
@@ -283,9 +277,6 @@
     if (own(cond, "not")) return !evalCond(cond.not, state);
     if (own(cond, "choice")) return matchValue((state.choices || {})[cond.choice], cond);
     if (own(cond, "flag")) return matchValue((state.flags || {})[cond.flag], cond);
-    if (own(cond, "lastLens")) return lastLensOf(state) === normLens(cond.lastLens);
-    // Alias kept from the 10-choice routes, where the last choice was c10.
-    if (own(cond, "c10lens")) return lastLensOf(state) === normLens(cond.c10lens);
     if (own(cond, "var")) {
       // Extension (not in SPEC 4.5): numeric test on a runtime variable.
       var n = Number((state.vars || {})[cond["var"]] || 0);
@@ -413,8 +404,8 @@
 
   // A snapshot stores list names and beat indexes, so it only fits the route data it was made from.
   // The fingerprint hashes the route's skeleton: the beat types of every list in order, choice ids,
-  // option ids and cut flags, reaction lengths, ending keys, and action ids. Text edits keep it;
-  // added, removed or reordered beats change it.
+  // option ids and outcomes, reaction lengths, ending ids and lengths, the memory verse, and action
+  // ids. Text edits keep it; added, removed or reordered beats and changed outcomes change it.
   function skeletonOf(list) {
     if (!Array.isArray(list)) return "-";
     var out = [];
@@ -426,7 +417,10 @@
       }
       if (b.type === "choice") {
         var opts = (Array.isArray(b.options) ? b.options : []).map(function (o) {
-          return o ? String(o.id) + (isCutOption(o) ? "!" : "") + "[" + skeletonOf(o.reaction) + "]" : "?";
+          if (!o) return "?";
+          var kind = optionOutcome(o);
+          var tag = kind === "bad" ? "!" + o.bad : kind === "scold" ? "~" : "";
+          return String(o.id) + tag + "[" + skeletonOf(o.reaction) + "]";
         });
         out.push("choice:" + b.id + "(" + opts.join(",") + ")");
       } else out.push(String(b.type));
@@ -448,12 +442,16 @@
     if (routeOrId === "prologue") return "p" + hashString(skeletonOf((BHS.common && BHS.common.prologue) || []));
     var route = getRoute(routeOrId);
     if (!route) return null;
-    var parts = ["beats:" + skeletonOf(route.beats), "preface:" + skeletonOf(route.endingPreface)];
-    var ends = route.endings && typeof route.endings === "object" ? Object.keys(route.endings).sort() : [];
-    ends.forEach(function (k) {
-      var e = route.endings[k];
-      parts.push("ending " + k + ":" + skeletonOf(e && e.beats) + (e && e.last ? "+last" : ""));
-    });
+    var parts = ["v4", "beats:" + skeletonOf(route.beats), "preface:" + skeletonOf(route.endingPreface)];
+    var good = goodEnding(route);
+    parts.push("good:" + (good ? skeletonOf(good.beats) + (good.last ? "+last" : "") + "@" + (good.verse || "") : "-"));
+    var bad = route.endings && route.endings.bad && typeof route.endings.bad === "object" ? route.endings.bad : {};
+    Object.keys(bad)
+      .sort()
+      .forEach(function (k) {
+        var e = bad[k];
+        parts.push("bad " + k + ":" + skeletonOf(e && e.beats) + (e && e.last ? "+last" : ""));
+      });
     parts.push("coda:" + skeletonOf(route.endingCoda));
     parts.push(
       "actions:" +
@@ -466,8 +464,8 @@
     return "r" + hashString(parts.join("|"));
   }
 
-  // True when a snapshot can be resumed against the data loaded now. Anything else (version 1 saves
-  // from the 10-choice routes, saves from before a route edit, damaged objects) is refused.
+  // True when a snapshot can be resumed against the data loaded now. Anything else (saves of the lens
+  // releases, saves from before a route edit, damaged objects) is refused.
   function canRestore(saved) {
     if (!saved || typeof saved !== "object" || saved.v !== STATE_VERSION) return false;
     if (typeof saved.routeId !== "string" || !saved.routeId) return false;
@@ -475,6 +473,8 @@
     if (!Array.isArray(saved.segs) || !Array.isArray(saved.stack) || typeof saved.seg !== "number") return false;
     if (!saved.stage || typeof saved.stage !== "object" || !saved.step || typeof saved.step.kind !== "string") return false;
     if (!saved.choices || typeof saved.choices !== "object") return false;
+    if (saved.removed != null && typeof saved.removed !== "object") return false;
+    if (saved.retry != null && (typeof saved.retry !== "object" || saved.retry.routeId !== saved.routeId)) return false;
     var fp = fingerprint(saved.routeId);
     return !!fp && saved.fp === fp;
   }
@@ -503,7 +503,9 @@
       flags: {},
       vars: {},
       picks: [],
-      lastLens: null,
+      removed: {},
+      justRemoved: null,
+      retry: null,
       cutAt: null,
       stage: {
         bg: null,
@@ -541,6 +543,8 @@
     if (opts.state) {
       if (!canRestore(opts.state) || opts.state.routeId !== routeId) throw new Error("Incompatible saved state");
       this.state = clone(opts.state);
+      if (!this.state.removed || typeof this.state.removed !== "object") this.state.removed = {};
+      if (this.state.retry === undefined) this.state.retry = null;
     } else {
       this.state = initialState(routeId, this.route, !!this.custom);
       this._run();
@@ -560,28 +564,54 @@
       choices: st.choices,
       flags: st.flags,
       vars: st.vars,
-      lastLens: st.lastLens,
-      c10Lens: st.lastLens,
       debug: this.debug
     };
+  };
+
+  // A choice beat by id: the route's own, or one inside a custom sequence (tests).
+  Game.prototype._choiceBeat = function (id) {
+    var cb = this.route ? findChoice(this.route, id) : null;
+    if (cb || !this.custom) return cb;
+    for (var i = 0; i < this.custom.length; i++) {
+      var b = this.custom[i];
+      if (b && b.type === "choice" && b.id === id) return b;
+    }
+    return null;
   };
 
   Game.prototype._list = function (name) {
     var route = this.route;
     if (name === "custom") return this.custom || [];
     if (name === "prologue") return (BHS.common && BHS.common.prologue) || [];
+    var parts;
+    if (name.indexOf("react:") === 0) {
+      parts = name.split(":");
+      var ro = findOption(this._choiceBeat(parts[1]), parts[2]);
+      return (ro && ro.reaction) || [];
+    }
+    if (name.indexOf("scold:") === 0) {
+      // The scold line plays as a normal line: the given speaker ("thought" allowed), narration if none.
+      parts = name.split(":");
+      var so = findOption(this._choiceBeat(parts[1]), parts[2]);
+      var sc = so && so.scold;
+      if (!sc || typeof sc !== "object" || !sc.text) return [];
+      return [{ type: "line", speaker: sc.speaker || "narrator", text: sc.text, id: "scold-" + parts[1] + "-" + parts[2] }];
+    }
+    if (name.indexOf("reask:") === 0) {
+      var cb = this._choiceBeat(name.slice(6));
+      return cb ? [cb] : [];
+    }
     if (!route) return [];
     if (name === "beats") return route.beats || [];
     if (name === "endingPreface") return route.endingPreface || [];
     if (name === "endingCoda") return route.endingCoda || [];
-    if (name.indexOf("ending:") === 0) {
-      var e = route.endings && route.endings[name.slice(7)];
-      return (e && e.beats) || [];
+    if (name === "ending:good") {
+      var g = goodEnding(route);
+      return (g && g.beats) || [];
     }
-    if (name.indexOf("react:") === 0) {
-      var parts = name.split(":");
-      var opt = findOption(findChoice(route, parts[1]), parts[2]);
-      return (opt && opt.reaction) || [];
+    if (name.indexOf("bad:") === 0) {
+      var e = badEnding(route, name.slice(4));
+      return (e && e.beats) || [];
     }
     return [];
   };
@@ -622,7 +652,7 @@
     }
   };
 
-  // Inserts the ending sequence right after the current segment.
+  // Inserts an ending sequence right after the current segment.
   Game.prototype._queue = function (tail) {
     var st = this.state;
     Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
@@ -631,102 +661,74 @@
   Game.prototype._synthetic = function (seg) {
     var st = this.state;
     var route = this.route;
-    var meta = BHS.meta || {};
     switch (seg) {
       case "@routeSelect":
         this._setStep({ kind: "routeSelect" });
         return true;
       case "@ending": {
-        var res = computeLens(route, st.choices);
-        // A cut pick always ends through the cut path (choose() normally queues it already).
-        if (res.cut) return this._synthetic("@cut");
-        st.ending = {
-          routeId: st.routeId,
-          id: st.routeId + "-" + res.lens,
-          lens: res.lens,
-          cut: false,
-          scores: res.scores,
-          lastLens: res.lastLens,
-          c10Lens: res.lastLens,
-          mismatch: res.mismatch
-        };
-        var tail = [];
-        var hasEnding = !!(route && route.endings && route.endings[String(res.lens)]);
-        if (res.mismatch && BHS.common && BHS.common.mismatchLine) tail.push("@mismatch");
-        tail.push("endingPreface", "@title");
-        if (hasEnding) tail.push("ending:" + res.lens, "@last");
-        tail.push("endingCoda", "@end");
-        this._queue(tail);
+        // Every choice was answered with a continue option: the true ending.
+        var good = goodEnding(route);
+        if (!good) {
+          warn("route " + st.routeId + " has no endings.good");
+          this._queue(["@end"]);
+          return false;
+        }
+        st.ending = { routeId: st.routeId, id: goodId(st.routeId), kind: "good", title: good.title || null, verse: good.verse || null };
+        this._queue(["endingPreface", "@title", "@memory", "ending:good", "@last", "endingCoda", "@end"]);
         return false;
       }
-      case "@cut": {
-        // The route was cut short: no lens scoring, no mismatch line, no endingPreface. The beats that
-        // would have closed the scene were skipped, so the protagonist leaves it here: the pinned
-        // thought goes, the light goes off, persistent actions hide. endings.cut beats may set them again.
+      case "@bad": {
+        // The story got cut: the protagonist leaves the scene, so the pinned thought goes, the light goes
+        // off and persistent actions hide (the cut branch's beats may set scene and light again).
+        var cut = st.cutAt || {};
+        var be = badEnding(route, cut.bad);
+        if (!be) warn("route " + st.routeId + " has no endings.bad." + cut.bad);
         st.stage.pinned = null;
         st.stage.light = "off";
         st.stage.actionsVisible = false;
-        var scored = computeLens(route, st.choices);
         st.ending = {
           routeId: st.routeId,
-          id: st.routeId + "-cut",
-          lens: null,
-          cut: true,
-          scores: scored.scores,
-          lastLens: null,
-          c10Lens: null,
-          mismatch: false,
-          cutAt: st.cutAt || null
+          id: branchId(st.routeId, cut.bad),
+          kind: "bad",
+          badId: cut.bad || null,
+          title: (be && be.title) || null,
+          cutAt: { choice: cut.choice || null, option: cut.option || null }
         };
-        var cutTail = ["@title"];
-        if (route && route.endings && route.endings.cut) cutTail.push("ending:cut", "@last");
-        cutTail.push("endingCoda", "@end");
-        this._queue(cutTail);
+        this._queue(be ? ["bad:" + cut.bad, "@last", "@snip"] : ["@snip"]);
         return false;
       }
-      case "@mismatch":
-        st.at = { list: "@mismatch", index: 0 };
-        st.stage.speaking = null;
-        this._setStep({ kind: "line", speaker: "narrator", text: BHS.common.mismatchLine, mismatch: true });
-        return true;
       case "@title": {
         var ending = st.ending || {};
         this._castClear();
-        var titles = (meta.endings && meta.endings[st.routeId]) || {};
         st.at = { list: "@title", index: 0 };
-        if (ending.cut) {
-          var cutMeta = meta.cut || {};
-          this._setStep({
-            kind: "endingTitle",
-            routeId: st.routeId,
-            lens: null,
-            cut: true,
-            lensLabel: cutMeta.label || { ko: "", en: "" },
-            lensDesc: cutMeta.desc || null,
-            title: titles.cut || { ko: "", en: "" }
-          });
-          return true;
+        this._setStep({ kind: "endingTitle", routeId: st.routeId, title: ending.title || { ko: "", en: "" } });
+        return true;
+      }
+      case "@memory": {
+        var key = st.ending && st.ending.verse;
+        if (!key || verseText(key, "ko") == null) {
+          if (key) warn("memory verse " + key + " has no text");
+          return false;
         }
-        var lens = ending.lens;
-        var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
-        this._setStep({
-          kind: "endingTitle",
-          routeId: st.routeId,
-          lens: lens,
-          cut: false,
-          lensLabel: lensMeta.label || { ko: String(lens), en: String(lens) },
-          lensDesc: lensMeta.desc || null,
-          title: titles[lens] || { ko: "", en: "" }
-        });
+        this._castClear();
+        st.at = { list: "@memory", index: 0 };
+        this._setStep({ kind: "memory", key: key, speaker: verseSpeaker(key) });
         return true;
       }
       case "@last": {
-        var key = st.ending && st.ending.cut ? "cut" : String(st.ending && st.ending.lens);
-        var e = route && route.endings && route.endings[key];
+        var en = st.ending || {};
+        var e = en.kind === "bad" ? badEnding(route, en.badId) : goodEnding(route);
         if (!e || !e.last) return false;
         st.at = { list: "@last", index: 0 };
         this._castClear();
         this._setStep({ kind: "last", text: e.last });
+        return true;
+      }
+      case "@snip": {
+        var sn = st.ending || {};
+        this._castClear();
+        st.at = { list: "@snip", index: 0 };
+        this._setStep({ kind: "snip", routeId: st.routeId, id: sn.id || null, badId: sn.badId || null, title: sn.title || { ko: "", en: "" } });
         return true;
       }
       case "@end":
@@ -812,16 +814,7 @@
         return true;
       }
       case "choice":
-        st.stage.speaking = null;
-        this._setStep({
-          kind: "choice",
-          id: beat.id,
-          prompt: beat.prompt || null,
-          options: (beat.options || []).map(function (o) {
-            return { id: o.id, text: o.text };
-          })
-        });
-        return true;
+        return this._presentChoice(beat);
       case "press":
         st.stage.speaking = null;
         this._setStep({
@@ -839,6 +832,60 @@
         warn("unknown beat type " + beat.type);
         return false;
     }
+  };
+
+  // Shows a choice with the options still in play (scolded ones are removed), then stores the retry
+  // snapshot: the state exactly as the class sees this choice.
+  Game.prototype._presentChoice = function (beat) {
+    var st = this.state;
+    var removed = (st.removed && st.removed[beat.id]) || [];
+    var all = (beat.options || []).filter(function (o) {
+      return !!o;
+    });
+    var open = all.filter(function (o) {
+      return removed.indexOf(o.id) < 0;
+    });
+    if (!open.length) {
+      warn("choice " + beat.id + " has no options left; skipped");
+      st.justRemoved = null;
+      return false;
+    }
+    var just = null;
+    var jr = st.justRemoved;
+    if (jr && jr.choice === beat.id) {
+      // Where the scolded option stood among the options shown just before (for the removal animation).
+      var before = all.filter(function (o) {
+        return o.id === jr.option || removed.indexOf(o.id) < 0;
+      });
+      for (var i = 0; i < before.length; i++) {
+        if (before[i].id === jr.option) just = { id: before[i].id, text: before[i].text, at: i };
+      }
+    }
+    st.justRemoved = null;
+    st.stage.speaking = null;
+    // A presented choice is unanswered (after a scold the earlier pick no longer counts).
+    delete st.choices[beat.id];
+    this._setStep({
+      kind: "choice",
+      id: beat.id,
+      prompt: beat.prompt || null,
+      options: open.map(function (o) {
+        return { id: o.id, text: o.text };
+      }),
+      removed: removed.slice(),
+      justRemoved: just,
+      again: removed.length > 0
+    });
+    this._snapshot();
+    return true;
+  };
+
+  Game.prototype._snapshot = function () {
+    var st = this.state;
+    st.retry = null;
+    var snap = clone(st);
+    if (snap.step) snap.step.justRemoved = null;
+    st.retry = snap;
   };
 
   Game.prototype._fx = function (beat) {
@@ -883,7 +930,6 @@
 
   Game.prototype._pinItems = function (items) {
     var st = this.state;
-    var route = this.route;
     var out = [];
     for (var i = 0; i < items.length; i++) {
       var raw = String(items[i]);
@@ -894,7 +940,7 @@
         out.push({ type: "verse", key: ref });
       } else if (kind === "choice") {
         var optId = st.choices[ref];
-        var opt = findOption(findChoice(route, ref), optId);
+        var opt = findOption(this._choiceBeat(ref), optId);
         if (opt) out.push({ type: "choice", id: ref, option: optId, text: opt.text });
         else warn("pinThought: no pick for " + ref);
       } else {
@@ -933,42 +979,55 @@
     this.state.now = { hush: false, echo: null };
   };
 
+  var BLOCKING = { choice: true, press: true, end: true, routeSelect: true, snip: true };
+
   Game.prototype.next = function () {
     var k = this.state.step && this.state.step.kind;
-    if (!k || k === "choice" || k === "press" || k === "end" || k === "routeSelect") return false;
+    if (!k || BLOCKING[k]) return false;
     this._clearNow();
     this._run();
     return true;
   };
 
-  // A cut option ends the route early: every list still open (the route's main beats) is exhausted,
-  // and the coming "@ending" segment becomes "@cut". The option's reaction is pushed afterwards, so it
-  // still plays. All of this lives in the state, so saving and resuming work across a cut.
-  Game.prototype._cutFrom = function (choiceId, optId) {
+  // A cut option ends the story: every list still open (the route's main beats, a re-ask) is exhausted
+  // and the coming "@ending" segment becomes "@bad". The option's reaction is pushed afterwards, so it
+  // still plays. All of this lives in the state, so saving and resuming work inside a cut branch.
+  Game.prototype._badFrom = function (choiceId, optId, badId) {
     var st = this.state;
-    st.cutAt = { choice: choiceId, option: optId };
+    st.cutAt = { choice: choiceId, option: optId, bad: badId };
     for (var i = 0; i < st.stack.length; i++) st.stack[i].i = this._list(st.stack[i].list).length;
     var at = st.segs.indexOf("@ending", st.seg);
-    if (at >= 0) st.segs[at] = "@cut";
-    else st.segs.splice(st.seg + 1, 0, "@cut");
+    if (at >= 0) st.segs[at] = "@bad";
+    else st.segs.splice(st.seg + 1, 0, "@bad");
   };
 
   Game.prototype.choose = function (optId) {
     var st = this.state;
     var step = st.step;
     if (!step || step.kind !== "choice") return false;
-    var cb = findChoice(this.route, step.id);
-    var opt = findOption(cb, optId);
+    var shown = false;
+    for (var i = 0; i < step.options.length; i++) if (step.options[i].id === optId) shown = true;
+    if (!shown) return false;
+    var opt = findOption(this._choiceBeat(step.id), optId);
     if (!opt) return false;
     st.choices[step.id] = optId;
     st.picks.push(step.id);
-    if (step.id === lastChoiceId(this.route)) st.lastLens = normLens(opt.lens);
     if (opt.set && typeof opt.set === "object") {
       Object.keys(opt.set).forEach(function (k) {
         st.flags[k] = opt.set[k];
       });
     }
-    if (isCutOption(opt)) this._cutFrom(step.id, optId);
+    var kind = optionOutcome(opt);
+    if (kind === "bad") {
+      this._badFrom(step.id, optId, opt.bad);
+    } else if (kind === "scold") {
+      // reaction -> scold line -> the same choice again, without this option.
+      var rm = st.removed[step.id] || (st.removed[step.id] = []);
+      if (rm.indexOf(optId) < 0) rm.push(optId);
+      st.justRemoved = { choice: step.id, option: optId };
+      st.stack.push({ list: "reask:" + step.id, i: 0 });
+      st.stack.push({ list: "scold:" + step.id + ":" + optId, i: 0 });
+    }
     if (Array.isArray(opt.reaction) && opt.reaction.length) {
       st.stack.push({ list: "react:" + step.id + ":" + optId, i: 0 });
     }
@@ -977,11 +1036,49 @@
     return true;
   };
 
+  Game.prototype.canRetry = function () {
+    return !!this.state.retry;
+  };
+
+  // "Try again" (SPEC 4.5): the state exactly as it was when the last choice was shown.
+  Game.prototype.retry = function () {
+    var snap = this.state.retry;
+    if (!snap) return false;
+    var restored = clone(snap);
+    restored.retry = clone(snap);
+    this.state = restored;
+    return true;
+  };
+
+  Game.prototype.continueOption = function (step) {
+    step = step || this.state.step;
+    if (!step || step.kind !== "choice" || !step.options || !step.options.length) return null;
+    var cb = this._choiceBeat(step.id);
+    for (var i = 0; i < step.options.length; i++) {
+      if (optionOutcome(findOption(cb, step.options[i].id)) === "continue") return step.options[i].id;
+    }
+    return step.options[0].id;
+  };
+
+  // Options of the current choice whose cut branch is among `seen` (for the small scissors mark).
+  Game.prototype.optionMarks = function (seen) {
+    var out = {};
+    var step = this.state.step;
+    if (!step || step.kind !== "choice" || !Array.isArray(seen)) return out;
+    var cb = this._choiceBeat(step.id);
+    var rid = this.state.routeId;
+    step.options.forEach(function (o) {
+      var opt = findOption(cb, o.id);
+      if (optionOutcome(opt) === "bad" && seen.indexOf(branchId(rid, opt.bad)) >= 0) out[o.id] = true;
+    });
+    return out;
+  };
+
   Game.prototype.press = function () {
     var st = this.state;
     var step = st.step;
     if (!step || step.kind !== "press") return false;
-    // The persistent buttons stay until actionsHide or the press on an action (SPEC 4.5).
+    // Persistent buttons stay until actionsHide or the press on an action (SPEC 4.5).
     if (step.action) st.stage.actionsVisible = false;
     this._clearNow();
     this._run();
@@ -1002,7 +1099,7 @@
       return { id: id, pressed: true, text: null, count: st.stage.actionCounts[id] || 0 };
     }
     var act = this._action(id);
-    if (!act || !st.stage.actionsVisible || !step || step.kind === "end") return null;
+    if (!act || !st.stage.actionsVisible || !step || step.kind === "end" || step.kind === "snip") return null;
     var n = (st.stage.actionCounts[id] || 0) + 1;
     st.stage.actionCounts[id] = n;
     if (act.counter) st.vars[act.counter] = (Number(st.vars[act.counter]) || 0) + 1;
@@ -1045,10 +1142,6 @@
     };
   };
 
-  Game.prototype.lens = function () {
-    return computeLens(this.route, this.state.choices);
-  };
-
   Game.prototype.position = function () {
     var st = this.state;
     return { seg: st.segs[st.seg], list: st.at.list, index: st.at.index, steps: st.steps };
@@ -1058,9 +1151,11 @@
     return clone(this.state);
   };
 
-  // Auto-play for debug and tests. `until(step, game)` stops the run; `pick(step, game)` picks an option id.
+  // Auto-play for debug and tests. `until(step, game)` stops the run; `pick(step, game)` picks an option
+  // id (default: the first continue option, so the run follows the true path). Stops at a snip card.
   Game.prototype.fastForward = function (opts) {
     opts = opts || {};
+    var self = this;
     var until =
       opts.until ||
       function () {
@@ -1069,15 +1164,16 @@
     var pick =
       opts.pick ||
       function (step) {
-        return step.options[0].id;
+        return self.continueOption(step);
       };
     var max = opts.maxSteps || 5000;
     for (var i = 0; i < max; i++) {
       var step = this.state.step;
-      if (!step || step.kind === "end" || step.kind === "routeSelect") return step;
+      if (!step || step.kind === "end" || step.kind === "routeSelect" || step.kind === "snip") return step;
       if (until(step, this)) return step;
-      if (step.kind === "choice") this.choose(pick(step, this));
-      else if (step.kind === "press") this.press();
+      if (step.kind === "choice") {
+        if (!this.choose(pick(step, this))) return step;
+      } else if (step.kind === "press") this.press();
       else this.next();
     }
     return this.state.step;
@@ -1103,18 +1199,21 @@
   }
 
   var api = {
-    version: "3.0.0",
+    version: "4.0.0",
     STATE_VERSION: STATE_VERSION,
     debug: false,
     warnings: warnings,
-    LENSES: LENSES,
     PORTRAIT_IDS: PORTRAIT_IDS,
     getRoute: getRoute,
     choiceBeats: choiceBeats,
-    lastChoiceId: lastChoiceId,
     findChoice: findChoice,
     findOption: findOption,
-    computeLens: computeLens,
+    optionOutcome: optionOutcome,
+    goodId: goodId,
+    branchId: branchId,
+    parseSeenId: parseSeenId,
+    badTargets: badTargets,
+    treeOf: treeOf,
     evalCond: evalCond,
     resolveText: resolveText,
     resolveSegments: resolveSegments,

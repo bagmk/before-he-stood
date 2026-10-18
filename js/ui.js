@@ -1,8 +1,9 @@
 /*
  * js/ui.js - DOM rendering for "Before He Stood" (BHS.view).
  * Draws the stage (art, light, POV, hush, caption, echo verse, pinned thought), the text box with a
- * typewriter, choices, press buttons, Asher's persistent actions, and the page screens (title, route
- * select, gallery), plus the header, settings, and in-page confirm dialog.
+ * typewriter, choices (with the gentle removal of a scolded option), press buttons, optional persistent
+ * actions, the true-ending cards (title, memory verse), the snip card of a cut branch, and the page
+ * screens (title, route select, story trees), plus the header, settings, and in-page confirm dialog.
  * It never decides story flow; js/main.js drives it with views from BHS.engine.
  */
 (function () {
@@ -10,9 +11,14 @@
 
   var BHS = (window.BHS = window.BHS || {});
   var doc = document;
+  var SVG_NS = "http://www.w3.org/2000/svg";
 
   var SIZE_STEPS = [0.9, 1, 1.12, 1.25, 1.4];
   var RATES = { slow: 56, normal: 28, instant: 0 };
+  // Removal of a scolded option: it shows for a moment, fades, then the others glide into place.
+  var REMOVE_HOLD = 140;
+  var REMOVE_FADE = 260;
+  var REMOVE_GLIDE = 300;
 
   var S = {
     lang: "both",
@@ -30,6 +36,7 @@
     pinItemsKey: "",
     replyTimer: 0,
     riseTimer: 0,
+    choiceTimers: [],
     handlers: {}
   };
 
@@ -74,9 +81,8 @@
     return n;
   }
 
-  function svgIcon(paths) {
-    var ns = "http://www.w3.org/2000/svg";
-    var svg = doc.createElementNS(ns, "svg");
+  function svgIcon(paths, cls) {
+    var svg = doc.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
@@ -84,12 +90,71 @@
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    if (cls) svg.setAttribute("class", cls);
     paths.forEach(function (p) {
-      var el = doc.createElementNS(ns, p.tag || "path");
+      var el = doc.createElementNS(SVG_NS, p.tag || "path");
       Object.keys(p).forEach(function (k) {
         if (k !== "tag") el.setAttribute(k, p[k]);
       });
       svg.appendChild(el);
+    });
+    return svg;
+  }
+
+  // Scissors: two finger loops and two blades crossing (the snip mark; never the U+2702 glyph,
+  // which some systems draw as an emoji).
+  function scissorsIcon(cls) {
+    return svgIcon(
+      [
+        { tag: "circle", cx: "6", cy: "6.5", r: "2.8" },
+        { tag: "circle", cx: "6", cy: "17.5", r: "2.8" },
+        { d: "M8.4 8 20.5 17.6" },
+        { d: "M8.4 16 20.5 6.4" }
+      ],
+      cls
+    );
+  }
+
+  function starIcon(cls) {
+    var svg = svgIcon([{ d: "M12 2.6l2.75 6.1 6.65.7-4.98 4.47 1.4 6.55L12 17.1l-5.82 3.32 1.4-6.55L2.6 9.4l6.65-.7z" }], cls);
+    svg.setAttribute("stroke-width", "1.4");
+    return svg;
+  }
+
+  // A fan of paper leaves behind the star at the top of a finished story tree.
+  var CROWN_LEAVES = [
+    [-172, "#5f6d33"],
+    [-148, "#7c8a42"],
+    [-124, "#6a7838"],
+    [-102, "#8a9850"],
+    [-78, "#6a7838"],
+    [-56, "#7c8a42"],
+    [-32, "#5f6d33"],
+    [-8, "#6a7838"],
+    [168, "#56622e"],
+    [12, "#56622e"]
+  ];
+
+  function crownIcon(cls) {
+    var svg = doc.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 120 84");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("class", cls);
+    CROWN_LEAVES.forEach(function (lf) {
+      var g = doc.createElementNS(SVG_NS, "g");
+      g.setAttribute("transform", "translate(60 52) rotate(" + lf[0] + ") translate(9 0)");
+      var leaf = doc.createElementNS(SVG_NS, "path");
+      leaf.setAttribute("d", "M0 0C7 -8 19 -8 28 0C19 8 7 8 0 0Z");
+      leaf.setAttribute("fill", lf[1]);
+      var rib = doc.createElementNS(SVG_NS, "path");
+      rib.setAttribute("d", "M2 0H24");
+      rib.setAttribute("stroke", "rgba(255, 248, 220, 0.35)");
+      rib.setAttribute("stroke-width", "1");
+      g.appendChild(leaf);
+      g.appendChild(rib);
+      svg.appendChild(g);
     });
     return svg;
   }
@@ -574,7 +639,8 @@
   // Scene light washes for portraits so figures sit in lamp, dusk, or night light.
   function portraitLight(stage) {
     if (!stage) return "";
-    var bg = stage.bg, time = stage.time;
+    var bg = stage.bg,
+      time = stage.time;
     if (bg === "dawn_lamp") return "lamp";
     if (bg === "lamp_night") return "night";
     if (bg === "doorway_evening") return "dusk";
@@ -660,7 +726,8 @@
   function anchorCast() {
     var panel = $("panel");
     var app = $("app");
-    if (!panel || panel.hidden || $("play").hidden || $("play").classList.contains("play--sign") || $("play").classList.contains("play--last")) return;
+    var play = $("play");
+    if (!panel || panel.hidden || play.hidden || play.classList.contains("play--sign") || play.classList.contains("play--last") || play.classList.contains("play--memory")) return;
     var pr = panel.getBoundingClientRect();
     var ar = app.getBoundingClientRect();
     if (!pr.height) return;
@@ -759,7 +826,15 @@
     return groups;
   }
 
+  function stopChoiceTimers() {
+    S.choiceTimers.forEach(function (t) {
+      clearTimeout(t);
+    });
+    S.choiceTimers = [];
+  }
+
   function resetPlay() {
+    stopChoiceTimers();
     var play = $("play");
     play.className = "play";
     var panel = $("panel");
@@ -773,6 +848,7 @@
     var choices = $("choices");
     clear(choices);
     choices.hidden = true;
+    choices.className = "choices";
     var pressbox = $("pressbox");
     clear(pressbox);
     pressbox.hidden = true;
@@ -781,7 +857,11 @@
     card.hidden = true;
     card.className = "card";
     card.removeAttribute("data-testid");
-    card.removeAttribute("data-cut");
+    var snip = $("snip");
+    if (snip) {
+      clear(snip);
+      snip.hidden = true;
+    }
     doc.body.classList.remove("is-last");
   }
 
@@ -795,9 +875,9 @@
     resetPlay();
     $("play").hidden = false;
     renderActions(v.actions || [], step);
-    // Portraits step back while a choice is open; the engine keeps them for the next line.
+    // Portraits step back while a choice, a card or the snip card is open; the engine keeps them.
     var castLayer = $("cast");
-    if (castLayer) castLayer.classList.toggle("is-away", step.kind === "choice");
+    if (castLayer) castLayer.classList.toggle("is-away", step.kind === "choice" || step.kind === "snip" || step.kind === "memory");
     var panel = $("panel");
     var text = $("text");
     var hush = !!(v.now && v.now.hush);
@@ -809,16 +889,22 @@
         if (sp === "sign") $("play").classList.add("play--sign");
         else if (sp === "thought") panel.classList.add("panel--thought");
         else if (sp !== "narrator") setPlate(sp, ctx.routeId);
-        if (step.mismatch) panel.classList.add("panel--mismatch");
         groups = fillText(text, step.text, state, { instant: ctx.instant, hush: hush });
         break;
       }
-      case "verse": {
+      case "verse":
+      case "memory": {
         panel.classList.add("panel--verse");
-        panel.setAttribute("data-testid", "verse-card");
+        panel.setAttribute("data-testid", step.kind === "memory" ? "memory-verse" : "verse-card");
         var vs = step.speaker || "narrator";
         if (vs === "jesus") panel.classList.add("panel--jesus");
         if (vs === "jesus" || vs === "scribes") setPlate(vs, ctx.routeId);
+        if (step.kind === "memory") {
+          // The memory verse of the true ending: large, centered, in the light.
+          $("play").classList.add("play--memory");
+          panel.classList.add("panel--memory");
+          setLight("bright");
+        }
         groups = fillText(text, null, state, { instant: ctx.instant, hush: hush, verseKey: step.key });
         var ref = $("ref");
         ref.textContent = refLine(step.key);
@@ -827,7 +913,7 @@
       }
       case "choice":
         panel.hidden = true;
-        renderChoice(step, state);
+        renderChoice(step, state, ctx.marks || {});
         break;
       case "press":
         panel.hidden = true;
@@ -842,6 +928,11 @@
         $("play").classList.add("play--last");
         doc.body.classList.add("is-last");
         groups = fillText(text, step.text, state, { instant: ctx.instant, hush: false });
+        break;
+      case "snip":
+        panel.hidden = true;
+        $("play").classList.add("play--snip");
+        renderSnip(step);
         break;
       default:
         panel.hidden = true;
@@ -858,21 +949,117 @@
     }
   }
 
-  function renderChoice(step, state) {
-    var box = $("choices");
-    clear(box);
-    var pid = "prompt-" + step.id;
-    if (step.prompt) box.appendChild(h("p", { class: "choices__prompt", id: pid }, biRich(step.prompt, state)));
-    var list = h("div", { class: "choices__list", role: "group", "aria-labelledby": step.prompt ? pid : null, "aria-label": step.prompt ? null : flat(u("choiceGroup")) });
-    step.options.forEach(function (o, idx) {
-      var b = h("button", { type: "button", class: "opt", "data-testid": "choice-" + o.id, "data-option": o.id, "aria-keyshortcuts": String(idx + 1) + " " + o.id.toUpperCase() }, [
-        h("span", { class: "opt__num", "aria-hidden": "true" }, String(idx + 1)),
-        h("span", { class: "opt__body" }, biRich(o.text, state))
-      ]);
+  // An option button. `leaving` marks the scolded option on its way out (no click, no test id).
+  function optionButton(o, idx, state, marks, leaving) {
+    var props = { type: "button", class: "opt" + (leaving ? " opt--leaving" : "") };
+    if (leaving) {
+      props.disabled = true;
+      props["aria-hidden"] = "true";
+      props.tabindex = "-1";
+      props["data-leaving"] = o.id;
+    } else {
+      props["data-testid"] = "choice-" + o.id;
+      props["data-option"] = o.id;
+      props["aria-keyshortcuts"] = String(idx + 1) + " " + "ABCD".charAt(idx);
+      if (marks[o.id]) props["data-snipped"] = "true";
+    }
+    var kids = [h("span", { class: "opt__body" }, biRich(o.text, state))];
+    // The small scissors: this option's cut branch was already seen on this device (no text).
+    if (!leaving && marks[o.id]) kids.push(scissorsIcon("opt__snip"));
+    var b = h("button", props, kids);
+    if (!leaving) {
       b.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (S.handlers.onChoose) S.handlers.onChoose(o.id);
       });
+    }
+    return b;
+  }
+
+  function rectsOf(nodes) {
+    return nodes.map(function (n) {
+      return n.getBoundingClientRect();
+    });
+  }
+
+  // The scolded option leaves gently: it shows for a moment, fades, and the others glide to their new
+  // places while the list height follows (FLIP), so nothing jumps.
+  function animateRemoval(list, leavingBtn, count) {
+    S.choiceTimers.push(
+      setTimeout(function () {
+        if (!leavingBtn.isConnected) return;
+        leavingBtn.classList.add("is-going");
+        S.choiceTimers.push(
+          setTimeout(function () {
+            if (!leavingBtn.isConnected) return;
+            var stay = Array.prototype.slice.call(list.querySelectorAll(".opt:not(.opt--leaving)"));
+            var first = rectsOf(stay);
+            var h0 = list.getBoundingClientRect().height;
+            list.removeChild(leavingBtn);
+            list.setAttribute("data-n", String(count));
+            list.style.height = "auto";
+            var h1 = list.getBoundingClientRect().height;
+            list.style.height = h0 + "px";
+            var now = rectsOf(stay);
+            stay.forEach(function (b, i) {
+              var dx = first[i].left - now[i].left;
+              var dy = first[i].top - now[i].top;
+              b.style.transition = "none";
+              b.style.transform = dx || dy ? "translate(" + dx + "px," + dy + "px)" : "";
+            });
+            void list.offsetWidth;
+            var ease = "cubic-bezier(0.2, 0.7, 0.1, 1)";
+            list.style.transition = "height " + REMOVE_GLIDE + "ms " + ease;
+            list.style.height = h1 + "px";
+            stay.forEach(function (b) {
+              b.style.transition = "transform " + REMOVE_GLIDE + "ms " + ease;
+              b.style.transform = "";
+            });
+            S.choiceTimers.push(
+              setTimeout(function () {
+                list.style.removeProperty("height");
+                list.style.removeProperty("transition");
+                stay.forEach(function (b) {
+                  b.style.removeProperty("transition");
+                  b.style.removeProperty("transform");
+                });
+              }, REMOVE_GLIDE + 40)
+            );
+          }, REMOVE_FADE)
+        );
+      }, REMOVE_HOLD)
+    );
+  }
+
+  // Choice panel (SPEC 5.6): 2-4 options, no number badges (keys 1-4 / A-D still pick by position, the
+  // focus ring shows the current option). After a scold the same choice comes back without that option.
+  function renderChoice(step, state, marks) {
+    var box = $("choices");
+    clear(box);
+    var again = !!step.again;
+    box.classList.toggle("is-again", again);
+    var pid = "prompt-" + step.id;
+    if (step.prompt) box.appendChild(h("p", { class: "choices__prompt", id: pid }, biRich(step.prompt, state)));
+    var animate = !!(step.justRemoved && !S.test && !S.reduced);
+    var count = step.options.length;
+    var list = h("div", {
+      class: "choices__list" + (again ? " is-again" : ""),
+      role: "group",
+      "aria-labelledby": step.prompt ? pid : null,
+      "aria-label": step.prompt ? null : flat(u("choiceGroup")),
+      "data-n": String(animate ? count + 1 : count),
+      "data-removed": step.removed && step.removed.length ? step.removed.join(",") : null
+    });
+    var leavingBtn = null;
+    var buttons = step.options.map(function (o, idx) {
+      return optionButton(o, idx, state, marks, false);
+    });
+    if (animate) {
+      leavingBtn = optionButton(step.justRemoved, -1, state, marks, true);
+      var at = Math.max(0, Math.min(buttons.length, step.justRemoved.at));
+      buttons.splice(at, 0, leavingBtn);
+    }
+    buttons.forEach(function (b) {
       list.appendChild(b);
     });
     box.appendChild(list);
@@ -882,6 +1069,7 @@
     // Long options (verse texts) would overflow a 2x2 grid; full-width rows wrap far less.
     box.classList.remove("is-stacked");
     if (box.scrollHeight > box.clientHeight + 2) box.classList.add("is-stacked");
+    if (leavingBtn) animateRemoval(list, leavingBtn, count);
   }
 
   function renderPress(step) {
@@ -901,11 +1089,12 @@
     box.hidden = !box.firstChild;
   }
 
+  // Persistent actions (optional route-level `actions`); a route without them shows no buttons.
   function renderActions(actions, step) {
     var bar = $("actions");
     clear(bar);
-    // While a choice is open the gray buttons step aside so the options have the room.
-    if (!actions.length || (step && (step.kind === "endingTitle" || step.kind === "last" || step.kind === "choice"))) {
+    var off = { endingTitle: true, last: true, choice: true, memory: true, snip: true };
+    if (!actions.length || (step && off[step.kind])) {
       bar.hidden = true;
       return;
     }
@@ -951,41 +1140,81 @@
     btn.classList.add("is-shake");
   }
 
-  var LENS_NUM = { 1: "①", 2: "②", 3: "③" };
-  // The mark of a route that stopped midway (the cut column and the cut ending card).
-  var CUT_MARK = "…";
+  function titleNode(cls, t) {
+    var ls = langs();
+    var title = h("h2", { class: cls });
+    if (ls.length === 1) title.appendChild(doc.createTextNode(pick(t, ls[0])));
+    else {
+      title.appendChild(doc.createTextNode(pick(t, "ko")));
+      if (pick(t, "en") !== pick(t, "ko")) title.appendChild(h("span", { class: "en", lang: "en" }, pick(t, "en")));
+    }
+    return title;
+  }
 
-  // Ending title card. A cut ending shows meta.cut.label over meta.endings[route].cut.
+  // The true ending's title card: only the title (no number, no label).
   function renderCard(step) {
     var card = $("card");
     clear(card);
-    var ls = langs();
-    card.className = "card" + (step.cut ? " card--cut" : "");
-    card.appendChild(h("span", { class: "card__num", "aria-hidden": "true" }, step.cut ? CUT_MARK : LENS_NUM[step.lens] || ""));
-    card.appendChild(h("p", { class: "card__lens" }, flat(step.lensLabel)));
-    var title = h("h2", { class: "card__title" });
-    if (ls.length === 1) title.appendChild(doc.createTextNode(pick(step.title, ls[0])));
-    else {
-      title.appendChild(doc.createTextNode(pick(step.title, "ko")));
-      title.appendChild(h("span", { class: "en", lang: "en" }, pick(step.title, "en")));
-    }
-    card.appendChild(title);
+    card.className = "card card--good";
+    card.appendChild(titleNode("card__title", step.title));
     card.appendChild(h("p", { class: "card__hint" }, flat(u("endingCardHint"))));
     card.setAttribute("data-testid", "ending-title");
-    card.setAttribute("data-cut", step.cut ? "true" : "false");
     card.setAttribute("aria-live", "polite");
     card.hidden = false;
+  }
+
+  // The snip card of a cut branch: the stamp, the branch title, one line, Try again (default) and
+  // Title screen. No number and no "ending" anywhere.
+  function renderSnip(step) {
+    var box = $("snip");
+    clear(box);
+    var retry = btn("btn--primary", u("snipRetry"), "snip-retry", function (ev) {
+      ev.stopPropagation();
+      if (S.handlers.onRetry) S.handlers.onRetry();
+    });
+    var home = btn("btn--ghost", u("snipHome"), "snip-home", function (ev) {
+      ev.stopPropagation();
+      if (S.handlers.onSnipHome) S.handlers.onSnipHome();
+    });
+    retry.setAttribute("data-pagebtn", "");
+    retry.setAttribute("data-default", "true");
+    home.setAttribute("data-pagebtn", "");
+    var card = h("div", { class: "snip__card", role: "dialog", "aria-modal": "false", "aria-labelledby": "snip-title", "data-testid": "snip-card", "data-branch": step.badId || null }, [
+      h("div", { class: "snip__cut", "aria-hidden": "true" }, scissorsIcon("snip__scissors")),
+      h("p", { class: "snip__stamp", "data-testid": "snip-stamp" }, bi(u("snipStamp"))),
+      (function () {
+        var t = titleNode("snip__title", step.title);
+        t.id = "snip-title";
+        t.setAttribute("data-testid", "snip-title");
+        return t;
+      })(),
+      h("p", { class: "snip__text" }, bi(u("snipLine"))),
+      h("div", { class: "snip__actions" }, [retry, home])
+    ]);
+    box.appendChild(card);
+    box.hidden = false;
+    focusDefault(retry);
+  }
+
+  function focusDefault(el) {
+    if (!el) return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch (err) {
+      el.focus();
+    }
   }
 
   // ------------------------------------------------------------------ page screens
 
   function showLayer(screen) {
-    var playing = screen === "prologue" || screen === "play" || screen === "endingCard" || screen === "ending";
+    var playing = screen === "prologue" || screen === "play" || screen === "endingCard" || screen === "ending" || screen === "snip";
     $("play").hidden = !playing;
     if (playing) clear($("screen"));
     $("topbar").hidden = screen === "title";
     if (!playing) {
       typeStop();
+      stopChoiceTimers();
       clear($("reply"));
     }
   }
@@ -1027,13 +1256,13 @@
             }
           }
         },
-        mode === "both" ? [t.ko, h("span", { class: "en", lang: "en" }, t.en)] : [t.ko === t.en ? t.ko : t.ko]
+        mode === "both" ? [t.ko, h("span", { class: "en", lang: "en" }, t.en)] : [t.ko]
       );
     };
 
     var actions = [btn("btn--primary", u("start"), "start", o.onStart)];
     if (o.hasSave) actions.push(btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null));
-    actions.push(btn("btn--text", u("galleryOpen"), "gallery-open", o.onGallery));
+    actions.push(btn("btn--text", u("treesOpen"), "trees-open", o.onTrees));
 
     var kids = [
       h("div", { class: "title-head" }, [
@@ -1127,23 +1356,26 @@
     return t.ko + " · " + t.en.replace(/^\s*✓\s*/, "");
   }
 
+  // Played = the route's true ending was seen on this device.
   function routePlayed(seen, rid) {
-    return [1, 2, 3, "cut"].some(function (k) {
-      return seen.indexOf(rid + "-" + k) >= 0;
+    return seen.indexOf(rid + "-good") >= 0;
+  }
+
+  function seenList(seen) {
+    return (seen || []).filter(function (x) {
+      return typeof x === "string";
     });
   }
 
-  // Route select. o.seen (ending ids seen on this device) marks the routes already played; once any
-  // route has been played, the keyboard focus starts on the first unplayed route in meta.routeOrder,
-  // so the class can go on with Enter (SPEC 5.8).
+  // Route select. o.seen (ids seen on this device) marks the routes already played; once any route
+  // has been played, the keyboard focus starts on the first unplayed route in meta.routeOrder, so the
+  // class can go on with Enter (SPEC 5.8).
   function renderRouteSelect(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
     var rs = (BHS.common && BHS.common.routeSelect) || {};
     var prompt = rs.prompt || { ko: "", en: "" };
-    var seen = (o.seen || []).filter(function (x) {
-      return typeof x === "string";
-    });
+    var seen = seenList(o.seen);
     var cards = order.map(function (id, idx) {
       var r = (meta.routes && meta.routes[id]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
@@ -1198,95 +1430,135 @@
           // Focus set by script on arrival shows no :focus-visible ring; data-next keeps it visible.
           next.setAttribute("data-next", "true");
           // The page stays at its top (prompt and hint first); on a TV all cards are on screen anyway.
-          try {
-            next.focus({ preventScroll: true });
-          } catch (err) {
-            next.focus();
-          }
+          focusDefault(next);
         }
         break;
       }
     }
   }
 
-  // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).
-  // A cut cell unlocks with "<route>-cut". A route without a cut ending (Asher) shows its cutNote
-  // there once any of its endings has been seen: a note, not an ending (data-state="note").
-  var GALLERY_COLS = [1, 2, 3, "cut"];
+  // ---- story trees (SPEC 5.8)
 
-  function galleryCell(meta, rid, col, seen, current) {
-    var titles = (meta.endings && meta.endings[rid]) || {};
-    var id = rid + "-" + col;
-    var state = "locked";
-    var kids = null;
-    if (col === "cut" && !titles.cut) {
-      var seenAny = [1, 2, 3].some(function (l) {
-        return seen.indexOf(rid + "-" + l) >= 0;
-      });
-      if (titles.cutNote && seenAny) {
-        state = "note";
-        kids = bi(titles.cutNote);
-      } else if (!titles.cutNote) {
-        state = "none";
-        kids = ["—"];
-      }
-    } else if (seen.indexOf(id) >= 0 && titles[col]) {
-      state = "seen";
-      kids = bi(titles[col]);
-    }
-    var cell = h("div", {
-      class: "cell" + (col === "cut" ? " cell--cut" : "") + (state === "note" ? " cell--note" : ""),
-      role: "cell",
-      "data-testid": "gallery-cell-" + id,
-      "data-col": String(col),
-      "data-state": state,
-      "data-seen": state === "seen" ? "true" : "false",
-      "data-current": state === "seen" && current === id ? "true" : null
-    });
-    if (kids) append(cell, kids);
-    else append(cell, bi(u("galleryLocked")));
-    if (state === "seen" && current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
-    return cell;
+  function plateNode(rid, extraCls) {
+    var meta = BHS.meta || {};
+    var r = (meta.routes && meta.routes[rid]) || {};
+    var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
+    var name = r.name || { ko: rid, en: rid };
+    var kids = langs().length === 1 ? [pick(name, langs()[0])] : [pick(name, "ko"), h("span", { class: "plate__en plate__en--stack", lang: "en" }, pick(name, "en"))];
+    return h("span", { class: "plate" + (extraCls ? " " + extraCls : ""), style: c.color ? "--plate:" + c.color : null }, kids);
   }
 
-  function renderGallery(o) {
+  // A cut branch: a short bough with the scissors and the branch title when seen; a faint, unlabeled
+  // stub when not.
+  function branchNode(rid, b, seen, side) {
+    var isSeen = seen.indexOf(b.id) >= 0;
+    var kids = [h("span", { class: "branch__wood", "aria-hidden": "true" }, h("span", { class: "branch__stem" }))];
+    if (isSeen) {
+      kids.push(scissorsIcon("branch__snip"));
+      kids.push(h("span", { class: "branch__tag" }, b.title ? bi(b.title) : null));
+    } else {
+      kids.push(h("span", { class: "vh" }, flat(u("treeBranchUnseen"))));
+    }
+    return h("div", { class: "branch branch--" + side, "data-state": isSeen ? "seen" : "unseen", "data-testid": "tree-branch-" + rid + "-" + b.badId }, kids);
+  }
+
+  // One route's story tree, bottom to top: the root with the character's name, a knot at every choice
+  // point (cut branches grow sideways there, alternating sides), the star of the true ending at the top.
+  // Before the true ending was seen the trunk and the star stay faint.
+  function treeNode(rid, seen, opts) {
+    opts = opts || {};
+    var eng = E();
+    var tree = eng && typeof eng.treeOf === "function" ? eng.treeOf(rid) : null;
+    var meta = BHS.meta || {};
+    var r = (meta.routes && meta.routes[rid]) || {};
+    var done = !!tree && seen.indexOf(tree.good.id) >= 0;
+    var sec = h("section", {
+      class: "tree" + (opts.compact ? " tree--compact" : ""),
+      "data-route": rid,
+      "data-done": done ? "true" : "false",
+      "data-current": opts.current ? "true" : null,
+      "data-testid": "tree-" + rid,
+      "aria-label": flat(r.name || { ko: rid, en: rid }) + " · " + flat(u("treeTitle"))
+    });
+    var goal = h("div", { class: "tree__goal", "data-testid": "tree-goal-" + rid, "data-state": done ? "seen" : "unseen" }, [
+      done && tree.good.title ? h("p", { class: "tree__goaltitle" }, bi(tree.good.title)) : h("span", { class: "vh" }, flat(u("treeGoalUnseen"))),
+      h("span", { class: "tree__star" }, [crownIcon("tree__crown"), starIcon("tree__staricon")]),
+      h("span", { class: "tree__tip", "aria-hidden": "true" }, h("span", { class: "tree__bark" }))
+    ]);
+    var levels = h("ol", { class: "tree__levels" });
+    var n = tree ? tree.levels.length : 0;
+    var turn = 0;
+    (tree ? tree.levels : []).forEach(function (lv, k) {
+      // Trunk width tapers from the root (k = 0) to the star; each level's segment is a trapezoid.
+      var tb = n ? k / n : 0;
+      var tt = n ? (k + 1) / n : 1;
+      var row = h("li", { class: "tree__level", "data-choice": lv.id, style: "--tb:" + tb.toFixed(3) + ";--tt:" + tt.toFixed(3) });
+      var L = h("div", { class: "tree__side tree__side--l" });
+      var R = h("div", { class: "tree__side tree__side--r" });
+      lv.branches.forEach(function (b) {
+        var right = turn % 2 === 0;
+        turn++;
+        (right ? R : L).appendChild(branchNode(rid, b, seen, right ? "r" : "l"));
+      });
+      row.appendChild(L);
+      row.appendChild(h("div", { class: "tree__trunk", "aria-hidden": "true" }, [h("span", { class: "tree__bark" }), h("span", { class: "tree__knot" })]));
+      row.appendChild(R);
+      levels.appendChild(row);
+    });
+    var rootRow = h("div", { class: "tree__root" }, [h("span", { class: "tree__base", "aria-hidden": "true" }, h("span", { class: "tree__bark" })), h("span", { class: "tree__ground", "aria-hidden": "true" }), plateNode(rid, "tree__plate")]);
+    append(sec, [goal, levels, rootRow]);
+    return sec;
+  }
+
+  function pageButton(cls, t, testid, onClick, isDefault) {
+    var b = btn(cls, t, testid, onClick);
+    b.setAttribute("data-pagebtn", "");
+    if (isDefault) b.setAttribute("data-default", "true");
+    return b;
+  }
+
+  function headTitle(t) {
+    return h("h2", { class: "treepage-title" }, langs().length > 1 ? [t.ko, h("span", { class: "en", lang: "en" }, t.en)] : [pick(t, langs()[0])]);
+  }
+
+  // After a true ending: that route's tree, "Next character" (default focus) and "Title screen".
+  function renderTree(o) {
+    var rid = o.route;
+    var meta = BHS.meta || {};
+    var r = (meta.routes && meta.routes[rid]) || {};
+    var seen = seenList(o.seen);
+    var next = pageButton("btn--primary", u("treeNext"), "tree-next", o.onNext, true);
+    var home = pageButton("btn--ghost", u("treeHome"), "tree-home", o.onHome, false);
+    page("treepage", [
+      h("div", { class: "treepage-head" }, [
+        headTitle(u("treeTitle")),
+        r.title ? h("p", { class: "treepage-route" }, bi(r.title)) : null,
+        h("p", { class: "treepage-hint" }, bi(u("treeHint")))
+      ]),
+      h("div", { class: "treepage-tree" }, treeNode(rid, seen, { current: true })),
+      h("div", { class: "treepage-actions" }, [next, home])
+    ]);
+    focusDefault(next);
+  }
+
+  // From the title screen: the three trees side by side (stacked on a phone).
+  function renderTrees(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var seen = (o.seen || []).filter(function (x) {
-      return typeof x === "string";
-    });
-    var grid = h("div", { class: "grid", role: "table", "aria-label": flat(u("galleryTitle")) });
-    grid.appendChild(h("div", { class: "grid__corner", role: "presentation" }));
-    GALLERY_COLS.forEach(function (col) {
-      if (col === "cut") {
-        var cm = meta.cut || { label: u("galleryCut"), desc: null };
-        grid.appendChild(
-          h("div", { class: "grid__lens grid__lens--cut", role: "columnheader", "data-testid": "gallery-col-cut" }, [
-            h("span", { class: "grid__label" }, [h("span", { class: "grid__mark", "aria-hidden": "true" }, CUT_MARK + " "), bi(cm.label)]),
-            cm.desc ? h("span", { class: "grid__desc" }, bi(cm.desc)) : null
-          ])
-        );
-        return;
-      }
-      var lm = (meta.lenses && meta.lenses[col]) || { label: { ko: String(col), en: String(col) } };
-      grid.appendChild(h("div", { class: "grid__lens", role: "columnheader", "data-testid": "gallery-col-" + col }, h("span", { class: "grid__label" }, [LENS_NUM[col] + " ", bi(lm.label)])));
-    });
-    order.forEach(function (rid) {
-      var r = (meta.routes && meta.routes[rid]) || {};
-      var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
-      var nm = c.name || r.name || { ko: rid, en: rid };
-      grid.appendChild(h("div", { class: "grid__row", role: "rowheader", style: c.color ? "--plate:" + c.color : null }, [h("span", { class: "grid__swatch", "aria-hidden": "true" }), h("span", { class: "grid__name" }, bi(nm))]));
-      GALLERY_COLS.forEach(function (col) {
-        grid.appendChild(galleryCell(meta, rid, col, seen, o.current || null));
-      });
-    });
-    var titleT = u("galleryTitle");
-    var heading = h("h2", { class: "gallery-title" }, langs().length > 1 ? [titleT.ko, h("span", { class: "en", lang: "en" }, titleT.en)] : [pick(titleT, langs()[0])]);
-    page("gallery-page", [
-      h("div", { class: "gallery-head" }, [heading, h("p", { class: "gallery-intro" }, bi(u("galleryIntro")))]),
-      h("div", { class: "grid-wrap" }, grid),
-      h("div", { class: "gallery-actions" }, [btn("btn--primary", u("galleryReplay"), "gallery-replay", o.onReplay), btn("btn--ghost", u("galleryHome"), "gallery-home", o.onHome)])
+    var seen = seenList(o.seen);
+    var home = pageButton("btn--ghost", u("treeHome"), "trees-home", o.onHome, true);
+    page("treespage", [
+      h("div", { class: "treespage-head" }, [headTitle(u("treesTitle")), h("p", { class: "treepage-hint" }, bi(u("treeHint")))]),
+      h(
+        "div",
+        { class: "treespage-list" },
+        order.map(function (rid) {
+          return treeNode(rid, seen, { compact: true });
+        })
+      ),
+      h("div", { class: "treespage-actions" }, [home])
     ]);
+    focusDefault(home);
   }
 
   // ------------------------------------------------------------------ header, settings, confirm
@@ -1334,11 +1606,7 @@
         h(
           "button",
           { type: "button", class: "iconbtn", "data-testid": "fullscreen", "aria-pressed": fs ? "true" : "false", "aria-label": label, title: label + " (F)", on: { click: o.onFullscreen } },
-          svgIcon(
-            fs
-              ? [{ d: "M9 4v5H4" }, { d: "M15 4v5h5" }, { d: "M9 20v-5H4" }, { d: "M15 20v-5h5" }]
-              : [{ d: "M4 9V4h5" }, { d: "M20 9V4h-5" }, { d: "M4 15v5h5" }, { d: "M20 15v5h-5" }]
-          )
+          svgIcon(fs ? [{ d: "M9 4v5H4" }, { d: "M15 4v5h5" }, { d: "M9 20v-5H4" }, { d: "M15 20v-5h5" }] : [{ d: "M4 9V4h5" }, { d: "M20 9V4h-5" }, { d: "M4 15v5h5" }, { d: "M20 15v5h-5" }])
         )
       );
     }
@@ -1488,7 +1756,9 @@
     renderPlay: renderPlay,
     renderTitle: renderTitle,
     renderRouteSelect: renderRouteSelect,
-    renderGallery: renderGallery,
+    renderTree: renderTree,
+    renderTrees: renderTrees,
+    treeNode: treeNode,
     renderHeader: renderHeader,
     openSettings: openSettings,
     closeSettings: closeSettings,

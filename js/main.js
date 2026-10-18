@@ -1,8 +1,8 @@
 /*
  * js/main.js - app controller for "Before He Stood".
- * Owns screen flow (title -> prologue -> route select -> route -> ending card -> ending -> gallery),
- * persistence (SPEC 5.3), keyboard input, deep links (#scribe/#friend/#asher), the ?debug=1 panel,
- * and the automated-test hooks:
+ * Owns screen flow (title -> prologue -> route select -> route -> true ending -> story tree, or a cut
+ * branch -> snip card -> Try again), persistence (SPEC 5.3), keyboard input, deep links
+ * (#scribe/#friend/#asher), the ?debug=1 panel, and the automated-test hooks:
  *   document.body.dataset.screen, window.BHS_DEBUG.state(), BHS.ui.debugState(), ?test=1.
  */
 (function () {
@@ -16,12 +16,16 @@
   var KEYS = {
     settings: "bhs.v1.settings",
     save: "bhs.v1.save",
-    gallery: "bhs.v1.gallery"
+    // Seen ids on this device: "<route>-good" and "<route>-bad-<id>" (the key name is kept from the
+    // endings gallery of earlier releases; their ids are dropped on the next write).
+    seen: "bhs.v1.gallery"
   };
-  // 2 = short routes (version 3). Every save carries the route fingerprint of BHS.engine; a save
-  // that no longer fits the loaded data (for example one from the 10-choice routes) is dropped silently.
-  var SAVE_VERSION = 2;
-  var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true };
+  // 3 = story mode (version 4). Every save carries the route fingerprint of BHS.engine; a save that no
+  // longer fits the loaded data (for example one from the lens releases) is dropped silently.
+  var SAVE_VERSION = 3;
+  var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true, snip: true };
+  // Screens whose buttons a clicker can drive (next/previous) and Enter activates.
+  var BUTTON_SCREENS = { snip: true, tree: true, trees: true };
 
   // ------------------------------------------------------------------ storage (never throws)
 
@@ -87,10 +91,11 @@
     storageOK: false,
     debug: params.debug === "1" || params.debug === "true",
     test: params.test === "1" || params.test === "true",
-    lastEnding: null,
+    lastRoute: null,
     guardUntil: 0,
     notice: null,
-    debugMin: false
+    debugMin: false,
+    memSeen: null
   };
 
   function now() {
@@ -121,7 +126,7 @@
     app.settings.size = V.state.size;
   }
 
-  // ------------------------------------------------------------------ save / gallery
+  // ------------------------------------------------------------------ save / seen branches
 
   function persist() {
     if (!app.game) return;
@@ -165,19 +170,22 @@
     store.del(KEYS.save);
   }
 
-  // Seen endings ("scribe-1" ... "friend-cut"). Ids from older releases stay valid; anything unknown
-  // is simply never matched by a gallery cell.
-  function loadGallery() {
-    var g = store.get(KEYS.gallery);
-    return Array.isArray(g) ? g.filter(function (x) { return typeof x === "string"; }) : app.memGallery || [];
+  // Seen ids ("scribe-good", "friend-bad-bigCatch"). Ids of earlier releases ("scribe-1", "friend-cut")
+  // are ignored here and dropped on the next write.
+  function loadSeen() {
+    var g = store.get(KEYS.seen);
+    var list = Array.isArray(g) ? g : app.memSeen || [];
+    return list.filter(function (x) {
+      return !!E.parseSeenId(x);
+    });
   }
 
   function markSeen(id) {
-    if (!id) return;
-    var g = loadGallery();
+    if (!id || !E.parseSeenId(id)) return;
+    var g = loadSeen();
     if (g.indexOf(id) < 0) g.push(id);
-    app.memGallery = g;
-    store.set(KEYS.gallery, g);
+    app.memSeen = g;
+    store.set(KEYS.seen, g);
   }
 
   // ------------------------------------------------------------------ screens
@@ -225,9 +233,7 @@
       notice: notice,
       onStart: startPrologue,
       onContinue: continueGame,
-      onGallery: function () {
-        showGallery({});
-      },
+      onTrees: showTrees,
       onLang: function (mode) {
         setLang(mode);
       }
@@ -236,7 +242,6 @@
   }
 
   function startPrologue() {
-    app.lastEnding = null;
     try {
       app.game = E.createGame("prologue", { debug: app.debug });
     } catch (err) {
@@ -252,7 +257,7 @@
     V.pageStage("shore_dawn");
     persistRouteSelect();
     V.renderRouteSelect({
-      seen: loadGallery(),
+      seen: loadSeen(),
       notice: opts && opts.notice ? BHS.ui[opts.notice] : null,
       onPick: function (id) {
         if (!routeExists(id)) {
@@ -271,7 +276,6 @@
       showTitle();
       return;
     }
-    app.lastEnding = null;
     app.game = E.createGame(id, { debug: app.debug });
     renderGame();
   }
@@ -279,9 +283,13 @@
   function screenForGame(g) {
     var st = g.state;
     if (st.routeId === "prologue") return "prologue";
-    if (st.step && st.step.kind === "endingTitle") return "endingCard";
-    var t = st.segs.indexOf("@title");
-    if (t >= 0 && st.seg > t) return "ending";
+    var kind = st.step && st.step.kind;
+    if (kind === "snip") return "snip";
+    if (kind === "endingTitle") return "endingCard";
+    if (st.ending && st.ending.kind === "good") {
+      var t = st.segs.indexOf("@title");
+      if (t >= 0 && st.seg > t) return "ending";
+    }
     return "play";
   }
 
@@ -294,7 +302,9 @@
       onAdvance: onAdvance,
       onChoose: onChoose,
       onPress: onPress,
-      onAction: onAction
+      onAction: onAction,
+      onRetry: onRetry,
+      onSnipHome: onSnipHome
     };
   }
 
@@ -311,44 +321,51 @@
       finishRoute();
       return;
     }
-    if (kind === "endingTitle" && v.ending) {
-      markSeen(v.ending.id);
-      app.lastEnding = v.ending.id;
-    }
+    // A cut branch is "seen" once its snip card shows its title.
+    if (kind === "snip" && v.ending) markSeen(v.ending.id);
+    var marks = kind === "choice" ? g.optionMarks(loadSeen()) : null;
     setScreen(screenForGame(g));
-    V.renderPlay(v, { routeId: g.state.routeId, state: tokenState(g), instant: !!(opts && opts.instant) });
-    app.guardUntil = app.test ? 0 : now() + 220;
+    V.renderPlay(v, { routeId: g.state.routeId, state: tokenState(g), instant: !!(opts && opts.instant), marks: marks });
+    // The snip card waits a little longer, so a quick double press of a clicker never skips it.
+    app.guardUntil = app.test ? 0 : now() + (kind === "snip" ? 700 : 220);
     persist();
     refreshDebug();
   }
 
-  // The route is over: record the ending (also when the game was resumed after its title card)
-  // and open the gallery with it highlighted.
+  // The route is over (true ending): record it, then show the route's story tree.
   function finishRoute() {
     var g = app.game;
-    var current = g && g.state.ending ? g.state.ending.id : app.lastEnding;
-    if (current) {
-      markSeen(current);
-      app.lastEnding = current;
-    }
+    var ending = g && g.state.ending;
+    var rid = (ending && ending.routeId) || (g && g.state.routeId) || app.lastRoute;
+    if (ending && ending.kind === "good") markSeen(ending.id);
     clearSave();
     app.game = null;
-    showGallery({ current: current });
+    app.lastRoute = rid;
+    showTree(rid);
   }
 
-  function showGallery(opts) {
-    opts = opts || {};
+  function showTree(rid) {
     app.game = null;
-    setScreen("gallery");
-    V.pageStage("black");
-    V.renderGallery({
-      seen: loadGallery(),
-      current: opts.current || null,
-      onReplay: function () {
+    app.lastRoute = rid;
+    app.guardUntil = app.test ? 0 : now() + 700;
+    setScreen("tree");
+    V.pageStage("shore_dawn");
+    V.renderTree({
+      route: rid,
+      seen: loadSeen(),
+      onNext: function () {
         showRouteSelect();
       },
       onHome: showTitle
     });
+    refreshDebug();
+  }
+
+  function showTrees() {
+    app.game = null;
+    setScreen("trees");
+    V.pageStage("shore_dawn");
+    V.renderTrees({ seen: loadSeen(), onHome: showTitle });
     refreshDebug();
   }
 
@@ -379,7 +396,7 @@
     if (!g || !PLAY_SCREENS[app.screen] || V.isModalOpen()) return;
     if (V.completeTyping()) return;
     var kind = g.step && g.step.kind;
-    if (kind === "line" || kind === "verse" || kind === "endingTitle" || kind === "last") {
+    if (kind === "line" || kind === "verse" || kind === "memory" || kind === "endingTitle" || kind === "last") {
       if (now() < app.guardUntil) return;
       g.next();
       renderGame();
@@ -426,10 +443,30 @@
     refreshDebug();
   }
 
+  // "Try again" on the snip card: back to the choice exactly as it was shown.
+  function onRetry() {
+    var g = app.game;
+    if (!g || !g.step || g.step.kind !== "snip") return;
+    if (!g.retry()) return;
+    renderGame({ instant: true });
+    focusAdvance();
+  }
+
+  // "Title screen" on the snip card: the save keeps the choice before the cut, so Continue starts there.
+  function onSnipHome() {
+    var g = app.game;
+    if (g && g.step && g.step.kind === "snip" && g.retry()) {
+      app.screen = "play";
+      persist();
+    }
+    showTitle();
+  }
+
   // Keyboard and presentation-clicker control (SPEC 5.6, TV display).
   var ADVANCE_KEYS = { " ": true, Spacebar: true, Enter: true, ArrowRight: true, ArrowDown: true, PageDown: true };
   var INERT_KEYS = { ArrowLeft: true, ArrowUp: true, PageUp: true };
 
+  // Keys pick options by their place on screen (there are no visible numbers): 1-4 and A-D.
   function choiceIndexForKey(key) {
     if (/^[1-4]$/.test(key)) return Number(key) - 1;
     var i = "abcd".indexOf(String(key).toLowerCase());
@@ -437,7 +474,7 @@
   }
 
   function moveChoiceFocus(dir) {
-    var opts = Array.prototype.slice.call(doc.querySelectorAll("#choices .opt"));
+    var opts = Array.prototype.slice.call(doc.querySelectorAll("#choices .opt:not(.opt--leaving)"));
     if (!opts.length) return;
     var cur = opts.indexOf(doc.activeElement);
     var next = cur < 0 ? (dir < 0 ? opts.length - 1 : 0) : dir === 0 ? cur : (cur + dir + opts.length) % opts.length;
@@ -459,10 +496,43 @@
       V.closeModal();
       return;
     }
-    if (PLAY_SCREENS[app.screen]) {
+    if (PLAY_SCREENS[app.screen] || BUTTON_SCREENS[app.screen]) {
       ev.preventDefault();
       askHome();
     }
+  }
+
+  // Snip card and story trees: Enter/Space press the focused button natively; next keys of a clicker
+  // (Right, Down, PageDown) press the focused button (the default one when nothing has focus), and
+  // previous keys (Left, Up, PageUp) move the focus between the buttons.
+  function buttonScreenKey(ev, key, nativeActivate) {
+    var scope = app.screen === "snip" ? doc.getElementById("snip") : doc.getElementById("screen");
+    var btns = Array.prototype.slice.call(scope ? scope.querySelectorAll("[data-pagebtn]") : []);
+    if (!btns.length) return;
+    var cur = btns.indexOf(doc.activeElement);
+    if (INERT_KEYS[key]) {
+      ev.preventDefault();
+      var next = cur < 0 ? 0 : (cur + 1) % btns.length;
+      try {
+        btns[next].focus({ preventScroll: true });
+      } catch (err) {
+        btns[next].focus();
+      }
+      return;
+    }
+    if (!ADVANCE_KEYS[key]) return;
+    // Right after the screen appears even a native Enter is held back (a double press of the key that
+    // ended the story must not press "Try again" or "Next character" at once).
+    if (ev.repeat || now() < app.guardUntil) {
+      ev.preventDefault();
+      return;
+    }
+    if (nativeActivate) return;
+    ev.preventDefault();
+    var target = cur >= 0 ? btns[cur] : btns.filter(function (b) {
+      return b.hasAttribute("data-default");
+    })[0] || btns[0];
+    target.click();
   }
 
   function onKey(ev) {
@@ -494,6 +564,10 @@
     }
     if (app.screen === "routeSelect") {
       routeSelectKey(ev, key);
+      return;
+    }
+    if (BUTTON_SCREENS[app.screen]) {
+      buttonScreenKey(ev, key, nativeActivate);
       return;
     }
     if (!PLAY_SCREENS[app.screen] || !app.game) return;
@@ -614,7 +688,12 @@
       yes: BHS.ui.confirmHomeYes,
       no: BHS.ui.confirmNo,
       onYes: showTitle,
-      onNo: focusAdvance
+      onNo: function () {
+        if (app.screen === "snip") {
+          var retry = doc.querySelector('[data-testid="snip-retry"]');
+          if (retry) retry.focus({ preventScroll: true });
+        } else focusAdvance();
+      }
     });
   }
 
@@ -627,8 +706,11 @@
       case "routeSelect":
         showRouteSelect();
         break;
-      case "gallery":
-        showGallery({ current: app.lastEnding });
+      case "tree":
+        showTree(app.lastRoute);
+        break;
+      case "trees":
+        showTrees();
         break;
       default:
         if (app.game) renderGame({ instant: true });
@@ -657,6 +739,8 @@
         saveSettings();
         V.renderSettings(settingsHandlers());
         if (PLAY_SCREENS[app.screen] && app.game) renderGame({ instant: true });
+        else if (app.screen === "tree") showTree(app.lastRoute);
+        else if (app.screen === "trees") showTrees();
       },
       onClose: function () {
         V.closeSettings();
@@ -680,7 +764,7 @@
     var g = app.game;
     var st = g ? g.state : null;
     var rid = st && st.routeId !== "prologue" ? st.routeId : null;
-    var lensNow = rid && routeExists(rid) ? E.computeLens(rid, st.choices) : null;
+    var ending = st && st.ending ? st.ending : null;
     return JSON.parse(
       JSON.stringify({
         screen: app.screen,
@@ -689,16 +773,16 @@
         list: st ? st.at.list : null,
         step: st && st.step ? st.step.kind : null,
         stepId: st && st.step ? st.step.id || null : null,
+        options: st && st.step && st.step.kind === "choice" ? st.step.options.map(function (o) { return o.id; }) : null,
         choices: st ? st.choices : {},
-        scores: lensNow ? lensNow.scores : null,
-        projectedLens: lensNow ? lensNow.lens : null,
+        removed: st ? st.removed || {} : {},
         flags: st ? st.flags : {},
         vars: st ? st.vars : {},
-        lastLens: st ? st.lastLens : null,
-        cut: st && st.ending ? !!st.ending.cut : st && st.cutAt ? true : null,
-        lens: st && st.ending ? st.ending.lens : null,
-        ending: st && st.ending ? st.ending.id : app.lastEnding,
-        mismatch: st && st.ending ? st.ending.mismatch : null,
+        ending: ending ? ending.id : null,
+        endingKind: ending ? ending.kind : null,
+        bad: ending && ending.kind === "bad" ? ending.badId : null,
+        canRetry: g ? g.canRetry() : false,
+        seen: loadSeen(),
         light: st ? st.stage.light : null,
         pov: st ? st.stage.pov : null,
         lang: app.settings.lang,
@@ -715,6 +799,9 @@
       },
       startRoute: startRoute,
       showTitle: showTitle,
+      showTrees: showTrees,
+      showTree: showTree,
+      markSeen: markSeen,
       jump: jumpTo
     };
     if (BHS.ui) {
@@ -732,16 +819,18 @@
     return (BHS.meta && BHS.meta.routeOrder && BHS.meta.routeOrder[0]) || "scribe";
   }
 
-  function isCutPick(rid, cid, optId) {
-    var opt = E.findOption(E.findChoice(E.getRoute(rid), cid), optId);
-    return !!(opt && opt.cut === true);
-  }
-
-  // Replays the route up to choice `cid`, keeping earlier picks; a cut option on the way is replaced
-  // by the first option that does not end the route.
-  function jumpTo(cid, routeId) {
+  // Jumps to a choice ("c3") or into a cut branch ("bad:<id>"): replays the route along continue
+  // options (keeping earlier continue picks of the same route), then takes the cutting option.
+  function jumpTo(target, routeId) {
     var rid = routeId || currentRouteId();
     if (!routeExists(rid)) return;
+    var m = /^bad:(.+)$/.exec(String(target || ""));
+    var tgt = m
+      ? E.badTargets(rid).filter(function (t) {
+          return t.badId === m[1];
+        })[0]
+      : null;
+    var cid = tgt ? tgt.choice : target;
     var prev = app.game && app.game.state.routeId === rid ? JSON.parse(JSON.stringify(app.game.state.choices)) : {};
     var g = E.createGame(rid, { debug: app.debug });
     g.fastForward({
@@ -749,11 +838,13 @@
         return s.kind === "choice" && s.id === cid;
       },
       pick: function (s) {
-        if (prev[s.id] && !isCutPick(rid, s.id, prev[s.id])) return prev[s.id];
-        for (var i = 0; i < s.options.length; i++) if (!isCutPick(rid, s.id, s.options[i].id)) return s.options[i].id;
-        return s.options[0].id;
+        var p = prev[s.id];
+        var opt = p ? E.findOption(E.findChoice(E.getRoute(rid), s.id), p) : null;
+        if (opt && E.optionOutcome(opt) === "continue") return p;
+        return g.continueOption(s);
       }
     });
+    if (tgt && g.step && g.step.kind === "choice" && g.step.id === cid) g.choose(tgt.option);
     app.game = g;
     renderGame({ instant: true });
   }
@@ -776,15 +867,16 @@
     renderGame({ instant: true });
   }
 
-  // Plays the rest of the route, ending included; renderGame then opens the gallery.
+  // Plays the rest of the route along continue options, the true ending included; renderGame then
+  // opens the story tree. On a snip card it tries again first.
   function autoPlay() {
     var g = app.game;
     if (!g || !PLAY_SCREENS[app.screen]) return;
+    if (g.step.kind === "snip") g.retry();
     g.fastForward({
       until: function (s) {
         return s.kind === "end";
-      },
-      pick: randomPick
+      }
     });
     renderGame({ instant: true });
   }
@@ -819,8 +911,8 @@
     var s = debugState();
     var info = [
       "screen " + s.screen + "  route " + (s.routeId || "-") + "  " + (s.list || "-") + "#" + (s.beatIndex == null ? "-" : s.beatIndex) + "  step " + (s.step || "-") + (s.stepId ? " " + s.stepId : ""),
-      "choices " + JSON.stringify(s.choices),
-      "scores " + JSON.stringify(s.scores) + "  projected " + (s.projectedLens || "-") + "  lens " + (s.lens || "-") + (s.cut ? "  (cut)" : ""),
+      "choices " + JSON.stringify(s.choices) + "  removed " + JSON.stringify(s.removed),
+      "ending " + (s.ending || "-") + (s.bad ? "  (cut: " + s.bad + ")" : "") + "  retry " + (s.canRetry ? "yes" : "no"),
       "flags " + JSON.stringify(s.flags) + "  vars " + JSON.stringify(s.vars),
       "light " + s.light + "  pov " + s.pov,
       E.warnings.length ? "warnings: " + E.warnings.slice(-3).join(" | ") : ""
@@ -832,8 +924,15 @@
     });
     var sel = h("select", { "aria-label": dbg("debugJump"), "data-testid": "debug-select" });
     var jumpRoute = currentRouteId();
-    E.choiceBeats(routeExists(jumpRoute) ? E.getRoute(jumpRoute) : null).forEach(function (cb) {
+    var route = routeExists(jumpRoute) ? E.getRoute(jumpRoute) : null;
+    E.choiceBeats(route).forEach(function (cb) {
       sel.appendChild(h("option", { value: cb.id }, cb.id));
+    });
+    var placed = {};
+    E.badTargets(route).forEach(function (t) {
+      if (placed[t.badId]) return;
+      placed[t.badId] = true;
+      sel.appendChild(h("option", { value: "bad:" + t.badId }, dbg("debugCut") + ": " + t.badId + " (" + t.choice + "/" + t.option + ")"));
     });
     box.appendChild(sel);
     box.appendChild(h("button", { type: "button", "data-testid": "debug-jump", on: { click: function () { jumpTo(sel.value); } } }, dbg("debugJump")));

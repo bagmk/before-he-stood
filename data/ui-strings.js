@@ -1,4 +1,4 @@
-/* UI chrome strings (buttons, labels, settings, gallery, errors). Owner: engine agent. Every entry is a T object. */
+/* UI chrome strings (buttons, labels, settings, snip card, story trees, errors). Owner: engine agent. Every entry is a T object. */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
 
@@ -11,7 +11,7 @@
     start: T("시작하기", "Start"),
     continueGame: T("이어서 하기", "Continue"),
     continueFrom: T("저장된 곳", "Saved at"),
-    galleryOpen: T("엔딩 모음", "Endings"),
+    treesOpen: T("이야기 나무", "Story trees"),
     langPrompt: T("어떤 말로 볼까요?", "Choose a language"),
     langKo: T("한국어", "한국어"),
     langEn: T("English", "English"),
@@ -53,17 +53,23 @@
     actionsGroup: T("할 수 있는 일", "Things you can try"),
     pinnedThought: T("속생각", "Unspoken thought"),
 
-    // Ending
+    // True ending
     endingCardHint: T("눌러서 계속", "Tap to continue"),
 
-    // Gallery
-    galleryTitle: T("엔딩 모음", "Endings"),
-    galleryIntro: T("세로는 인물, 가로는 세 가지 눈과 중간에 끝난 길이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters; columns are the three lenses and the path cut short. Only endings seen on this device appear."),
-    galleryLocked: T("아직", "Not yet"),
-    galleryCut: T("중간에 끝남", "Cut short"),
-    galleryYours: T("방금 본 엔딩", "Just seen"),
-    galleryReplay: T("다른 인물로 하기", "Play another character"),
-    galleryHome: T("처음 화면", "Title screen"),
+    // Snip card (a cut branch)
+    snipStamp: T("싹둑!", "Snip!"),
+    snipLine: T("여기서 이야기가 끊겼어요.", "The story got cut off here."),
+    snipRetry: T("다시 고르기", "Try again"),
+    snipHome: T("처음 화면", "Title screen"),
+
+    // Story trees
+    treeTitle: T("이야기 나무", "Story tree"),
+    treesTitle: T("이야기 나무", "Story trees"),
+    treeHint: T("가위 자국은 이야기가 끊긴 곳이에요. 흐린 가지는 아직 안 가 본 길이에요.", "A snip marks where the story got cut off. Faint branches are paths you haven't tried yet."),
+    treeNext: T("다른 인물로 하기", "Next character"),
+    treeHome: T("처음 화면", "Title screen"),
+    treeGoalUnseen: T("아직 끝까지 가지 않았어요", "Not finished yet"),
+    treeBranchUnseen: T("아직 안 가 본 가지", "A branch not tried yet"),
 
     // Route select (the suggested-order line itself is BHS.common.routeSelect.hint)
     routePlayed: T("✓ 함", "✓ Played"),
@@ -79,12 +85,7 @@
     debugJump: T("이동", "Jump"),
     debugAutoPick: T("자동 선택", "Auto-pick"),
     debugAutoPlay: T("끝까지 자동", "Auto-play to end"),
-    debugRoute: T("루트", "Route"),
-    debugBeat: T("위치", "Beat"),
-    debugChoices: T("선택", "Choices"),
-    debugScores: T("점수", "Scores"),
-    debugFlags: T("플래그", "Flags"),
-    debugVars: T("변수", "Vars"),
+    debugCut: T("끊긴 가지", "Cut branch"),
     debugHide: T("숨기기", "Hide")
   };
 })();
