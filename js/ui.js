@@ -1116,7 +1116,7 @@
     });
   }
 
-  // "✓ 함 · Played" in both languages (one check mark), or the one language.
+  // The played stamp: in "both" mode the two languages share one check mark; otherwise one language.
   function playedText() {
     var t = u("routePlayed");
     if (S.lang === "ko") return t.ko;
