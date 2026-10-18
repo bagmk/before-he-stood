@@ -248,6 +248,17 @@
       en: "There is no soundness in my flesh because of your indignation; there is no health in my bones because of my sin.",
       speaker: "narrator"
     },
+    // Second half of Ps 38:3, for a character praying it (exact substring of PS_38_3).
+    PS_38_3B: {
+      ref: r("시 38:3", "Ps 38:3"),
+      ko: "나의 죄로 말미암아 내 뼈에 평안함이 없나이다",
+      en: "there is no health in my bones because of my sin.",
+      speaker: "narrator",
+      full: {
+        ko: "주의 진노로 말미암아 내 살에 성한 곳이 없사오며 나의 죄로 말미암아 내 뼈에 평안함이 없나이다",
+        en: "There is no soundness in my flesh because of your indignation; there is no health in my bones because of my sin."
+      }
+    },
     PS_41_4: {
       ref: r("시 41:4", "Ps 41:4"),
       ko: "내가 말하기를 여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 하였나이다",

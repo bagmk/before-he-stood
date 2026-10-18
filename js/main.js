@@ -764,6 +764,11 @@
     renderGame({ instant: true });
   }
 
+  // The debug panel is a developer tool, so it always uses the English labels.
+  function dbg(key) {
+    return (BHS.ui && BHS.ui[key] && BHS.ui[key].en) || key;
+  }
+
   function refreshDebug() {
     if (!app.debug) return;
     var h = V.h;
@@ -782,7 +787,7 @@
           }
         }
       },
-      app.debugMin ? "DBG" : "hide"
+      app.debugMin ? dbg("debugTitle") : dbg("debugHide")
     );
     box.appendChild(toggle);
     if (app.debugMin) return;
@@ -800,12 +805,12 @@
     routes.forEach(function (rid) {
       box.appendChild(h("button", { type: "button", disabled: routeExists(rid) ? null : true, on: { click: function () { startRoute(rid); } } }, rid));
     });
-    var sel = h("select", { "aria-label": "jump to choice" });
+    var sel = h("select", { "aria-label": dbg("debugJump"), "data-testid": "debug-select" });
     for (var i = 1; i <= 10; i++) sel.appendChild(h("option", { value: "c" + i }, "c" + i));
     box.appendChild(sel);
-    box.appendChild(h("button", { type: "button", on: { click: function () { jumpTo(sel.value); } } }, "jump"));
-    box.appendChild(h("button", { type: "button", on: { click: autoPick } }, "auto-pick"));
-    box.appendChild(h("button", { type: "button", on: { click: autoPlay } }, "auto-play"));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-jump", on: { click: function () { jumpTo(sel.value); } } }, dbg("debugJump")));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-autopick", on: { click: autoPick } }, dbg("debugAutoPick")));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-autoplay", on: { click: autoPlay } }, dbg("debugAutoPlay")));
   }
 
   // ------------------------------------------------------------------ boot

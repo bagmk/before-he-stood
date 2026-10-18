@@ -2377,7 +2377,7 @@ body[data-screen="final"] .seg {
     min-height: max(44px, 6vh);
     padding: 0.5vh 2vh;
     border-radius: 0.9vh;
-    font-size: 2.4vh;
+    font-size: 2.6vh;
     background: rgba(46, 43, 39, 0.94);
     box-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.35);
   }
@@ -2385,6 +2385,7 @@ body[data-screen="final"] .seg {
   .act .en {
     display: inline;
     margin-left: 0.5em;
+    font-size: 0.86em;
   }
 
   .play--press .actions {
@@ -8865,16 +8866,16 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var bands = [-1.42, -1.26, 1.34, 1.5];
     for (var i = 0; i < 4; i++) c.shape(b, [[bands[i], -1.5, 1], [bands[i] + 0.08, -1.5, 1], [bands[i] + 0.08, 1.0, 1], [bands[i], 1.0, 1]], "#7a5a44", 0.8);
     // The head presses into the pillow: a soft shadow beside and below it.
-    c.shape(b, [[-0.5, -1.16], [0.62, -1.14], [1.02, -0.4], [0.98, 0.7], [-0.2, 0.84], [-0.86, 0.4], [-0.84, -0.6]], SH, 0.2);
+    c.shape(b, [[0.5, -1.2], [1.04, -0.6], [1.12, 0.4], [0.86, 0.9], [0.2, 0.96], [0.62, 0.3], [0.8, -0.4]], SH, 0.2);
     c.end();
     c.shape(b, [[-1.92, -0.26], [-1.8, -1.0], [-1.66, -1.3], [-1.5, -0.26], [-1.62, 0.76], [-1.76, 0.6]], mix(PIL, SH, 0.16));
     neck(c, f, o.skin, 0.9);
-    tunic(c, b, ASHER_TUNIC, 0.92, 0.9, 3.2);
+    tunic(c, b, ASHER_TUNIC, 0.92, 0.9, 2.5);
     asherHead(c, f, o);
     // Cloak over him; it falls over the side of the bed on the right.
     var top = mapPts(b, [[-2.36, 2.12, 1], [-1.1, 1.95], [0.2, 2.05], [1.35, 1.93], [2.34, 2.08, 1]]);
     var low = mapPts(b, [[-2.5, 3.2], [-2.6, 4.6, 1]]);
-    var cl = c.fill(curve([[330, 912, 1]].concat(low.reverse(), top, [[594, 470], [598, 912, 1]]), true), CLOAK, 1, true);
+    var cl = c.fill(curve([[330, 912, 1]].concat(low.reverse(), top, [[592, 440], [580, 560], [584, 700], [590, 912, 1]]), true), CLOAK, 1, true);
     c.inside(cl);
     c.shape(b, [[-2.5, 2.14], [-1.1, 1.97], [0.2, 2.07], [1.35, 1.95], [2.5, 2.1], [2.5, 2.36], [1.35, 2.17], [0.2, 2.29], [-1.1, 2.2], [-2.5, 2.4]], CLOAK_HI);
     c.shape(V, [[560, 380], [620, 380], [620, 912], [520, 912], [540, 600]], SH, 0.22);
@@ -8886,8 +8887,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add('<path d="' + sm(b, [[-1.5, 2.85, 1], [-1.06, 2.8, 1], [-1.02, 3.3, 1], [-1.46, 3.36, 1]]) + '" fill="none" stroke="#a1825f" stroke-width="2" stroke-dasharray="4 6" opacity=".7"/>');
     c.end();
     // His near hand rests on the cloak, the wrist coming out from under its edge.
-    var w = b(1.25, 2.02);
-    hand(c, frame(w[0], w[1], 100, 2.05, true), mix(o.skin, SH, 0.04), true);
+    var w = b(1.3, 2.3);
+    hand(c, frame(w[0], w[1], 100, 2.25, true), mix(o.skin, SH, 0.04), true);
   }
 
   // Standing: upright for the first time, the same face, the cloak folded over his forearm.
@@ -10330,7 +10331,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             class: "seg__btn",
             "data-testid": d[2],
             "aria-pressed": S.lang === d[0] ? "true" : "false",
-            "aria-label": d[0] === "ko" ? "한국어" : d[0] === "en" ? "English" : "함께 보기 · Both",
+            "aria-label": d[0] === "ko" ? u("langKo").ko : d[0] === "en" ? u("langEn").en : u("langBoth").ko + " · " + u("langBoth").en,
             on: {
               click: function () {
                 o.onLang(d[0]);
@@ -11293,6 +11294,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     renderGame({ instant: true });
   }
 
+  // The debug panel is a developer tool, so it always uses the English labels.
+  function dbg(key) {
+    return (BHS.ui && BHS.ui[key] && BHS.ui[key].en) || key;
+  }
+
   function refreshDebug() {
     if (!app.debug) return;
     var h = V.h;
@@ -11311,7 +11317,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           }
         }
       },
-      app.debugMin ? "DBG" : "hide"
+      app.debugMin ? dbg("debugTitle") : dbg("debugHide")
     );
     box.appendChild(toggle);
     if (app.debugMin) return;
@@ -11329,12 +11335,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     routes.forEach(function (rid) {
       box.appendChild(h("button", { type: "button", disabled: routeExists(rid) ? null : true, on: { click: function () { startRoute(rid); } } }, rid));
     });
-    var sel = h("select", { "aria-label": "jump to choice" });
+    var sel = h("select", { "aria-label": dbg("debugJump"), "data-testid": "debug-select" });
     for (var i = 1; i <= 10; i++) sel.appendChild(h("option", { value: "c" + i }, "c" + i));
     box.appendChild(sel);
-    box.appendChild(h("button", { type: "button", on: { click: function () { jumpTo(sel.value); } } }, "jump"));
-    box.appendChild(h("button", { type: "button", on: { click: autoPick } }, "auto-pick"));
-    box.appendChild(h("button", { type: "button", on: { click: autoPlay } }, "auto-play"));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-jump", on: { click: function () { jumpTo(sel.value); } } }, dbg("debugJump")));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-autopick", on: { click: autoPick } }, dbg("debugAutoPick")));
+    box.appendChild(h("button", { type: "button", "data-testid": "debug-autoplay", on: { click: autoPlay } }, dbg("debugAutoPlay")));
   }
 
   // ------------------------------------------------------------------ boot

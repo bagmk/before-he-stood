@@ -146,6 +146,7 @@ Context:
 | PS_107_20 | narrator | 그가 그의 말씀을 보내어 그들을 고치시고 위험한 지경에서 건지시는도다 |
 | PS_107_29 | narrator | 광풍을 고요하게 하사 물결도 잔잔하게 하시는도다 |
 | PS_38_3 | narrator | 주의 진노로 말미암아 내 살에 성한 곳이 없사오며 나의 죄로 말미암아 내 뼈에 평안함이 없나이다 |
+| PS_38_3B | narrator | 나의 죄로 말미암아 내 뼈에 평안함이 없나이다 (second half; use when a character prays it) |
 | PS_41_4 | narrator | 내가 말하기를 여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 하였나이다 |
 | PS_41_4Q | narrator | 여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서 (the prayer only; use this when a character prays it) |
 | PS_22_1A | narrator | 내 하나님이여 내 하나님이여 어찌 나를 버리셨나이까 |

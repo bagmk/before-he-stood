@@ -1204,7 +1204,7 @@
             class: "seg__btn",
             "data-testid": d[2],
             "aria-pressed": S.lang === d[0] ? "true" : "false",
-            "aria-label": d[0] === "ko" ? "한국어" : d[0] === "en" ? "English" : "함께 보기 · Both",
+            "aria-label": d[0] === "ko" ? u("langKo").ko : d[0] === "en" ? u("langEn").en : u("langBoth").ko + " · " + u("langBoth").en,
             on: {
               click: function () {
                 o.onLang(d[0]);

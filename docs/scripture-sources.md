@@ -398,6 +398,13 @@ Other findings:
 - Status: Korean **VERIFIED** (publisher page labeled 개역개정 + LDS Korean, both exact); English **VERIFIED** (two sources, both exact).
 - Notes: Superscription is unnumbered in 개역개정, so verse numbers match the English.
 
+### PS_38_3B — 시 38:3 / Ps 38:3
+
+- Speaker: narrator (prayed by Asher in his route, c1 option a)
+- Whole verse: as PS_38_3 (same sources).
+- Stored text (cut): ko 「나의 죄로 말미암아 내 뼈에 평안함이 없나이다」; en "there is no health in my bones because of my sin." — the verse's second half, so the option fits the TV choice panel.
+- Status: **VERIFIED** by derivation — both cuts are exact contiguous substrings of the verified PS_38_3 text (checked in Node); added by the lead.
+
 ### PS_41_4 — 시 41:4 / Ps 41:4
 
 - Speaker: narrator

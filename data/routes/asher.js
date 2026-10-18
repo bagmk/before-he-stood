@@ -91,7 +91,7 @@
         id: "c1",
         prompt: t("오늘은 어느 기도로 시작할까?", "Which prayer do I start with today?"),
         options: [
-          opt("a", "{{v:PS_38_3}}", "{{v:PS_38_3}}", 2, [
+          opt("a", "{{v:PS_38_3B}}", "{{v:PS_38_3B}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
           ]),
           opt("b", "{{v:PS_41_4Q}}", "{{v:PS_41_4Q}}", 3, [
