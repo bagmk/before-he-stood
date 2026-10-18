@@ -701,6 +701,9 @@
     resetPlay();
     $("play").hidden = false;
     renderActions(v.actions || [], step);
+    // Portraits step back while a choice is open; the engine keeps them for the next line.
+    var castLayer = $("cast");
+    if (castLayer) castLayer.classList.toggle("is-away", step.kind === "choice");
     var panel = $("panel");
     var text = $("text");
     var hush = !!(v.now && v.now.hush);

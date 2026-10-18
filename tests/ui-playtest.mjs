@@ -142,6 +142,7 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
 
   const shots = opts.shots || {};
   const taken = new Set();
+  const choiceHeights = [];
   const vh = SIZES[sizeName].height;
   let minStory = 1e9;
   for (let i = 0; i < 1200; i++) {
@@ -169,6 +170,16 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
       minStory = Math.min(minStory, fsz);
     }
     if (step.kind === "choice") {
+      if (sizeName !== "phone") {
+        const m = await page.evaluate(() => {
+          const box = document.getElementById("choices");
+          const r = box.getBoundingClientRect();
+          return { h: r.height, top: r.top, scroll: box.scrollHeight > box.clientHeight + 1, stacked: box.classList.contains("is-stacked"), away: document.getElementById("cast").classList.contains("is-away") };
+        });
+        choiceHeights.push({ id: step.id, pct: Math.round((100 * m.h) / vh), scroll: m.scroll, stacked: m.stacked });
+        check(m.away, `${tag}: portraits step back during ${step.id}`);
+        check(m.top >= vh * 0.2, `${tag}: ${step.id} leaves the top of the scene visible (top ${Math.round(m.top)}px)`);
+      }
       const n = await page.locator('[data-testid^="choice-"]').count();
       check(n === 4, `${tag}: ${step.id} shows ${n} options`);
       await page.click(`[data-testid="choice-${picker(step)}"]`);
@@ -196,6 +207,11 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
   }
   check(errors.length === 0, `${tag}: console errors: ${errors.join(" | ")}`);
   notes.push(`${tag}: ending ${routeId}-${lens}, min story font ${minStory.toFixed(1)}px`);
+  if (choiceHeights.length) {
+    const over = choiceHeights.filter((c) => c.pct > 50);
+    notes.push(`${tag}: choice sheet height % of screen: ${choiceHeights.map((c) => c.id + "=" + c.pct + (c.stacked ? "s" : "") + (c.scroll ? "!" : "")).join(" ")}` + (over.length ? `  (over 50%: ${over.map((c) => c.id).join(",")})` : ""));
+    check(!choiceHeights.some((c) => c.scroll), `${tag}: a choice sheet needs scrolling`);
+  }
   await ctx.close();
 }
 

@@ -10,6 +10,7 @@
   Single scene: tools/art-preview.html?id=lane    the scene fills the viewport (used for screenshots)
   Options:      &panel=1  shades where the text panel sits (bottom 35% portrait, 30% landscape)
                 &pov=lying|standing|normal   &time=day|evening|night
+  Overview:     tools/art-preview.html?sheet=tv | ?sheet=phone   compact labeled grid of every scene
 -->
 <style>
   :root {
@@ -46,6 +47,13 @@
   body.single { overflow: hidden; }
   body.single header, body.single main { display: none; }
   #single { position: fixed; inset: 0; }
+  /* Overview sheets: every scene as a small labeled tile. */
+  .sheet { display: grid; gap: 14px 12px; padding: 16px; }
+  .sheet.tv { grid-template-columns: repeat(4, 480px); }
+  .sheet.phone { grid-template-columns: repeat(8, 195px); }
+  .tile .frame.tv { width: 480px; height: 270px; }
+  .tile .frame.ph { width: 195px; height: 422px; }
+  .tile p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -76,6 +84,22 @@
     box.hidden = false;
     box.className = "frame";
     box.innerHTML = art.render(single, { pov: q.get("pov") || undefined, time: q.get("time") || undefined }) + shade;
+    return;
+  }
+
+  var sheet = q.get("sheet");
+  if (sheet === "tv" || sheet === "phone") {
+    var list = art.ids.map(function (id) { return [id, {}]; });
+    ["evening", "night"].forEach(function (t) { list.push(["asher_home", { time: t }], ["asher_ceiling", { time: t }]); });
+    var tiles = "";
+    list.forEach(function (it) {
+      tiles += '<div class="tile"><div class="frame ' + (sheet === "tv" ? "tv" : "ph") + '">' + art.render(it[0], it[1]) + shade +
+        "</div><p>" + it[0] + (it[1].time ? " (" + it[1].time + ")" : "") + "</p></div>";
+    });
+    var g = document.getElementById("gallery");
+    g.className = "sheet " + sheet;
+    g.innerHTML = tiles;
+    document.querySelector("header").style.display = "none";
     return;
   }
 

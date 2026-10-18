@@ -178,10 +178,12 @@
   // ------------------------------------------------------------------ screens
 
   function setScreen(name) {
+    var changed = app.screen !== name;
     app.screen = name;
     doc.body.setAttribute("data-screen", name);
     V.showLayer(name);
-    V.closeSettings();
+    // Re-rendering the same screen (for example after A+/A-) keeps the settings panel open.
+    if (changed) V.closeSettings();
     if (!PLAY_SCREENS[name]) doc.body.classList.remove("is-idle");
   }
 

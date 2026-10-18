@@ -162,7 +162,7 @@ try {
     await page.selectOption("#debug select", "c6");
     await page.click("#debug >> text=jump");
     const st = await state(page);
-    check(st.step === "choice" && st.stepId === null && Object.keys(st.choices).length === 5, `debug jump lands on c6 (${JSON.stringify(st.choices)})`);
+    check(st.step === "choice" && st.stepId === "c6" && Object.keys(st.choices).length === 5, `debug jump lands on c6 (${st.stepId} ${JSON.stringify(st.choices)})`);
     await shot(page, "tv-debug");
     await page.click("#debug >> text=auto-play");
     check((await state(page)).screen === "final", "debug auto-play reaches the final screen");
