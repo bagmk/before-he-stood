@@ -4573,7 +4573,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         wordWar: {
           title: { ko: "말꼬리 대전", en: "The Great Nitpick" },
           beats: [
-            { type: "line", speaker: "menahem", text: { ko: "잘못이면 잘못이라니! 죄, 죄악, 허물은 히브리어로 다 다른 말이오!", en: "Wrong is wrong? Sin, iniquity, transgression—in Hebrew, those are three different words!" } },
+            // He first denies the premise (no cause is given in Matthew), then gets lost in the vocabulary.
+            { type: "line", speaker: "menahem", text: { ko: "잘못이라니! 저 사람이 뭘 잘못해서 저렇게 됐다고 누가 그랬소? 게다가 죄, 죄악, 허물은 히브리어로 다 다른 말이오!", en: "Wrong? Who says he did something to end up like that? Besides, sin, iniquity, transgression—in Hebrew, those are three different words!" } },
             { type: "line", text: { ko: "“다 같은 말이지!” “같은 말이라니!” 창문마다 구경꾼이 고개를 내민다. 하난은 벽에 기대 한숨만 쉰다.", en: "“It's all the same!” “The same?!” Heads pop out of every window. Hanan leans on the wall and sighs." } },
             { type: "line", text: { ko: "얼마 뒤, 아침에 침상에 실려 가던 그 사람이 자기 침상을 들고 집으로 간다. 두 사람은 말싸움을 멈추지도 않고 나란히 비켜선다.", en: "Later, the man who was carried down on that bed walks by on his way home, carrying it. Without missing a word, the two step aside for him." } }
           ],
@@ -4587,7 +4588,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             { type: "line", text: { ko: "첨벙! 므나헴이 염색집 항아리에 엉덩이부터 빠진다.", en: "Splash! Menahem lands bottom-first in a dyer's vat." } },
             { type: "line", text: { ko: "항아리에서 기어 나온 므나헴은 수염까지 새파랗다. 이 꼴로는 아무 데도 못 간다. 뒷골목으로 집에 숨어든다.", en: "He climbs out blue, beard and all. He can't go anywhere like this. He sneaks home through the back alleys." } },
             { type: "scene", bg: "lamp_night", caption: { ko: "저녁 · 므나헴의 방", en: "Evening · Menahem's room" } },
-            { type: "line", speaker: "hanan", text: { ko: "선생님! 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 걸어서 집에 갔어요! …그리고 선생님, 아직 파래요.", en: "Teacher! The man on the bed got up, picked up his bed, and walked home! …Also, you're still blue." } }
+            { type: "line", speaker: "hanan", text: { ko: "선생님, 아직도 파래요? …아니, 그게 중요한 게 아니고요! 침상에 누워 있던 그 사람이 걸어서 집에 갔어요!", en: "Teacher, you're *still* blue? …No, wait, that's not the point! The man on the bed walked home!" } }
           ],
           last: { ko: "며칠 뒤에야 므나헴은 집 밖에 나왔다. 동네는 아직도 한 사람 얘기뿐이었다. 다행히 파란 사람은 아니었다.", en: "Menahem didn't go out again for days. When he did, the whole town was still talking about one man. Luckily, not the blue one." }
         },
@@ -4960,24 +4961,25 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           last: t("평생 제일 많이 잡은 날. 하필 아무도 고기 얘기를 안 하는 날이었다.", "The biggest catch of his life—on the one day nobody cared about fish.")
         },
 
-        // c3 c: the quarrel with the passerby turns into an arm-wrestling match on a fish barrel (a playful
-        // contest, SPEC 4.6). Yonah keeps winning rounds; the passerby takes his words back only when the
-        // news of the healing comes up from the shore. The canon passerby line stays in the lane beat above.
+        // c3 c: the quarrel with the passerby turns into an arm-wrestling match across a fish stall (a playful
+        // contest, SPEC 4.6). The passerby takes his words back only after losing every round, not because
+        // of the healing (so the question isn't left standing for anyone who isn't healed). The canon
+        // passerby line stays in the lane beat above.
         armWrestle: {
           title: t("세기의 팔씨름", "Arm-Wrestle of the Century"),
           beats: [
             say("passerby", "싫은데? 팔씨름에서 이기면 취소해 주지.", "Nope. Beat me at arm-wrestling, and I'll take it back."),
             say(
               null,
-              "곧 생선 통 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
-              "Soon they're arm-wrestling on a fish barrel, and the whole lane is betting figs. Yonah takes the first round!"
+              "곧 생선 좌판 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
+              "Soon they're arm-wrestling across a fish stall, and the whole lane is betting figs. Yonah takes the first round!"
             ),
             say("passerby", "방금 건 연습이야! 삼세판! …아니, 다섯 판!", "That one was just practice! Best of three! …No, best of five!")
           ],
           // Not Asher walking up the lane: that picture belongs to stayedInLane, at the same choice.
           last: t(
-            "행인은 결국 그 말을 취소했다. 바닷가에서 “침상에 누워 있던 사람이 일어났대!” 소리가 들려온 뒤에야.",
-            "In the end, the passerby did take it back—but only after a shout came up from the shore: “The man on the bed got up!”"
+            "행인은 판판이 다 지고서야 그 말을 취소했다. 그사이 바닷가에서는 아셀이 일어났다.",
+            "The passerby took it back only after losing every single round. Meanwhile, down at the shore, Asher stood up."
           )
         },
 
@@ -5166,8 +5168,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         go("a", "“다 들리거든요?”", "“I can hear you, you know.”"),
         // The quarrel (teacher's v4.1 note). It stays a war of words; the passerby speaks after the
         // fixed SPEC §6.3 line only inside this branch.
-        snip("b", "“아저씨 사연부터 들어 볼까요?”", "“Why don't we start with *your* story?”", "fishChase", [
-          say("passerby", "사연은 무슨! 나는 그런 거 없어!", "My story? I don't have a story!")
+        snip("b", "“아저씨 사연부터 들어 볼까요?”", "“How about *your* backstory first?”", "fishChase", [
+          say("passerby", "사연은 무슨! 나는 그런 거 없어!", "My backstory? I don't have one!")
         ]),
         nope("c", "“요나, 내려 줘. 집에 갈래.”", "“Yonah, put me down. I'm going home.”", "yonah", "안 돼! 다 왔는데 어딜 가.", "Nope! We're almost there!"),
         snip("d", "“요나, 사람 없는 뒷길로 가자.”", "“Yonah, take the back way. Away from people.”", "longWay", [

@@ -1002,7 +1002,7 @@ export async function runInputChecks(chromium) {
       check(errors.length === 0, `settings ${w}x${h}: console errors ${errors.join(" | ")}`);
       await ctx.close();
     }
-    // TV details: the scribe's 「읽음」 stamp is legible, verse lines are balanced, the reference keeps
+    // TV details: the scribe's read-receipt stamp is legible, verse lines are balanced, the reference keeps
     // clear of the corner marker, unseen tree stubs are visible.
     {
       const { ctx, page, errors } = await open(index + "?test=1#scribe");
