@@ -10,8 +10,8 @@
     subtitle: { ko: "그날, 가버나움 · 마태복음 9:1–8", en: "Capernaum, That Day · Matthew 9:1–8" },
 
     disclaimer: {
-      ko: "사건은 마태복음 9:1–8을 따릅니다. 이름, 대화, 인물들의 사연과 결말은 창작입니다.",
-      en: "The event follows Matthew 9:1–8. Names, conversations, backstories, and endings are invented."
+      ko: "사건은 마태복음 9:1–8을 그대로 따라가요. 이름, 대화, 인물들의 사연과 잘린 가지들은 지어낸 이야기예요.",
+      en: "The event follows Matthew 9:1–8. The names, conversations, backstories and side branches are made up."
     },
 
     bibleNotice: {
