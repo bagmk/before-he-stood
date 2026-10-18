@@ -44,7 +44,7 @@ export const DEFAULT_ROOT = path.resolve(HERE, '..');
 export const ROUTE_IDS = ['scribe', 'friend', 'asher'];
 export const OPTION_IDS = ['a', 'b', 'c', 'd'];
 // Story shape (SPEC 4.5 / 8, version 4). Outside these counts: WARN (writer guidance), except options.
-const SHAPE = { choices: [5, 6], options: [2, 4], bad: [3, 4], scolds: [2, 3], twoOption: 1, fourOption: 2 };
+const SHAPE = { choices: [5, 6], options: [2, 4], bad: [4, 6], scolds: [2, 4], twoOption: 1, fourOption: 2 };
 // Screens = line + verse + choice + press + the memory-verse card (the true ending's title card and
 // the snip card are not screens). True path: WARN above 28, ERROR above 30; cut path: ERROR above 20.
 const SCREENS = { trueWarn: 28, trueMax: 30, trueTarget: [24, 28], cutMax: 20 };
