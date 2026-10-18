@@ -299,7 +299,8 @@ body.is-last .veil {
   opacity: 0;
   mix-blend-mode: screen;
   transition: opacity 1.8s ease, transform 2.2s var(--ease-out);
-  background: radial-gradient(48% 36% at 50% var(--light-y, 38%), rgba(255, 251, 238, 0.95) 0%, rgba(255, 239, 200, 0.62) 28%, rgba(255, 224, 160, 0.22) 55%, rgba(255, 224, 160, 0) 78%);
+  /* main.js/ui.js anchor the bloom to BHS.art.lightAt for the drawn scene via --light-x/--light-y. */
+  background: radial-gradient(48% 36% at var(--light-x, 50%) var(--light-y, 38%), rgba(255, 251, 238, 0.95) 0%, rgba(255, 239, 200, 0.62) 28%, rgba(255, 224, 160, 0.22) 55%, rgba(255, 224, 160, 0) 78%);
 }
 
 .light::after {
@@ -350,9 +351,14 @@ body.is-last .veil {
   z-index: 15;
   pointer-events: none;
   overflow: hidden;
+  transition: opacity 0.2s ease;
   --cast-h: 26vh;
   --cast-x: 1.5vw;
   --cast-sink: 9vh;
+}
+
+.cast.is-away {
+  opacity: 0;
 }
 
 .figure {
@@ -2198,8 +2204,8 @@ body[data-screen="final"] .seg {
     --panel-pad: 3.8vh 4.6vh 4vh;
     --panel-radius: 1vh;
     --dock-gap: 1.6vh;
-    --badge: 5.2vh;
-    --hdr-btn: 5.6vh;
+    --badge: 4.6vh;
+    --hdr-btn: max(44px, 5.6vh);
     --header-h: 8vh;
     --focus-w: 0.55vh;
     --gutter-l: max(3vw, env(safe-area-inset-left, 0px));
@@ -2288,17 +2294,34 @@ body[data-screen="final"] .seg {
     align-self: center;
   }
 
-  /* Choices: a 2x2 grid of large numbered buttons; long options stack in full-width rows. */
+  /* Choices: a compact 2x2 grid of large numbered buttons that leaves the top of the scene
+     visible (about half the screen at 1080p for typical options); long options that would
+     overflow stack in full-width rows. */
   .choices {
     width: min(168vh, 95vw);
+    max-height: 66vh;
     align-self: center;
-    padding: 2.6vh 3vh 3vh;
+    padding: 1.8vh 2.4vh 2vh;
     border-radius: 1vh;
+  }
+
+  .choices__prompt {
+    margin: 0 0.3vh 1.1vh;
+    line-height: 1.3;
+  }
+
+  .choices__prompt .en {
+    display: inline;
+  }
+
+  .choices__prompt .en::before {
+    content: "  \00B7  ";
+    color: var(--ink-faint);
   }
 
   .choices__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.6vh;
+    gap: 1.1vh;
   }
 
   .choices.is-stacked .choices__list {
@@ -2313,14 +2336,20 @@ body[data-screen="final"] .seg {
   }
 
   .opt {
-    min-height: 12vh;
-    padding: 2vh 2.4vh 2.2vh 1.8vh;
+    min-height: 0;
+    padding: 1.3vh 2vh 1.4vh 1.4vh;
     border-radius: 1vh;
-    gap: 1.6vh;
+    gap: 1.4vh;
+    line-height: 1.32;
+  }
+
+  .opt .en {
+    margin-top: 0.1em;
   }
 
   .opt__num {
     margin-top: 0;
+    align-self: start;
   }
 
   .pressbox {
@@ -2332,15 +2361,52 @@ body[data-screen="final"] .seg {
     padding: 1.6vh 6vh;
   }
 
+  /* Asher's gray actions hang from the panel's bottom-left edge, out of the flow, so the
+     panel keeps its usual place. During the lit press they return as a large centred row. */
   .actions {
+    position: absolute;
+    left: calc(var(--gutter-l) + 2.6vh);
+    bottom: calc(var(--safe-bottom) + 4vh - max(22px, 3vh));
+    z-index: 2;
+    gap: 1.2vh;
+  }
+
+  .act {
+    flex: 0 0 auto;
+    min-width: 17vh;
+    min-height: max(44px, 6vh);
+    padding: 0.5vh 2vh;
+    border-radius: 0.9vh;
+    font-size: 2.4vh;
+    background: rgba(46, 43, 39, 0.94);
+    box-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.35);
+  }
+
+  .act .en {
+    display: inline;
+    margin-left: 0.5em;
+  }
+
+  .play--press .actions {
+    position: static;
     width: var(--panel-w);
     align-self: center;
     gap: 1.6vh;
   }
 
-  .act {
-    min-height: 8vh;
-    border-radius: 1vh;
+  .play--press .act {
+    flex: 1 1 0;
+    min-height: 9vh;
+    font-size: 3vh;
+  }
+
+  .play--press .act .en {
+    display: block;
+    margin-left: 0;
+  }
+
+  .play--press .act.glow {
+    font-size: var(--fs-press);
   }
 
   .reply {
@@ -2369,7 +2435,7 @@ body[data-screen="final"] .seg {
   }
 
   .btn--text {
-    min-height: 6vh;
+    min-height: max(44px, 6vh);
   }
 
   .title-page {
@@ -2444,7 +2510,7 @@ body[data-screen="final"] .seg {
   }
 
   .teacher-link {
-    min-height: 5vh;
+    min-height: max(44px, 5vh);
     font-size: 2.4vh;
   }
 
@@ -2773,14 +2839,27 @@ body[data-screen="final"] .seg {
 
 /* ------------------------------------------------------------------ motion preferences */
 
+/* Reduced motion: no typewriter (main.js), no shake, no sway or pulse; only short opacity
+   fades remain. Transitions are switched off everywhere first, so no property (such as
+   font-style) ever animates by accident, then the few intended fades are restored. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
     animation-delay: 0s !important;
-    transition-duration: 150ms !important;
+    transition: none !important;
+  }
+  .art__layer,
+  .reply,
+  .cast,
+  .figure,
+  .light,
+  .light::after,
+  .caption,
+  .topbar {
+    transition: opacity 150ms ease !important;
   }
   .stage[data-pov="lying"] .art__sway,
   .light[data-level="bright"],
@@ -2792,15 +2871,14 @@ body[data-screen="final"] .seg {
   }
 }
 
-/* ?test=1: instant everything for automated playtests. */
+/* ?test=1: no transitions and no animation time at all, so every screen settles at once. */
 html.is-test *,
 html.is-test *::before,
 html.is-test *::after {
-  animation-duration: 0.01ms !important;
+  transition: none !important;
+  animation-duration: 0s !important;
   animation-delay: 0s !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  transition-delay: 0s !important;
 }
 
 html.is-test .echo mark {
@@ -3542,7 +3620,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // DAWN: Menahem's room, Psalm 103 with Hanan (c1, c2)
       // ---------------------------------------------------------------
       { id: "dawn", type: "scene", bg: "dawn_lamp", caption: { ko: "새벽 · 므나헴의 방", en: "Dawn · Menahem's room" } },
-      { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers." } },
+      // His notes sit by the lamp from the start: he writes there, never on the sacred scroll (lead decision).
+      { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다. 곁에는 기록장이 펼쳐져 있다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers. His notes lie open beside it." } },
       { type: "line", text: { ko: "새벽마다 그는 같은 고백으로 하루를 연다. {{v:DT_6_4}}", en: "Every dawn he begins the day with the same words: {{v:DT_6_4}}" } },
       { type: "line", text: { ko: "맞은편에서 제자 하난이 두루마리를 들여다본다. 오늘 읽을 곳은 시편 103편이다.", en: "Across from him, his student Hanan leans over the scroll. Today's reading is Psalm 103." } },
       { type: "verse", key: "PS_103_3" },
@@ -3558,7 +3637,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "subject" },
             text: { ko: "“주님이시다. 주어를 분명히 해라.”", en: "“The Lord. Be clear about the subject.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가* 아래에 밑줄을 긋는다.", en: "Menahem draws a line under the first word, *who*." } },
+              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가*를 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } },
               { type: "line", speaker: "hanan", text: { ko: "다 주님이 하시는 일이군요.", en: "So it's all the Lord's doing." } }
             ]
           },
@@ -3568,7 +3647,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "order" },
             text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“So forgiving is named first, and healing after.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *사하시며*와 *고치시며* 사이에 작은 점을 찍는다.", en: "Menahem puts a small dot between *forgives* and *heals*." } },
+              { type: "line", text: { ko: "므나헴은 기록장에 *사하시며*와 *고치시며*를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } },
               { type: "line", speaker: "hanan", text: { ko: "그렇게 읽으니 새롭네요.", en: "I've never read it that way." } }
             ]
           },
@@ -3578,7 +3657,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "sick" },
             text: { ko: "“아픈 사람에게 이 구절은 어떻게 들릴까.”", en: "“I wonder how this line sounds to someone who is sick.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *병*이라는 글자 아래에 밑줄을 긋는다.", en: "Menahem draws a line under *diseases*." } },
+              { type: "line", text: { ko: "므나헴은 *병*이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } },
               { type: "line", speaker: "hanan", text: { ko: "위로가 되겠죠. 아니면 더 아프거나요.", en: "It might comfort them. Or hurt even more." } }
             ]
           },
@@ -3588,7 +3667,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "whole" },
             text: { ko: "“설명하기 전에 시 전체를 읽자.”", en: "“Before I explain, let's read the whole psalm.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem rolls the scroll back to the psalm's first verse." } },
+              { type: "line", text: { ko: "므나헴은 아무것도 적지 않고, 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem writes nothing down. He rolls the scroll back to the psalm's first verse." } },
               { type: "line", speaker: "hanan", text: { ko: "처음부터요?", en: "From the very top?" } }
             ]
           }
@@ -3612,10 +3691,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "b",
             lens: 1,
-            text: { ko: "“그 선을 넘어 하나님의 이름을 모독하면 돌로 치라고 했다.” ({{r:LV_24_16A}})", en: "“Cross that line—blaspheme God's name—and the Law calls for stoning.” ({{r:LV_24_16A}})" },
+            text: { ko: "“그 선을 넘어 하나님의 이름을 모독하면 돌로 치라고 했다.”", en: "“Cross that line—blaspheme God's name—and the Law calls for stoning.”" },
             reaction: [
               { type: "line", text: { ko: "하난이 침을 삼킨다.", en: "Hanan swallows." } },
-              { type: "line", speaker: "thought", text: { ko: "무거운 율법이다. 그러니 더 조심해야 한다.", en: "A heavy law. All the more reason to be careful." } }
+              // Reference kept here, not on the option button (lead note: no bare refs in options).
+              { type: "line", speaker: "thought", text: { ko: "무거운 율법이다({{r:LV_24_16A}}). 그러니 더 조심해야 한다.", en: "A heavy law ({{r:LV_24_16A}}). All the more reason to be careful." } }
             ]
           },
           {
@@ -3629,7 +3709,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "d",
             lens: 3,
-            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
+            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기까지 어떻게 가지?”", en: "“Atonement happens at the temple. How does a man who can't walk get there?”" },
             reaction: [
               { type: "line", speaker: "hanan", text: { ko: "…그건 생각해 본 적이 없어요.", en: "…I've never thought about that." } }
             ]
@@ -3656,7 +3736,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "a",
             lens: 1,
-            text: { ko: "“이적만으로는 알 수 없다. 무엇을 가르치는지 봐야 한다.” ({{r:DT_13_1_3}})", en: "“Signs alone don't settle it. We have to see what he teaches.” ({{r:DT_13_1_3}})" },
+            text: { ko: "“이적만으로는 알 수 없다. 무엇을 가르치는지 봐야 한다.”", en: "“Signs alone don't settle it. We have to see what he teaches.”" },
             reaction: [
               { type: "line", speaker: "neighbor", text: { ko: "역시 서기관님이세요. 그래도 보러는 가실 거죠?", en: "Spoken like a scribe. But you're still going to go look, right?" } }
             ]
@@ -3664,7 +3744,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "b",
             lens: 2,
-            text: { ko: "“바람과 바다를 말로? 시편은 그 일을 하나님께 돌리는데.” ({{r:PS_107_29}})", en: "“Wind and sea, with a word? The psalm credits that to God.” ({{r:PS_107_29}})" },
+            text: { ko: "“바람과 바다를 말로? 시편은 그 일을 하나님께 돌리는데.”", en: "“Wind and sea, with a word? The psalm credits that to God.”" },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "{{v:PS_107_29}} 그 일을 사람이 했다고?", en: "{{v:PS_107_29}} And a man did that?" } }
             ]
@@ -3721,7 +3801,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "b",
             lens: 2,
-            text: { ko: "혹시 죄의 징계일까. 시편의 미련한 자들처럼. ({{r:PS_107_17}})", en: "Could it be discipline for sin, like the fools in the psalm? ({{r:PS_107_17}})" },
+            text: { ko: "혹시 죄의 징계일까. 시편의 미련한 자들처럼.", en: "Could it be discipline for sin, like the fools in the psalm?" },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "시편 한 구절이 떠오른다. {{v:PS_107_17}}", en: "A line from the psalms comes to mind. {{v:PS_107_17}}" } }
             ]
@@ -3729,9 +3809,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "c",
             lens: 2,
-            text: { ko: "병의 이유를 우리가 알 수 있나. 욥의 친구들도 틀렸다. ({{r:JB_42_7}})", en: "Can we even know why a man is sick? Job's friends got it wrong. ({{r:JB_42_7}})" },
+            text: { ko: "병의 이유를 우리가 알 수 있나. 욥의 친구들도 틀렸다.", en: "Can we even know why a man is sick? Job's friends got it wrong." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "그들은 친구를 위로하러 와서, 친구를 정죄했다.", en: "They came to comfort their friend and ended up condemning him." } }
+              // Reference moved off the option; anchored to God's rebuke, which is what Job 42:7 says.
+              { type: "line", speaker: "thought", text: { ko: "그들은 친구를 위로하러 와서, 친구를 정죄했다. 하나님은 그들을 책망하셨다({{r:JB_42_7}}).", en: "They came to comfort their friend and ended up condemning him. Then God rebuked them ({{r:JB_42_7}})." } }
             ]
           },
           {
@@ -3765,11 +3846,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       { type: "verse", key: "MT_9_2B" },
       // One echo per underline value so the line right after each echo is always shown with it.
       { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I underlined this morning bleeds through. The one who forgives is the Lord." } },
+      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 옮겨 적은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I copied into my notes this morning bleeds through. The one who forgives is the Lord." } },
       { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot from this morning comes back. Forgiving first, healing after." } },
+      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot in my notes from this morning comes back. Forgiving first, healing after." } },
       { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 *병*이라는 글자가 번진다. 저 침상 위의 사람에게로.", en: "The word I underlined this morning, *diseases*, bleeds toward the man on the bed." } },
+      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *병*이라는 말이 번진다. 저 침상 위의 사람에게로.", en: "The word I wrote in my notes this morning, *diseases*, bleeds toward the man on the bed." } },
       { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
       { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning rises over the moment." } },
       { type: "fx", fx: "light", level: "soft" },
@@ -3842,7 +3923,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "b",
             lens: 2,
-            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데. ({{r:KI1_8_39B}})", en: "How did he know a thought I never spoke? Only God knows the heart. ({{r:KI1_8_39B}})" },
+            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데.", en: "How did he know a thought I never spoke? Only God knows the heart." },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "성전을 봉헌하던 솔로몬의 기도가 떠오른다. {{v:KI1_8_39B}}", en: "Solomon's prayer at the temple's dedication comes back to me. {{v:KI1_8_39B}}" } }
             ]
@@ -3947,7 +4028,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "d",
             lens: 2,
-            text: { ko: "정확한 말을 기억해 두자. 아침의 시편 옆에 적게.", en: "Remember the exact words, and write them beside this morning's psalm." },
+            text: { ko: "정확한 말을 기억해 두자. 기록장에 아침의 시편과 나란히 적게.", en: "Remember the exact words, to write them in my notes beside this morning's psalm." },
             reaction: [
               { type: "line", text: { ko: "므나헴은 그 말을 속으로 한 자 한 자 되새긴다.", en: "Menahem goes over the words in his head, one by one." } }
             ]
@@ -3980,7 +4061,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             lens: 2,
             text: { ko: "아침의 구절을 속으로 다시 읽는다.", en: "He silently reads the morning's verse again." },
             reaction: [
-              // Underline callback: the psalm returns with the same mark.
+              // Callback: the psalm returns with the word he noted at dawn highlighted.
               { type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
               { type: "line", speaker: "thought", text: { ko: "같은 문장이다. 그런데 오늘은 다르게 읽힌다.", en: "The same words. Today they read differently." } }
             ]
@@ -4015,7 +4096,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       { id: "night", type: "scene", bg: "lamp_night", caption: { ko: "밤 · 므나헴의 방", en: "Night · Menahem's room" } },
       { type: "line", text: { ko: "긴 하루가 저문다. 등잔불 아래 기록장이 펼쳐져 있다.", en: "The long day is over. His notes lie open under the oil lamp." } },
       // Callback: c8 d memorized the exact words for this page.
-      { when: { choice: "c8", is: "d" }, type: "line", text: { ko: "낮에 외워 둔 말을, 아침의 시편 옆에 한 자 한 자 옮겨 적는다.", en: "Next to the morning's psalm, he copies out the words he memorized at noon, one by one." } },
+      { when: { choice: "c8", is: "d" }, type: "line", text: { ko: "기록장에 아침의 시편을 적고, 그 옆에 낮에 외워 둔 말을 한 자 한 자 옮겨 적는다.", en: "In his notes he writes out the morning's psalm, and beside it, one by one, the words he memorized at noon." } },
       { type: "line", speaker: "hanan", text: { ko: "선생님, 오늘 일을 뭐라고 적으실 거예요?", en: "Teacher, what are you going to write about today?" } },
       {
         type: "choice",
@@ -4067,10 +4148,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         beats: [
           { type: "line", text: { ko: "므나헴은 그 주장을 누구보다 정확히 알아들었다.", en: "Menahem understood that claim more precisely than anyone there." } },
           { type: "line", text: { ko: "하나님만 하실 수 있는 말을, 한 사람이 자기 권한으로 했다.", en: "One man said, on his own authority, what only God can say." } },
-          // Underline callback: what he marked at dawn.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 밑줄 그은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he underlined this morning was the Lord. Today a man stood in that very place and spoke." } },
+          // Callback: what he noted at dawn.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 기록장에 옮겨 적은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he copied into his notes this morning was the Lord. Today a man stood in that very place and spoke." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one mouth." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 *병*에 밑줄을 그었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he underlined *diseases*. Today the man who healed a disease also claimed to forgive sins." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 기록장에 *병*이라고 적었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he wrote *diseases* in his notes. Today the man who healed a disease also claimed to forgive sins." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the last line he wrote (c10).
           { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "그는 마지막 줄에 *신성모독*이라고 적었다.", en: "On the last line he wrote: *blasphemy*." } },
@@ -4088,11 +4169,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           { type: "line", text: { ko: "밤. 므나헴은 시편 103편을 다시 편다.", en: "Night. Menahem opens Psalm 103 again." } },
           // Underline callback: the same highlight as at dawn and at the first words.
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 그은 밑줄이 그대로 있다. 사하시는 분도, 고치시는 분도 주님이시다.", en: "This morning's underline is still there. The one who forgives and heals is the Lord." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "기록장에는 아침에 옮겨 적은 *그가*라는 말이 그대로 있다. 사하시는 분도, 고치시는 분도 주님이시다.", en: "The word he copied this morning, *who*, is still in his notes. The one who forgives and heals is the Lord." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 그대로 있다. 용서, 그리고 치유.", en: "The little dot from this morning is still there. Forgiving, then healing." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "기록장에는 아침에 찍은 작은 점이 그대로 있다. 용서, 그리고 치유.", en: "The little dot from this morning is still in his notes. Forgiving, then healing." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그은 밑줄이 그대로 있다. *병*이라는 글자 아래.", en: "This morning's underline is still there, under *diseases*." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "기록장에는 아침에 적은 *병*이라는 말이 그대로 있다.", en: "The word he wrote this morning, *diseases*, is still in his notes." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침처럼, 그 시를 다시 처음부터 읽는다.", en: "As he did this morning, he reads the psalm again from the top." } },
           { type: "line", text: { ko: "오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "Today both of those things happened, in that order, at one man's word." } },
@@ -4113,10 +4194,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           // Callback: where his eyes went at c9.
           { when: { choice: "c9", is: "c" }, type: "line", text: { ko: "침상을 들고 멀어지던 뒷모습이 아직 눈에 선하다.", en: "He can still see the man's back as he walked away with his bed." } },
           { when: { choice: "c9", is: "d" }, type: "line", text: { ko: "그를 들고 왔던 사람들이 빈손으로 그와 함께 걸어가던 모습이 떠오른다.", en: "He remembers the men who carried him there, walking home beside him empty-handed." } },
-          // Underline callback (scenario: the marked word returns in every ending), one line per c1 pick.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지에 밑줄을 그었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he underlined who does it. Tonight what catches his eye is who it is done for." } },
+          // Callback (scenario: the word he noted at dawn returns in every ending), one line per c1 pick.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지를 기록장에 적었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he wrote down who does it. Tonight what catches his eye is who it is done for." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning he saw only a dot between two words. Today he saw a man lying in between." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 *병*에 그은 밑줄 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he underlined this morning, *diseases*, he now sees a face from today." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 기록장에 적은 *병*이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he wrote in his notes this morning, *diseases*, he now sees a face from today." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 오늘 밤엔 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning reads tonight like one man's story." } }
         ],
         last: { ko: "나는 오늘 율법으로 그 사람을 판단했다. 그는 권한으로 그 사람을 일으켰다.", en: "Today I judged that man by the Law. He raised him up by his authority." }
@@ -4246,8 +4327,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           {
             id: "d",
             text: {
-              ko: "“오늘 하루 품삯은 한 데나리온인데.” ({{r:MT_20_2}})",
-              en: "“But today's wage is a whole denarius.” ({{r:MT_20_2}})"
+              ko: "“오늘 하루 품삯은 한 데나리온인데.”",
+              en: "“But today's wage is a whole denarius.”"
             },
             lens: 3,
             reaction: [
@@ -5696,7 +5777,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       fx("hush"),
       { type: "verse", id: "first-words-2", key: "MT_9_2B2" },
       fx("light", { level: "soft" }),
-      fx("actionReply", { action: "getup", text: t("아직.", "Not yet.") }),
+      // Neutral observation: nothing here suggests forgiveness is unlocking his body (SPEC 7.2; lead decision).
+      fx("actionReply", { action: "getup", text: t("다리는 그대로다.", "My legs haven't changed.") }),
 
       // The c3 memory returns right after the first words.
       line("동생의 우는 얼굴이 스친다. 아직 사과하지 못한 그날.", "His little brother's crying face flashes before him. The day he never apologized for."),
@@ -6988,6 +7070,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var m = mid === undefined ? 0.35 : mid;
     this.add(full(this.rad(name, cx, cy, r, [[0, color, alpha], [m, color, r2(alpha * 0.45)], [1, color, 0]], ry)));
   };
+  // Clip path (cheap, no filters) used to keep stones inside their wall.
+  Ctx.prototype.clip = function (name, d) {
+    name = this.fresh(name);
+    this.def('<clipPath id="' + this.id(name) + '"><path d="' + d + '"/></clipPath>');
+    return this.url(name);
+  };
   Ctx.prototype.vignette = function (color, alpha, cx, cy, r) {
     this.add(full(this.rad("vig", cx || MX, cy || 760, r || 1350, [[0, color, 0], [0.5, color, 0], [1, color, alpha]])));
   };
@@ -7660,7 +7748,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add(rect(1300, 0, 300, H, c.lin("rw", 1300, 0, 1600, 0, [[0, "#211a14"], [1, "#0e0b09"]])));
     var door = [[1360, 640], [1600, 576], [1600, 1024], [1360, 960]];
     c.add(path(poly(door), c.lin("door", 1360, 0, 1600, 0, day
-      ? [[0, "#fff4dc"], [1, "#ffe7bd"]] : eve ? [[0, "#f2b066"], [1, "#c9705a"]] : [[0, "#121a2e"], [1, "#0a0f1c"]])));
+      ? [[0, "#fff4dc"], [1, "#ffe7bd"]] : eve ? [[0, "#f2b066"], [1, "#c9705a"]] : [[0, "#0c1120"], [1, "#070a13"]])));
     if (night) c.add(ell(1500, 700, 2, 2, "#e8eef8", op(0.8)));
 
     if (day) {
@@ -7723,6 +7811,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add(rect(BL, BT, BR - BL, BB - BT, night ? "#14110f" : eve ? "#211b18" : "#272320"));
     var tones = day ? ["#2f2b28", "#3b3631", "#48413a", "#584f46", "#6b6056"]
       : eve ? ["#2a2321", "#362b25", "#46362b", "#5a4331", "#6e5036"] : ["#1b1715", "#261f1a", "#33291f", "#453424", "#5a412b"];
+    c.add('<g clip-path="' + c.clip("bw", "M" + BL + " " + BT + "H" + BR + "V" + BB + "H" + BL + "Z") + '">');
     addStones(c, stones(rnd, flat, {
       u0: BL, u1: BR, v0: BT, v1: BB, ch: [44, 66], sw: [70, 130], gap: 4, jit: 5, n: 5,
       keep: function (u, v) { return !(u > DL - 10 && u < DR + 10 && v > DT - 10); },
@@ -7732,6 +7821,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         return clamp(Math.floor(L * 4.6 + (r() - 0.5) * 1.2), 0, 4);
       }
     }), tones);
+    c.add("</g>");
 
     // Lamp niche.
     c.add(path(poly([[1052, 628], [1152, 626], [1152, 640], [1052, 642]]), night ? "#2a2119" : "#3b3229"));
@@ -7825,13 +7915,15 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // arm comes from the left. The forearm leaves at a slant so pole and arm never form a cross.
   function grip(c, x, y, dir, skin, sleeve) {
     var g = '<g transform="translate(' + x + " " + y + ")scale(" + dir + ' 1)">';
-    g += path("M-150 300L-370 430L-330 520L-110 380Z", sleeve);
-    g += path("M-14 -18L-210 200L-170 250L22 34Z", skin);
-    g += path("M-14 -18L-210 200L-196 214L-2 -6Z", "#fff", op(0.12));
-    g += path("M-36 -40Q0 -56 34 -40L40 34Q2 52 -30 36Z", skin);
-    g += line("M-32 -16Q2 -26 36 -16M-32 6Q2 -4 38 6M-30 26Q2 18 38 26", "#000", 3, op(0.22));
-    g += path("M-36 -40Q-46 -64 -30 -74Q-18 -70 -16 -44Z", skin);
-    g += path("M-30 36Q2 52 40 34L40 40Q2 60 -32 44Z", "#000", op(0.2));
+    // Sleeve beyond the elbow, then a tapered forearm reaching down and away from the pole.
+    g += path("M-200 250L-262 186L-446 330L-384 404Z", sleeve);
+    g += path("M-16 2Q-118 58-252 184Q-250 236-178 262Q-80 150 14 34Z", skin);
+    g += path("M-16 2Q-118 58-252 184L-240 196Q-110 74-6 14Z", "#fff", op(0.13));
+    g += path("M-178 262Q-80 150 14 34L16 48Q-74 160-170 270Z", "#000", op(0.18));
+    // Fist wrapped around the pole; the thumb stays hidden behind it.
+    g += path("M-40 -36Q-2 -50 36 -38Q46 0 38 40Q0 54 -36 40Q-48 0 -40 -36Z", skin);
+    g += line("M-36 -14Q0 -22 40 -12M-38 8Q0 0 42 10M-36 28Q0 22 40 30", "#000", 3, op(0.2));
+    g += path("M-36 40Q0 54 38 40L36 46Q0 62 -34 48Z", "#000", op(0.2));
     return g + "</g>";
   }
 
@@ -7856,12 +7948,6 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     roofEdge([[380, -20], [840, -20], [720, 150], [380, 270]], "M380 262L452 238L520 214L590 190L660 166L720 146", "M470 220l14 34l26-10l-14-34zM590 178l14 34l26-10l-14-34z");
     roofEdge([[1230, 300], [1620, 250], [1620, 470], [1360, 430]], "M1360 428L1430 440L1500 452L1570 462L1620 468", "M1420 430l-6 36l28 4l6-36zM1530 446l-6 36l28 4l6-36z");
 
-    // Carriers seen from below at the far edges (landscape only): no faces, just shapes.
-    c.add(path("M-60 1250L-40 860Q40 780 150 790Q200 700 168 610Q150 520 70 500Q-20 500 -60 560Z", "#3a302b"));
-    c.add(path("M168 610Q150 520 70 500Q-20 500 -60 560L-60 600Q20 540 90 560Q150 580 168 610Z", "#c7d8e4", op(0.35)));
-    c.add(path("M1660 1250L1640 900Q1560 820 1450 830Q1404 740 1436 650Q1456 560 1534 540Q1620 540 1660 600Z", "#2f2b30"));
-    c.add(path("M1436 650Q1456 560 1534 540Q1620 540 1660 600L1660 640Q1580 580 1510 600Q1452 620 1436 650Z", "#c7d8e4", op(0.35)));
-
     // The bed's two poles with lashed, rounded ends.
     var pole = c.lin("pole", 0, 0, 60, 0, [[0, "#3e2a1a"], [0.45, "#7a5634"], [1, "#4a321f"]]);
     c.add('<path d="M427 1650L477 1650L505 300L467 300Z" fill="' + pole + '"/>');
@@ -7885,26 +7971,38 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add(full(c.rad("sky", 820, 720, 1200, [[0, "#f2f5f1"], [0.4, "#bfd5e0"], [1, "#7ea8c7"]])));
     c.glow("warm", 1380, 720, 780, "#fff1d4", 0.85, 640, 0.35);
     var LX = 1380, LY = 720, CXc = 800, CYc = 760;
-    // [x, y, radius, hooded, tone]; small (farther) heads first so near ones overlap them.
-    var people = [
-      [250, 1250, 60, 1, 1], [1395, 1120, 62, 0, 3], [420, 230, 58, 1, 3], [1180, 205, 56, 0, 0], [1385, 352, 58, 1, 2],
-      [235, 560, 60, 0, 2], [205, 905, 64, 1, 0],
-      [965, 372, 80, 1, 2], [650, 395, 84, 0, 1], [610, 1060, 96, 0, 3], [1010, 1095, 92, 1, 1], [560, 735, 92, 1, 0]
-    ];
-    var tones = ["#2c2723", "#352f2a", "#3d352e", "#2f2b2c"];
-    var bare = "M-.92 0C-.92-1.45.92-1.45.92 0C.92.75.55 1.05.4 1.2L.55 1.55Q2.4 1.6 2.65 2.4L2.95 6H-2.95L-2.65 2.4Q-2.4 1.6-.55 1.55L-.4 1.2C-.55 1.05-.92.75-.92 0Z";
-    var hood = "M0-1.32C1.38-1.32 1.44.3 1.22 1.16Q2.55 1.45 2.8 2.4L3.05 6H-3.05L-2.8 2.4Q-2.55 1.45-1.22 1.16C-1.44.3-1.38-1.32 0-1.32Z";
+    // Templates seen from below: head at the origin (radius 1), top of the head toward the
+    // center of view, shoulders toward the frame edge. Faces are plain backlit ovals.
+    // Shoulders are short and rounded: seen from below, the rest of the body hides behind them.
+    c.def('<g id="' + c.id("lc") + '"><path d="M0-1.32C1.38-1.32 1.44.3 1.22 1.16Q2.5 1.5 2.62 2.6Q2.52 3.75 1.5 4.35H-1.5Q-2.52 3.75-2.62 2.6Q-2.5 1.5-1.22 1.16C-1.44.3-1.38-1.32 0-1.32Z"/>' +
+      '<ellipse cy=".18" rx=".64" ry=".82" fill="currentColor"/>' + path("M-.68.04Q0-.55.68.04Q.5-.4 0-.46Q-.5-.4-.68.04Z", "#000", op(0.4)) +
+      path("M-.6.5Q-.5 1.02 0 1.08Q.5 1.02.6.5Q.3.78 0 .8Q-.3.78-.6.5Z", "#000", op(0.25)) + "</g>");
+    var garments = ["#4a3f38", "#3d4150", "#57423a", "#3f4a3e", "#5c4c3d", "#4a3d4b"];
+    var skins = ["#4c3427", "#422d22", "#56392b", "#3c291f"];
+    // People stand on rings around the viewer (outer rows first so the inner row overlaps them).
+    // The right side of every ring stays open: that is where the light is.
+    var people = [], rows = [[780, 780, 52, [150, 180, 210, 238, 262]], [560, 600, 64, [88, 115, 142, 170, 198, 226, 254, 282, 308]],
+      [360, 400, 80, [72, 102, 132, 162, 192, 222, 252, 282, 311]]];
+    // Everyone wears a head covering against the noon sun, which also frames each face.
+    var kinds = ["lc", "lc"], q = 0;
+    for (var rw = 0; rw < rows.length; rw++) {
+      for (var k = 0; k < rows[rw][3].length; k++, q++) {
+        var a = (rows[rw][3][k] * Math.PI) / 180;
+        people.push([ri(760 + rows[rw][0] * Math.cos(a)), ri(740 + rows[rw][1] * Math.sin(a)), rows[rw][2], kinds[(q * 7) % 3 === 0 ? 1 : q % 2], q % 6, (q * 5) % 4]);
+      }
+    }
+    CXc = 760; CYc = 740;
     for (var i = 0; i < people.length; i++) {
       var p = people[i], x = p[0], y = p[1], r = p[2];
-      var ang = Math.atan2(CXc - x, -(CYc - y)) * 180 / Math.PI;
-      var lx = LX - x, ly = LY - y, ln = Math.sqrt(lx * lx + ly * ly);
-      var warm = ln < 700, off = r * 0.07;
-      var d = p[3] ? hood : bare, sc = r2(r);
-      var far = r < 70;
-      c.add('<path d="' + d + '" transform="translate(' + ri(x + (lx / ln) * off) + " " + ri(y + (ly / ln) * off) + ")rotate(" + ri(ang) + ")scale(" + sc + ')" fill="' +
-        (warm ? "#ffd9a0" : "#d6e4ec") + '" opacity="' + (warm ? 0.9 : 0.55) + '"/>');
-      c.add('<path d="' + d + '" transform="translate(' + x + " " + y + ")rotate(" + ri(ang) + ")scale(" + sc + ')" fill="' +
-        (far ? mix(tones[p[4]], "#9fb6c6", 0.25) : tones[p[4]]) + '"/>');
+      var ang = ri((Math.atan2(CXc - x, -(CYc - y)) * 180) / Math.PI);
+      var lx = LX - x, ly = LY - y, ln = Math.sqrt(lx * lx + ly * ly), off = r * 0.08;
+      var warm = ln < 760;
+      var haze = r < 60 ? 0.3 : r < 70 ? 0.12 : 0;
+      var rim = warm ? "#ffd9a0" : "#e2edf2";
+      c.add('<use href="#' + c.id(p[3]) + '" transform="translate(' + ri(x + (lx / ln) * off) + " " + ri(y + (ly / ln) * off) + ")rotate(" + ang + ")scale(" + r + ')" fill="' +
+        rim + '" color="' + rim + '" opacity="' + (warm ? 0.9 : 0.6) + '"/>');
+      c.add('<use href="#' + c.id(p[3]) + '" transform="translate(' + x + " " + y + ")rotate(" + ang + ")scale(" + r + ')" fill="' +
+        mix(garments[p[4]], "#a9c0cf", haze) + '" color="' + mix(skins[p[5]], "#a9c0cf", haze) + '"/>');
     }
     c.vignette("#3a4a58", 0.25, MX, 760, 1300);
     c.grain(0.2, 0.6);
@@ -7943,39 +8041,49 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     c.add(path(poly([G(-2.2, 1.1), G(-1.5, 29), G(1.5, 29), G(2.2, 1.1)]), c.lin("road", 0, 640, 0, 1500, [[0, "#e6cb98"], [1, "#d1ae78"]])));
     c.add(path(poly([G(-0.75, 1.3), G(-0.62, 28), G(-0.5, 28), G(-0.55, 1.3)]) + poly([G(0.55, 1.3), G(0.5, 28), G(0.62, 28), G(0.75, 1.3)]), "#c29f6c", op(0.6)));
 
-    // Olive trees: [x, z]. Long shadows fall to the right and away from the low western sun.
+    // Olive trees: [x, z]. Long shadows fall to the right and away from the low western sun,
+    // so the canopies of the left-hand trees lay bands of shade across the road.
     var trees = [[-3.9, 17], [4.6, 14], [-4.4, 10.5], [3.8, 7.5], [-3.6, 5.0]];
     var shade = "";
     for (i = 0; i < trees.length; i++) {
       var tx = trees[i][0], tz = trees[i][1], pts = [];
       for (k = 0; k < 14; k++) {
-        var a = (k / 14) * Math.PI * 2, along = 9.5 + Math.cos(a) * 3.6, across = Math.sin(a) * 1.5;
+        var a = (k / 14) * Math.PI * 2, along = 5.6 + Math.cos(a) * 2.5, across = Math.sin(a) * 1.5;
         pts.push(G(tx + along * 0.92 - across * 0.38, tz + along * 0.38 + across * 0.92));
       }
-      shade += poly(pts) + poly([G(tx - 0.12, tz), G(tx + 5.6 * 0.92 - 0.1, tz + 5.6 * 0.38 + 0.25), G(tx + 5.6 * 0.92 + 0.1, tz + 5.6 * 0.38 - 0.25), G(tx + 0.12, tz)]);
+      shade += poly(pts) + poly([G(tx - 0.1, tz), G(tx + 3.2 * 0.92 - 0.1, tz + 3.2 * 0.38 + 0.22), G(tx + 3.2 * 0.92 + 0.1, tz + 3.2 * 0.38 - 0.22), G(tx + 0.1, tz)]);
     }
-    c.add(path(shade, "#6f5446", op(0.42)));
+    c.add(path(shade, "#6f5446", op(0.4)));
 
-    // Low field wall along the right side of the road, its face catching the sun.
-    c.add(path(poly([P(2.7, 0.8, 3.2), P(2.7, 0.8, 21), G(2.7, 21), G(2.7, 3.2)]), "#b39b76"));
-    c.add(path(poly([P(2.7, 0.8, 3.2), P(2.7, 0.8, 21), P(3.2, 0.8, 21), P(3.2, 0.8, 3.2)]), "#dcc79c"));
-    var jt = "";
-    for (k = 3.6; k < 20; k += 0.9) { var j0 = P(2.7, 0.8, k), j1 = G(2.7, k); jt += "M" + ri(j0[0]) + " " + ri(j0[1]) + "L" + ri(j1[0]) + " " + ri(j1[1]); }
-    c.add(line(jt, "#7d6a52", 2, op(0.5)));
+    // Stones and dry tufts along the roadside.
+    var rs = "", tf = "";
+    for (i = 0; i < 26; i++) {
+      var sz = 3 + Math.pow(rnd(), 1.4) * 20, sx = (rnd() < 0.5 ? -1 : 1) * (2.3 + rnd() * 1.6), ss = 0.12 + rnd() * 0.18;
+      var sp = G(sx, sz), sw = (F * ss) / sz;
+      rs += "M" + ri(sp[0] - sw) + " " + ri(sp[1]) + "q" + ri(sw) + " " + ri(-sw * 0.9) + " " + ri(sw * 2) + " 0z";
+      if (i % 2) tf += "M" + ri(sp[0] + sw * 2) + " " + ri(sp[1]) + "l" + ri(-sw * 0.4) + " " + ri(-sw * 1.6) + "M" + ri(sp[0] + sw * 2.2) + " " + ri(sp[1]) + "l" + ri(sw * 0.5) + " " + ri(-sw * 1.4);
+    }
+    c.add(path(rs, "#7d6b55"));
+    c.add(line(tf, "#8f7c4c", 2.4, op(0.8)));
 
+    // Olive trees: gnarled, forked trunks and wide, broken, silver-green crowns (local units = meters).
+    var trunk = "M-.28 0C-.1-.6-.42-1-.16-1.6L-.82-2.3L-.66-2.42L-.04-1.86L.04-1.9L.72-2.56L.86-2.42L.24-1.55C.42-1 .14-.5.34 0Z";
     for (i = 0; i < trees.length; i++) {
-      var bx = trees[i][0], bz = trees[i][1], s = F / bz;
-      var base = G(bx, bz), top = P(bx, 2.2, bz);
-      c.add(path("M" + ri(base[0] - 0.2 * s) + " " + ri(base[1]) + "Q" + ri(base[0] + 0.15 * s) + " " + ri(lerp(base[1], top[1], 0.5)) + " " + ri(top[0] - 0.3 * s) + " " + ri(top[1]) +
-        "L" + ri(top[0] + 0.1 * s) + " " + ri(top[1]) + "Q" + ri(base[0] + 0.4 * s) + " " + ri(lerp(base[1], top[1], 0.45)) + " " + ri(base[0] + 0.2 * s) + " " + ri(base[1]) + "Z", "#4a3a2c"));
-      var cx0 = top[0], cy0 = P(bx, 3.0, bz)[1], cr = 1.25 * s, cd = "", cl = "";
-      for (k = 0; k < 7; k++) {
-        var ca = (k / 7) * Math.PI * 2 + rnd() * 0.5, cx1 = cx0 + Math.cos(ca) * cr * 0.75, cy1 = cy0 + Math.sin(ca) * cr * 0.42;
-        cd += circ(cx1, cy1, cr * (0.42 + rnd() * 0.16));
-        if (Math.cos(ca) < 0.2) cl += circ(cx1 - cr * 0.1, cy1 - cr * 0.06, cr * 0.32);
+      var bx = trees[i][0], bz = trees[i][1], s = r2(F / bz), base = G(bx, bz);
+      var g = '<g transform="translate(' + ri(base[0]) + " " + ri(base[1]) + ")scale(" + s + ')">';
+      g += path(trunk, "#4a3a2c") + path("M-.28 0C-.1-.6-.42-1-.16-1.6L-.82-2.3L-.74-2.36L-.08-1.62C-.3-1-.02-.6-.12 0Z", "#8a7458", op(0.6));
+      var cd = "", cs = "", cl = "";
+      for (k = 0; k < 13; k++) {
+        // Clumps sit around a connected, flattened crown (outer ring) plus a few inside.
+        var ca = (k / 9) * Math.PI * 2 + rnd() * 0.4, cr = k < 9 ? 0.85 + rnd() * 0.15 : rnd() * 0.5;
+        var px = Math.cos(ca) * cr * 1.45, py = -2.95 + Math.sin(ca) * cr * 0.55, pr = 0.4 + rnd() * 0.22;
+        var arc = "M" + r2(px - pr) + " " + r2(py) + "a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(2 * pr) + " 0a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(-2 * pr) + " 0z";
+        cd += arc;
+        cs += "M" + r2(px - pr) + " " + r2(py + 0.16) + "a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(2 * pr) + " 0a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(-2 * pr) + " 0z";
+        if (px < 0.3) cl += "M" + r2(px - pr * 0.9) + " " + r2(py - 0.08) + "a" + r2(pr * 0.6) + " " + r2(pr * 0.45) + " 0 1 0 " + r2(pr * 1.2) + " 0a" + r2(pr * 0.6) + " " + r2(pr * 0.45) + " 0 1 0 " + r2(-pr * 1.2) + " 0z";
       }
-      c.add(path(cd, "#66704c"));
-      c.add(path(cl, "#a7aa76", op(0.9)));
+      g += path(cs, "#545a3c") + path(cd, "#7c8462") + path(cl, "#b6b98e", op(0.85));
+      c.add(g + "</g>");
     }
 
     c.glow("haze", MX, 610, 980, "#ffe9bf", 0.3, 420);
@@ -8002,6 +8110,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     // House front of black basalt, warmed only near the doorway.
     c.add(rect(380, 430, 1220, 1170, "#1d1922"));
     var tones = ["#2d2833", "#36303c", "#403846", "#5a4434", "#7a5534"];
+    c.add('<g clip-path="' + c.clip("front", "M380 430H1600V920H380Z") + '">');
     addStones(c, stones(rnd, flat, {
       u0: 380, u1: W, v0: 448, v1: 920, ch: [46, 68], sw: [74, 136], gap: 4, jit: 5, n: 5,
       keep: function (u, v) { return !(u > DL - 24 && u < DR + 24 && v > DT - 30); },
@@ -8015,9 +8124,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var q = "";
     for (i = 0; i < 7; i++) q += poly([[380, 452 + i * 66], [380 + (i % 2 ? 60 : 96), 452 + i * 66], [380 + (i % 2 ? 60 : 96), 512 + i * 66], [380, 512 + i * 66]]);
     c.add(path(q, "#3c3644"));
+    c.add("</g>");
     // Roof edge of packed mud over reeds, with beam ends under it.
     c.add(path("M370 414L1600 406V446L370 452Z", "#2b232a"));
-    c.add(path("M370 410L420 398L470 408L520 396L570 406L620 394L670 404L720 392L770 402L820 390L870 400L920 388L970 398L1020 386L1070 396L1120 384L1170 394L1220 382L1270 392L1320 380L1370 390L1420 378L1470 388L1520 376L1600 386V414L370 418Z", "#4a3a2c"));
+    var fr = "M370 418";
+    for (var fx = 370; fx < W; fx += 22 + rnd() * 26) fr += "L" + ri(fx) + " " + ri(400 + rnd() * 12);
+    c.add(path(fr + "L1600 404V414L370 418Z", "#4a3a2c"));
     var be = "";
     for (i = 0; i < 11; i++) be += "M" + (430 + i * 112) + " 448h22v18h-22z";
     c.add(path(be, "#2a1e15"));
@@ -8069,6 +8181,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   BHS.art = {
     ids: IDS.slice(),
+    // Canvas size of every scene (viewBox), rendered with preserveAspectRatio "xMidYMid slice".
+    viewBox: [W, H],
+    // Where the luminous space sits in each crowd scene, in canvas units, so the UI can
+    // anchor its presence light there. Map to the screen with the slice math:
+    // s = max(stageW / 1600, stageH / 1600); x = stageW / 2 + (cx - 800) * s; y = stageH / 2 + (cy - 800) * s.
+    lightAt: { crowd: [800, 650], crowd_lying: [1380, 720] },
     // Returns the bg id that render() will actually draw for this pov.
     resolve: resolve,
     // opts: { pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night", uid?: string }
@@ -8096,13 +8214,15 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
    - Classic script, no modules, no fetch, no external assets, no SVG filters.
    - Each portrait is a half-body bust on a transparent background, viewBox 0 0 600 900,
      bottom edge cut by the frame. Faces sit above y ~560 because the text panel covers
-     the lower part of the stage.
+     the lower part of the stage. The root <svg> uses preserveAspectRatio="xMidYMax meet",
+     so a container of any size keeps the figure standing on its bottom edge.
    - FACING: every figure faces screen-LEFT (three-quarter view, gaze to the left).
      BHS.portraits.facing[id] says so too; the UI can mirror a portrait with CSS
      transform: scaleX(-1) when it stands on the left of the stage (the art has no text).
-   - Light comes from the upper left, the side they face. Shadow planes fall right and
-     down, a thin warm rim catches the upper-left edges, and the whole figure casts a soft
-     offset shadow, so it separates from dark interiors and from bright noon scenes alike.
+   - Style: cut-paper relief. Flat color planes in natural dyes, one warm shadow color and
+     one warm light color laid over them as planes, no outlines. Light comes from the upper
+     left (the side they face): a thin warm rim catches the upper-left edges and the figure
+     casts a soft offset shadow, so it separates from dark interiors and bright noon scenes.
    - Jesus is never drawn: render("jesus") returns null. No crosses, halos or text.
    - Ids inside each SVG are prefixed with the character id plus a per-render counter. */
 (function () {
@@ -8118,15 +8238,27 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   // ---------------------------------------------------------------- utilities
 
+  var PREC = 1;         // path number precision: 1 = integers, 10 = one decimal (faces)
   function lerp(a, b, t) { return a + (b - a) * t; }
+  function rn(v) { var n = Math.round(v * PREC) / PREC; return n === 0 ? 0 : n; }
   function r1(v) { var n = Math.round(v * 10) / 10; return n === 0 ? 0 : n; }
+  function op(o) { return o !== undefined && o !== 1 ? ' opacity="' + o + '"' : ""; }
 
-  // Joins numbers for path data; a negative number needs no separator.
+  // Number without a leading zero (0.5 -> .5, -0.5 -> -.5).
+  function fmt(n) {
+    var s = String(n);
+    if (s.length > 1 && s.charAt(0) === "0") return s.slice(1);
+    if (s.length > 2 && s.slice(0, 2) === "-0") return "-" + s.slice(2);
+    return s;
+  }
+  // Joins numbers for path data with the fewest separators.
   function nums(arr) {
-    var s = "";
+    var s = "", prev = "";
     for (var i = 0; i < arr.length; i++) {
-      var n = r1(arr[i]);
-      s += (i === 0 || n < 0 ? "" : " ") + n;
+      var t = fmt(rn(arr[i]));
+      if (i > 0 && t.charAt(0) !== "-" && !(t.charAt(0) === "." && prev.indexOf(".") >= 0)) s += " ";
+      s += t;
+      prev = t;
     }
     return s;
   }
@@ -8143,12 +8275,18 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   // A frame maps local units (u right, v down) to viewBox coordinates: origin (x, y),
   // scale s, optional rotation in radians. Heads use 1 unit = half the head height.
-  function frame(x, y, s, rot) {
-    var c = Math.cos(rot || 0), n = Math.sin(rot || 0);
-    var f = function (u, v) { return [x + s * (u * c - v * n), y + s * (u * n + v * c)]; };
+  function frame(x, y, s, rot, flip) {
+    var c = Math.cos(rot || 0), n = Math.sin(rot || 0), m = flip ? -1 : 1;
+    var f = function (u, v) { v *= m; return [x + s * (u * c - v * n), y + s * (u * n + v * c)]; };
     f.s = s;
+    f.x = x;
+    f.y = y;
     return f;
   }
+  // Local v of the frame bottom (plus a margin), so garments always reach the cut edge.
+  function bot(b) { return Math.max(5.7, (912 - b.y) / b.s); }
+  var V = frame(0, 0, 1, 0);  // plain viewBox coordinates
+
   function mapPts(f, list) {
     var out = [];
     for (var i = 0; i < list.length; i++) {
@@ -8160,23 +8298,38 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   }
 
   // Smooth path through points (Catmull-Rom as cubic Beziers). A point with a third entry
-  // is a corner: its tangents point along the chords to its neighbours.
+  // is a corner: its tangents point along the chords to its neighbours. Written with
+  // relative commands; offsets come from rounded absolute points, so nothing drifts.
   function curve(p, closed) {
-    var n = p.length, d = "M" + nums([p[0][0], p[0][1]]), last = closed ? n : n - 1;
+    var n = p.length, last = closed ? n : n - 1;
+    var cx = rn(p[0][0]), cy = rn(p[0][1]), out = [];
     for (var i = 0; i < last; i++) {
       var p0 = p[(i - 1 + n) % n], p1 = p[i], p2 = p[(i + 1) % n], p3 = p[(i + 2) % n];
       if (!closed) { if (i === 0) p0 = p1; if (i + 2 >= n) p3 = p2; }
       var a = p1[2] ? [lerp(p1[0], p2[0], 0.3), lerp(p1[1], p2[1], 0.3)] : [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
       var b = p2[2] ? [lerp(p2[0], p1[0], 0.3), lerp(p2[1], p1[1], 0.3)] : [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-      d += "C" + nums([a[0], a[1], b[0], b[1], p2[0], p2[1]]);
+      var ex = rn(p2[0]), ey = rn(p2[1]);
+      out.push(rn(a[0]) - cx, rn(a[1]) - cy, rn(b[0]) - cx, rn(b[1]) - cy, ex - cx, ey - cy);
+      cx = ex; cy = ey;
     }
-    return d + (closed ? "Z" : "");
+    return "M" + nums([p[0][0], p[0][1]]) + "c" + nums(out) + (closed ? "z" : "");
   }
+  function sm(f, list) { return curve(mapPts(f, list), true); }
 
   // Cubic Bezier point.
   function bez(p0, p1, p2, p3, t) {
     var m = 1 - t, a = m * m * m, b = 3 * m * m * t, c = 3 * m * t * t, d = t * t * t;
     return [a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0], a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1]];
+  }
+
+  // Ellipse outline as smooth points (local units), starting at angle a0.
+  function ellPts(cx, cy, rx, ry, k, a0) {
+    var out = [];
+    for (var i = 0; i < k; i++) {
+      var a = (a0 || 0) + (i / k) * Math.PI * 2;
+      out.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]);
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------- render context
@@ -8187,65 +8340,90 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     this.defs = [];
     this.body = [];
     this.sil = [];
+    this.refs = {};
     this.n = 0;
+    this.tint = null;
   }
   Ctx.prototype.id = function (name) { return this.pre + name; };
-  Ctx.prototype.url = function (name) { return "url(#" + this.pre + name + ")"; };
   Ctx.prototype.add = function (s) { this.body.push(s); };
   Ctx.prototype.def = function (s) { this.defs.push(s); };
   // Filled path. o = opacity; sil = also part of the outer silhouette (rim light, shadow).
-  Ctx.prototype.fill = function (d, color, o, sil) {
-    this.body.push('<path d="' + d + '" fill="' + color + '"' + (o !== undefined && o !== 1 ? ' opacity="' + o + '"' : "") + "/>");
-    if (sil) this.sil.push(d);
+  Ctx.prototype.fill = function (d, color, o, sil, extra) {
+    var a = ' fill="' + color + '"' + op(o) + (extra || "");
+    this.refs[d] = { i: this.body.length, a: a };
+    this.body.push('<path d="' + d + '"' + a + "/>");
+    if (sil) this.sil.push(this.ref(d));
     return d;
   };
-  // Smooth closed shape through frame-local points.
-  Ctx.prototype.shape = function (f, list, color, o, sil) { return this.fill(curve(mapPts(f, list), true), color, o, sil); };
+  // A shape needed again (silhouette, clip) moves into <defs> once; the body then draws it
+  // with <use>, so its path data is written a single time.
+  Ctx.prototype.ref = function (d) {
+    var r = this.refs[d] || (this.refs[d] = {});
+    if (!r.id) {
+      r.id = this.id("p" + (++this.n));
+      this.def('<path id="' + r.id + '" d="' + d + '"/>');
+      if (r.i !== undefined) this.body[r.i] = '<use href="#' + r.id + '"' + r.a + "/>";
+    }
+    return r.id;
+  };
+  Ctx.prototype.shape = function (f, list, color, o, sil) { return this.fill(sm(f, list), color, o, sil); };
   // Open smooth stroke through frame-local points.
   Ctx.prototype.line = function (f, list, color, w, o) {
-    this.body.push('<path d="' + curve(mapPts(f, list), false) + '" fill="none" stroke="' + color + '" stroke-width="' + w +
-      '" stroke-linecap="round" stroke-linejoin="round"' + (o !== undefined && o !== 1 ? ' opacity="' + o + '"' : "") + "/>");
+    this.body.push('<path d="' + curve(mapPts(f, list), false) + '" fill="none" stroke="' + color + '" stroke-width="' + r1(w) +
+      '" stroke-linecap="round" stroke-linejoin="round"' + op(o) + "/>");
   };
   Ctx.prototype.clip = function (d) {
-    var id = "k" + (++this.n);
-    this.def('<clipPath id="' + this.id(id) + '"><path d="' + d + '"/></clipPath>');
-    return this.url(id);
+    var id = this.id("k" + (++this.n));
+    this.def('<clipPath id="' + id + '"><use href="#' + this.ref(d) + '"/></clipPath>');
+    return "url(#" + id + ")";
   };
-  Ctx.prototype.group = function (attrs) { this.body.push("<g " + attrs + ">"); };
+  Ctx.prototype.inside = function (d) { this.body.push('<g clip-path="' + this.clip(d) + '">'); };
   Ctx.prototype.end = function () { this.body.push("</g>"); };
   Ctx.prototype.circle = function (p, r, color, o) {
-    this.body.push('<circle cx="' + r1(p[0]) + '" cy="' + r1(p[1]) + '" r="' + r1(r) + '" fill="' + color + '"' +
-      (o !== undefined && o !== 1 ? ' opacity="' + o + '"' : "") + "/>");
+    this.body.push('<circle cx="' + r1(p[0]) + '" cy="' + r1(p[1]) + '" r="' + r1(r) + '" fill="' + color + '"' + op(o) + "/>");
   };
 
   Ctx.prototype.svg = function () {
     var sid = this.id("sil"), u = "#" + sid, i;
-    var sil = '<g id="' + sid + '">';
-    for (i = 0; i < this.sil.length; i++) sil += '<path d="' + this.sil[i] + '"/>';
-    sil += "</g>";
-    // Rim: the silhouette minus itself shifted down-right leaves a thin upper-left edge.
-    var mask = '<mask id="' + this.id("rim") + '" maskUnits="userSpaceOnUse" x="-40" y="-40" width="680" height="980">' +
-      '<use href="' + u + '" fill="#fff"/><use href="' + u + '" fill="#000" transform="translate(6 5)"/></mask>';
-    // Cast shadow: two widened copies of the silhouette, offset down-right.
-    var shadow = '<g opacity=".14"><use href="' + u + '" transform="translate(12 14)" fill="#120904" stroke="#120904" stroke-width="34" stroke-linejoin="round"/></g>' +
-      '<g opacity=".22"><use href="' + u + '" transform="translate(6 7)" fill="#120904" stroke="#120904" stroke-width="10" stroke-linejoin="round"/></g>';
-    var rim = '<rect x="-40" y="-40" width="680" height="980" fill="#ffe8c4" opacity=".6" mask="url(#' + this.id("rim") + ')"/>';
+    var box = ' x="-40" y="-40" width="680" height="980"';
+    var defs = '<g id="' + sid + '">';
+    for (i = 0; i < this.sil.length; i++) defs += '<use href="#' + this.sil[i] + '"/>';
+    defs += "</g>" +
+      // Rim: the silhouette minus itself shifted down-right leaves a thin upper-left edge.
+      '<mask id="' + this.id("rim") + '" maskUnits="userSpaceOnUse"' + box + '><use href="' + u + '" fill="#fff"/>' +
+      '<use href="' + u + '" fill="#000" transform="translate(6 5)"/></mask>' +
+      '<mask id="' + this.id("in") + '" maskUnits="userSpaceOnUse"' + box + '><use href="' + u + '" fill="#fff"/></mask>' +
+      // Light falls off toward the bottom, where the text panel sits.
+      '<linearGradient id="' + this.id("fd") + '" gradientUnits="userSpaceOnUse" x1="0" y1="470" x2="0" y2="900">' +
+      '<stop offset="0" stop-color="' + SH + '" stop-opacity="0"/><stop offset="1" stop-color="' + SH + '" stop-opacity=".34"/></linearGradient>';
+    var shadow = '<g opacity=".12"><use href="' + u + '" transform="translate(10 12)" fill="#120904" stroke="#120904" stroke-width="36" stroke-linejoin="round"/></g>' +
+      '<g opacity=".2"><use href="' + u + '" transform="translate(5 6)" fill="#120904" stroke="#120904" stroke-width="10" stroke-linejoin="round"/></g>';
+    var over = '<rect' + box + ' fill="url(#' + this.id("fd") + ')" mask="url(#' + this.id("in") + ')"/>';
+    if (this.tint) over += '<rect' + box + ' fill="' + this.tint[0] + '" opacity="' + this.tint[1] + '" mask="url(#' + this.id("in") + ')"/>';
+    over += '<rect' + box + ' fill="#ffe8c4" opacity="' + (this.tint ? 0.45 : 0.6) + '" mask="url(#' + this.id("rim") + ')"/>';
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" preserveAspectRatio="xMidYMax meet" width="100%" height="100%"' +
       ' class="bhs-portrait" data-portrait="' + this.cid + '" data-facing="left" aria-hidden="true" focusable="false">' +
-      "<defs>" + sil + mask + this.defs.join("") + "</defs>" + shadow + this.body.join("") + rim + "</svg>";
+      "<defs>" + defs + this.defs.join("") + "</defs>" + shadow + this.body.join("") + over + "</svg>";
   };
+
+  // Lens-shaped tapered stroke from a through m to b, t thick at m (frame units).
+  function leaf(c, f, a, m, b, t, color, o) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], L = Math.sqrt(dx * dx + dy * dy) || 1;
+    var nx = (-dy / L) * t * 0.5, ny = (dx / L) * t * 0.5;
+    c.shape(f, [[a[0], a[1], 1], [m[0] + nx, m[1] + ny], [b[0], b[1], 1], [m[0] - nx, m[1] - ny]], color, o);
+  }
 
   // ---------------------------------------------------------------- face kit
   // Head-local units: head height 2 (crown v=-1, chin v=1), u to the right. Three-quarter
   // view facing screen-left: the far eye (left) is narrower, the near ear shows on the right.
 
   var FACE = {
-    jaw: 1, chin: 1, round: 0, hollow: 0,        // head shape
-    open: 1, gaze: -0.32, crinkle: 0, tired: 0,  // eyes
-    browIn: 0, browUp: 0, browT: 1, arch: 1,     // brows (browIn > 0 lifts the inner ends)
-    smile: 0, part: 0, mouthW: 1, wry: 0,        // mouth (wry lifts the near corner and brow)
-    age: 0, nose: 1, ear: 1, lash: 1,
-    skin: "#a6744f", lip: "#8a4a36", brow: "#2a1f19", iris: "#3b2416", sclera: "#e4d8c3"
+    jaw: 1, chin: 1, round: 0, hollow: 0,                 // head shape
+    eye: 1, open: 1, gaze: -0.2, crinkle: 0, tired: 0,    // eyes
+    browIn: 0, browUp: 0, browT: 1, arch: 1,              // brows (browIn > 0 lifts the inner ends)
+    smile: 0, part: 0, mouthW: 1, wry: 0,                 // mouth (wry lifts the near corner and brow)
+    age: 0, nose: 1, ear: 1, lash: 1, blush: 0,
+    skin: "#a6744f", lip: "#8a4a36", brow: "#2a1f19", iris: "#3a2416", sclera: "#d9ccb4"
   };
   function withFace(o) { var r = {}, k; for (k in FACE) r[k] = FACE[k]; for (k in o) r[k] = o[k]; return r; }
 
@@ -8257,13 +8435,6 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       [-0.47 - r * 0.04, 0.875 * k], [-0.585 - r * 0.06 + h * 0.03, 0.62], [-0.65 - r * 0.04 + h * 0.015, 0.3],
       [-0.675, 0.02], [-0.665, -0.3], [-0.575, -0.64], [-0.33, -0.915]
     ];
-  }
-
-  // Ear on the near side; drawn darker because it sits in the side plane.
-  function ear(c, f, o) {
-    var e = o.ear;
-    c.shape(f, [[0.6, -0.05], [0.69, -0.1 * e], [0.8, -0.06 * e], [0.84, 0.1], [0.79, 0.29], [0.69, 0.38], [0.61, 0.33]], mix(o.skin, SH, 0.2), 1, true);
-    c.shape(f, [[0.665, 0.0], [0.75, -0.03], [0.785, 0.1], [0.74, 0.25], [0.69, 0.21], [0.72, 0.1], [0.68, 0.06]], SH, 0.32);
   }
 
   // Tapered brow from the inner end a to the outer end b, arched upward.
@@ -8288,104 +8459,258 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var u1 = [lerp(I[0], O[0], 0.25), cy - h * 1.3], u2 = [lerp(I[0], O[0], 0.7), cy - h * 1.22];
     var l1 = [lerp(I[0], O[0], 0.72), cy + d * (1.25 - o.crinkle * 0.45)], l2 = [lerp(I[0], O[0], 0.28), cy + d * 1.2];
     function P(q) { return nums(f(q[0], q[1])); }
-    var almond = "M" + P(I) + "C" + P(u1) + " " + P(u2) + " " + P(O) + "C" + P(l1) + " " + P(l2) + " " + P(I) + "Z";
+    var upper = "M" + P(I) + "C" + P(u1) + " " + P(u2) + " " + P(O);
+    var almond = upper + "C" + P(l1) + " " + P(l2) + " " + P(I) + "Z";
     c.fill(almond, o.sclera);
     var r = w * 0.44, g = [cx + o.gaze * w, cy - h * 0.1 + d * 0.32], s = f.s;
-    var lidShade = "M" + P(I) + "C" + P(u1) + " " + P(u2) + " " + P(O) + "C" + P([u2[0], u2[1] + h * 0.75]) + " " + P([u1[0], u1[1] + h * 0.75]) + " " + P(I) + "Z";
-    c.group('clip-path="' + c.clip(almond) + '"');
+    c.inside(almond);
     c.circle(f(g[0], g[1]), r * s, o.iris);
     c.circle(f(g[0], g[1]), r * 0.5 * s, INK);
-    c.fill(lidShade, SH, 0.28);
+    c.fill(upper + "C" + P([u2[0], u2[1] + h * 0.75]) + " " + P([u1[0], u1[1] + h * 0.75]) + " " + P(I) + "Z", SH, 0.3);
     c.end();
-    c.circle(f(g[0] - r * 0.32, g[1] - r * 0.36), r * 0.2 * s, "#fff8ea", 0.9);
+    c.circle(f(g[0] - r * 0.3, g[1] - r * 0.34), r * 0.2 * s, "#fff8ea", 0.85);
     // Lash line along the upper lid, a little past the outer corner.
-    var t = 0.024 * o.lash, Oe = [O[0] - inner * w * 0.16, O[1] + w * 0.03];
-    c.fill("M" + P(I) + "C" + P(u1) + " " + P(u2) + " " + P(O) + "L" + P(Oe) + "C" + P([u2[0], u2[1] - t * 1.6]) + " " +
-      P([u1[0], u1[1] - t * 1.4]) + " " + P([I[0], I[1] - t * 0.3]) + "Z", INK, 0.92);
+    var t = 0.024 * o.lash, Oe = [O[0] - inner * w * (0.12 + 0.06 * o.lash), O[1] + w * 0.03];
+    c.fill(upper + "L" + P(Oe) + "C" + P([u2[0], u2[1] - t * 1.6]) + " " + P([u1[0], u1[1] - t * 1.4]) + " " + P([I[0], I[1] - t * 0.3]) + "Z", INK, 0.92);
     // Upper-lid crease and a faint lower lid.
     var k = 0.035 + h * 0.55;
-    c.add('<path d="M' + P(lerp2(I, O, 0.12, -k * 0.5)) + "C" + P([u1[0], u1[1] - k]) + " " + P([u2[0], u2[1] - k]) + " " + P(lerp2(I, O, 0.92, -k * 0.6)) +
-      '" fill="none" stroke="' + SH + '" stroke-width="' + r1(s * 0.014) + '" stroke-linecap="round" opacity=".38"/>');
+    c.add('<path d="M' + P([lerp(I[0], O[0], 0.12), lerp(I[1], O[1], 0.12) - k * 0.5]) + "C" + P([u1[0], u1[1] - k]) + " " + P([u2[0], u2[1] - k]) + " " +
+      P([lerp(I[0], O[0], 0.92), lerp(I[1], O[1], 0.92) - k * 0.6]) + '" fill="none" stroke="' + SH + '" stroke-width="' + r1(s * 0.014) +
+      '" stroke-linecap="round" opacity=".38"/>');
     var b1 = bez(O, l1, l2, I, 0.18), b2 = bez(O, l1, l2, I, 0.5), b3 = bez(O, l1, l2, I, 0.82);
-    c.line(f, [[b1[0], b1[1] + 0.012], [b2[0], b2[1] + 0.016], [b3[0], b3[1] + 0.012]], SH, r1(s * 0.012), 0.22 + o.tired * 0.2 + o.age * 0.1);
+    c.line(f, [[b1[0], b1[1] + 0.012], [b2[0], b2[1] + 0.016], [b3[0], b3[1] + 0.012]], SH, s * 0.012, r1(0.22 + o.tired * 0.2 + o.age * 0.1));
     if (o.tired > 0 || o.age > 0) {
-      c.line(f, [[b1[0], b1[1] + 0.06], [b2[0], b2[1] + 0.075], [b3[0], b3[1] + 0.05]], SH, r1(s * 0.012), 0.12 + o.tired * 0.12);
+      c.line(f, [[b1[0], b1[1] + 0.06], [b2[0], b2[1] + 0.075], [b3[0], b3[1] + 0.05]], SH, s * 0.012, r1(0.1 + o.tired * 0.14 + o.age * 0.06));
     }
     if (o.crinkle > 0 || o.age > 0.5) {
       var ox = O[0] - inner * 0.03;
-      c.line(f, [[ox, O[1] + 0.01], [ox - inner * 0.06, O[1] + 0.035]], SH, r1(s * 0.012), 0.25 + o.crinkle * 0.15);
-      c.line(f, [[ox, O[1] + 0.045], [ox - inner * 0.05, O[1] + 0.09]], SH, r1(s * 0.012), 0.2 + o.crinkle * 0.12);
+      c.line(f, [[ox, O[1] + 0.01], [ox - inner * 0.06, O[1] + 0.035]], SH, s * 0.012, r1(0.22 + o.crinkle * 0.15));
+      c.line(f, [[ox, O[1] + 0.045], [ox - inner * 0.05, O[1] + 0.09]], SH, s * 0.012, r1(0.18 + o.crinkle * 0.12));
     }
   }
-  function lerp2(a, b, t, dy) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t) + dy]; }
 
-  // Draws the head (skin, ear, planes, eyes, brows, nose). The mouth is separate so beards
-  // can go between. Returns the head outline path (for clipping).
+  // Draws the head: skin, ear, light and shadow planes, eyes, brows, nose. The mouth is
+  // separate so beards can go between. Returns the head outline path.
   function head(c, f, o) {
+    var keep = PREC;
+    PREC = f.s < 100 ? 1 : 10;
     var hd = c.shape(f, headPts(o), o.skin, 1, true);
-    if (o.ear) ear(c, f, o);
-    c.group('clip-path="' + c.clip(hd) + '"');
+    PREC = 1;
+    if (o.ear) {
+      c.shape(f, [[0.6, -0.05], [0.69, -0.1], [0.8, -0.06], [0.84, 0.1], [0.79, 0.29], [0.69, 0.38], [0.61, 0.33]], mix(o.skin, SH, 0.2), 1, true);
+      c.shape(f, [[0.665, 0.0], [0.75, -0.03], [0.785, 0.1], [0.74, 0.25], [0.69, 0.21], [0.72, 0.1], [0.68, 0.06]], SH, 0.32);
+    }
+    c.inside(hd);
     // Near side plane, from the temple past the outer eye corner and down the cheek.
     c.shape(f, [[0.33, -1.05], [0.27, -0.55], [0.25, -0.22], [0.27, 0.06], [0.245, 0.3, 1], [0.16, 0.56], [0.03, 0.8], [-0.08, 1.02],
       [0.6, 1.3, 1], [1.1, 0.4, 1], [1.1, -1.1, 1]], SH, 0.2);
     if (o.hollow) {
-      c.shape(f, [[0.245, 0.3], [0.1, 0.42], [0.03, 0.62], [0.18, 0.6]], SH, 0.14 * o.hollow);
-      c.shape(f, [[-0.66, 0.3], [-0.52, 0.42], [-0.56, 0.64], [-0.64, 0.6]], SH, 0.12 * o.hollow);
+      c.shape(f, [[0.245, 0.3], [0.1, 0.42], [0.03, 0.62], [0.18, 0.6]], SH, r1(0.14 * o.hollow));
+      c.shape(f, [[-0.66, 0.3], [-0.52, 0.42], [-0.56, 0.64], [-0.64, 0.6]], SH, r1(0.12 * o.hollow));
+    }
+    if (o.blush) {
+      c.shape(f, [[-0.06, 0.22], [0.14, 0.18], [0.24, 0.33], [0.1, 0.46], [-0.06, 0.38]], "#b8442a", r1(0.1 * o.blush));
+      c.shape(f, [[-0.62, 0.22], [-0.47, 0.2], [-0.43, 0.34], [-0.56, 0.42]], "#b8442a", r1(0.07 * o.blush));
     }
     // Eye sockets under the brow ridge.
     c.shape(f, [[-0.12, -0.14], [0.05, -0.17], [0.23, -0.11], [0.21, 0.0], [0.05, -0.07], [-0.11, -0.03]], SH, 0.12);
     c.shape(f, [[-0.38, -0.13], [-0.52, -0.155], [-0.65, -0.11], [-0.63, -0.01], [-0.5, -0.06], [-0.39, -0.03]], SH, 0.1);
     // Light on the forehead, the far cheekbone and the chin.
-    c.shape(f, [[-0.56, -0.6], [-0.3, -0.8], [0.02, -0.74], [0.1, -0.52], [-0.14, -0.36], [-0.47, -0.38]], HI, 0.13);
+    c.shape(f, [[-0.56, -0.58], [-0.3, -0.74], [0.0, -0.7], [0.06, -0.52], [-0.16, -0.4], [-0.47, -0.4]], HI, 0.08);
     c.shape(f, [[-0.66, 0.1], [-0.5, 0.14], [-0.42, 0.3], [-0.6, 0.38]], HI, 0.12);
     c.shape(f, [[-0.36, 0.84], [-0.22, 0.81], [-0.13, 0.9], [-0.3, 0.95]], HI, 0.1);
     if (o.age > 0) {
-      c.line(f, [[-0.5, -0.47], [-0.25, -0.52], [0.0, -0.49]], SH, r1(f.s * 0.012), 0.22 * o.age);
-      c.line(f, [[-0.12, 0.43], [-0.06, 0.55], [-0.04, 0.66]], SH, r1(f.s * 0.014), 0.3 * o.age);
+      c.line(f, [[-0.5, -0.47], [-0.25, -0.52], [0.0, -0.49]], SH, f.s * 0.012, r1(0.22 * o.age));
+      c.line(f, [[-0.12, 0.43], [-0.06, 0.55], [-0.04, 0.66]], SH, f.s * 0.014, r1(0.3 * o.age));
     }
     c.end();
     // Eyes and brows.
-    var ey = 0.03;
-    eye(c, f, -0.505, ey, 0.112, 1, o);
-    eye(c, f, 0.035, ey, 0.142, -1, o);
+    PREC = 10;
+    var ey = 0.03, es = o.eye;
+    eye(c, f, -0.505, ey, 0.115 * es, 1, o);
+    eye(c, f, 0.035, ey, 0.146 * es, -1, o);
     var bu = o.browUp, bi = o.browIn, t = 0.052 * o.browT, ar = 0.035 * o.arch;
     brow(c, f, [-0.37, -0.165 - bu - bi], [-0.655, -0.13 - bu], ar, t * 0.92, o.brow);
     brow(c, f, [-0.125, -0.175 - bu - bi], [0.245, -0.135 - bu - o.wry * 0.05], ar + o.wry * 0.02, t, o.brow);
     // Nose: shadow side plane, wing, nostril, ridge light, cast shadow below.
     var n = o.nose;
     c.shape(f, [[-0.228, -0.02], [-0.18, 0.1], [-0.162, 0.28 * n], [-0.112, 0.38 * n, 1], [-0.14, 0.432 * n], [-0.222, 0.44 * n], [-0.2, 0.37 * n], [-0.212, 0.2 * n]], SH, 0.24);
-    c.line(f, [[-0.128, 0.33 * n], [-0.105, 0.39 * n], [-0.135, 0.435 * n]], SH, r1(f.s * 0.016), 0.4);
+    c.line(f, [[-0.128, 0.33 * n], [-0.105, 0.39 * n], [-0.135, 0.435 * n]], SH, f.s * 0.016, 0.4);
     c.shape(f, [[-0.27, 0.425 * n], [-0.235, 0.41 * n], [-0.2, 0.425 * n], [-0.235, 0.44 * n]], SH, 0.6);
-    c.line(f, [[-0.27, 0.0], [-0.3, 0.18 * n], [-0.322, 0.33 * n]], HI, r1(f.s * 0.018), 0.32);
+    c.line(f, [[-0.27, 0.0], [-0.3, 0.18 * n], [-0.322, 0.33 * n]], HI, f.s * 0.018, 0.32);
     c.shape(f, [[-0.37, 0.415 * n], [-0.28, 0.465 * n], [-0.15, 0.462 * n], [-0.11, 0.425 * n], [-0.24, 0.445 * n]], SH, 0.26);
+    PREC = keep;
     return hd;
   }
 
   // Mouth: upper lip, lower lip, the line between, a shadow under the lower lip.
-  function mouth(c, f, o, beard) {
+  function mouth(c, f, o, bearded) {
+    var keep = PREC;
+    PREC = 10;
     var s = o.smile * 0.035, w = o.mouthW, cx = -0.255, y = 0.628;
     var A = [cx - 0.168 * w, y - s], B = [cx + 0.18 * w, y - s * 1.15 - o.wry * 0.03];
     var mid = [cx, y + 0.01 + s * 0.25];
-    var gap = 0.012 + o.part * 0.03;
-    if (!beard) c.shape(f, [A, [cx - 0.07, y - 0.035], [cx, y - 0.028], [cx + 0.07, y - 0.035], B, mid], o.lip, 0.55);
-    c.shape(f, [[A[0] + 0.02, A[1] + 0.012], [cx, y + 0.07 + s * 0.2], [B[0] - 0.03, B[1] + 0.012], mid], o.lip, beard ? 0.9 : 0.55);
-    c.shape(f, [A, [cx - 0.08, mid[1] - gap * 0.6], [cx + 0.08, mid[1] - gap * 0.6], B, [cx + 0.08, mid[1] + gap * 0.5], [cx - 0.08, mid[1] + gap * 0.5]],
-      mix(o.lip, INK, 0.62), 0.95);
-    if (!beard) c.shape(f, [[cx - 0.1, y + 0.085], [cx, y + 0.1], [cx + 0.1, y + 0.08], [cx, y + 0.125]], SH, 0.16);
+    var gap = 0.012 + o.part * 0.034;
+    if (!bearded) c.shape(f, [A, [cx - 0.07, y - 0.035], [cx, y - 0.028], [cx + 0.07, y - 0.035], B, mid], o.lip, 0.55);
+    c.shape(f, [[A[0] + 0.02, A[1] + 0.012], [cx, y + 0.07 + s * 0.2 + o.part * 0.02], [B[0] - 0.03, B[1] + 0.012], mid], o.lip, bearded ? 0.9 : 0.55);
+    var line = [A, [cx - 0.08, mid[1] - gap * 0.6], [cx + 0.08, mid[1] - gap * 0.6], B, [cx + 0.08, mid[1] + gap * 0.5], [cx - 0.08, mid[1] + gap * 0.5]];
+    var ld = c.shape(f, line, mix(o.lip, INK, 0.62), 0.95);
+    if (o.part > 0.45) {
+      c.inside(ld);
+      c.shape(f, [[cx - 0.12, mid[1] - gap], [cx + 0.12, mid[1] - gap], [cx + 0.1, mid[1] - gap * 0.2], [cx - 0.1, mid[1] - gap * 0.2]], "#e8dccb", 0.85);
+      c.end();
+    }
+    if (!bearded) c.shape(f, [[cx - 0.1, y + 0.085], [cx, y + 0.1], [cx + 0.1, y + 0.08], [cx, y + 0.125]], SH, 0.16);
+    PREC = keep;
   }
 
-  // ---------------------------------------------------------------- shared garment helpers
+  // ---------------------------------------------------------------- hair, beards, garments
 
-  // Thin highlight / shadow fold strokes on cloth.
-  function folds(c, f, list, color, w, o) {
-    for (var i = 0; i < list.length; i++) c.line(f, list[i], color, w, o);
+  // Hair cap: hairline across the forehead (line raises it), sideburn in front of the near
+  // ear (side = how low), then around the back of the head. bump > 0 gives curls, spiky
+  // gives tousled points; locks are light leaves inside the hair.
+  function hair(c, f, h) {
+    var hl = h.line || 0, bump = h.bump || 0, n = h.n || 8, vol = h.vol || 1, sb = h.side === undefined ? 0.16 : h.side;
+    c.shape(f, [[-0.63, -0.38], [-0.52, -0.5 - hl], [-0.3, -0.56 - hl], [-0.05, -0.57 - hl], [0.16, -0.5 - hl], [0.28, -0.38 - hl], [0.3, -0.62], [0.0, -0.8], [-0.62, -0.62]], SH, 0.16);
+    var p = [[-0.668, -0.14, 1], [-0.63, -0.42], [-0.52, -0.58 - hl], [-0.3, -0.64 - hl], [-0.05, -0.65 - hl], [0.16, -0.58 - hl], [0.27, -0.47 - hl, 1],
+      [0.33, -0.2], [0.4, 0.05], [0.45, sb, 1], [0.54, -0.01], [0.65, -0.1], [0.79, -0.12], [0.87, 0.02], [0.86, 0.3], [0.8, 0.52, 1]];
+    var a0 = 6.38, a1 = 3.4, N = n * 2;
+    for (var i = 0; i <= N; i++) {
+      var t = i / N, a = lerp(a0, a1, t), r = vol * (1 + (i % 2 ? 0 : bump));
+      p.push([0.09 + 0.83 * r * Math.cos(a), -0.22 + 0.9 * r * Math.sin(a), h.spiky && i % 2 === 0 ? 1 : 0]);
+    }
+    if (h.fringe) p.splice(3, 3, h.fringe[0], h.fringe[1], h.fringe[2]);
+    var d = c.shape(f, p, h.color, 1, true);
+    c.inside(d);
+    c.shape(f, [[0.3, -1.4], [1.3, -1.2], [1.3, 0.8], [0.6, 0.6], [0.42, -0.2]], SH, 0.22);
+    c.shape(f, [[-0.72, -0.6], [-0.42, -1.0], [0.1, -1.13], [0.02, -0.92], [-0.45, -0.74]], HI, 0.1);
+    var L = h.locks || [];
+    for (var j = 0; j < L.length; j++) leaf(c, f, L[j][0], L[j][1], L[j][2], L[j][3] || 0.05, h.hi || HI, L[j][4] || 0.16);
+    c.end();
+    return d;
   }
 
-  // Rounded hand-free neck column from the jaw to the collar.
-  function neck(c, f, o, w) {
+  // Beard over the jaw with a mustache; e widens it, len lengthens it. stubble draws it as
+  // a faint shadow instead. locks are leaves in a lighter (gray) or darker color.
+  function beard(c, f, b) {
+    var e = b.e || 0, L = b.len || 0;
+    var p = [[0.46, 0.12, 1], [0.58 + e, 0.42], [0.5 + e, 0.8], [0.24 + e * 0.5, 1.0 + L * 0.55], [-0.12, 1.07 + L], [-0.42, 0.99 + L * 0.7],
+      [-0.62 - e * 0.5, 0.74], [-0.69 - e * 0.3, 0.4], [-0.68, 0.08, 1], [-0.6, 0.3], [-0.5, 0.47], [-0.45, 0.58], [-0.37, 0.515],
+      [-0.255, 0.49], [-0.15, 0.51], [-0.05, 0.56], [0.04, 0.5], [0.2, 0.36], [0.35, 0.2]];
+    if (b.stubble) { c.shape(f, p, SH, b.stubble); return null; }
+    var d = c.shape(f, p, b.color, 1, true);
+    c.inside(d);
+    c.shape(f, [[0.12, 0.45], [0.7, 0.1], [0.8, 1.7], [0.0, 1.7], [0.05, 1.0]], SH, 0.24);
+    c.shape(f, [[-0.6, 0.86 + L * 0.5], [0.4, 0.86 + L * 0.5], [0.4, 1.5 + L], [-0.6, 1.5 + L]], SH, 0.16);
+    c.shape(f, [[-0.68, 0.2], [-0.54, 0.5], [-0.48, 0.78], [-0.64, 0.72]], HI, 0.1);
+    var K = b.locks || [];
+    for (var j = 0; j < K.length; j++) leaf(c, f, K[j][0], K[j][1], K[j][2], K[j][3] || 0.05, b.hi || HI, K[j][4] || 0.3);
+    c.end();
+    return d;
+  }
+
+  // Neck column from the jaw to below the collar, mostly in shadow.
+  function neck(c, f, skin, w) {
     var k = w || 1;
-    c.shape(f, [[-0.34 * k, 0.55], [0.42 * k, 0.4], [0.47 * k, 1.05], [0.56 * k, 1.62], [-0.44 * k, 1.66], [-0.36 * k, 1.05]], mix(o.skin, SH, 0.22), 1, true);
-    c.shape(f, [[-0.4 * k, 0.75], [0.5 * k, 0.6], [0.5 * k, 1.05], [-0.1, 1.08], [-0.42 * k, 0.98]], SH, 0.18);
+    c.shape(f, [[-0.34 * k, 0.55], [0.42 * k, 0.4], [0.47 * k, 1.05], [0.56 * k, 1.72], [-0.44 * k, 1.76], [-0.36 * k, 1.05]], mix(skin, SH, 0.18), 1, true);
+    c.shape(f, [[-0.4 * k, 0.72], [0.5 * k, 0.55], [0.5 * k, 1.05], [-0.06, 1.1], [-0.42 * k, 0.98]], SH, 0.2);
+  }
+
+  // Tunic over shoulders and chest (body frame: head center origin, head units). k scales
+  // the width; nk the depth of the neckline.
+  function tunic(c, b, color, k, nk, bottom) {
+    var n = nk || 1, B = bottom || bot(b);
+    var d = c.shape(b, [[-1.86 * k, B, 1], [-1.82 * k, 2.6], [-1.7 * k, 1.88], [-1.32 * k, 1.52], [-0.44, 1.32, 1], [0.02, 1.32 + 0.28 * n], [0.5, 1.28, 1],
+      [1.38 * k, 1.46], [1.93 * k, 1.8], [2.04 * k, 2.6], [2.08 * k, B, 1]], color, 1, true);
+    c.inside(d);
+    c.shape(b, [[0.95, 1.2], [2.4, 1.5], [2.4, B], [1.25, B], [1.1, 3.0]], SH, 0.15);
+    c.shape(b, [[-0.44, 1.32], [0.02, 1.32 + 0.28 * n], [0.5, 1.28], [0.5, 1.4], [0.02, 1.43 + 0.28 * n], [-0.44, 1.43]], SH, 0.22);
+    leaf(c, b, [-1.3 * k, 2.1], [-1.36 * k, 3.6], [-1.36 * k, B], 0.07, SH, 0.2);
+    leaf(c, b, [1.5 * k, 2.1], [1.56 * k, 3.6], [1.58 * k, B], 0.07, SH, 0.22);
+    c.shape(b, [[-1.66 * k, 1.9], [-1.2 * k, 1.56], [-0.6, 1.42], [-0.9, 1.62], [-1.4 * k, 1.9]], HI, 0.14);
+    c.end();
+    return d;
+  }
+
+  // Mantle drawn over the head (scribes): the part behind the head, then the front.
+  function hoodBack(c, b, M) {
+    c.shape(b, [[-0.3, -1.13], [0.25, -1.17], [0.73, -0.98], [0.98, -0.55], [1.04, 0.05], [1.02, 0.6], [0.6, 0.9], [-0.7, 0.6], [-0.86, -0.3], [-0.74, -0.84]], M.inner, 1, true);
+  }
+  function hoodFront(c, b, M, k) {
+    var B = bot(b);
+    var d = c.shape(b, [
+      [-0.8, B, 1], [-0.72, 2.3], [-0.78, 1.45], [-0.84, 0.6], [-0.8, 0.0], [-0.72, -0.6, 1], [-0.42, -0.75], [-0.05, -0.78], [0.25, -0.7],
+      [0.4, -0.42], [0.47, 0.0], [0.52, 0.45], [0.55, 0.9], [0.64, 1.4], [0.74, 2.3], [0.7, B, 1],
+      [2.1 * k, B, 1], [2.07 * k, 2.6], [1.98 * k, 1.9], [1.62 * k, 1.52], [1.14, 1.26], [1.04, 0.7], [1.05, 0.05], [0.98, -0.55], [0.73, -0.98],
+      [0.25, -1.17], [-0.3, -1.13], [-0.73, -0.84], [-0.89, -0.3], [-0.94, 0.45], [-1.0, 1.1], [-1.32 * k, 1.44], [-1.7 * k, 1.62], [-1.86 * k, 1.98],
+      [-1.92 * k, 2.6], [-1.96 * k, B, 1]
+    ], M.cloth, 1, true);
+    c.inside(d);
+    // Hood interior: a narrow band along the face opening.
+    c.shape(b, [[-0.72, -0.6], [-0.42, -0.75], [-0.05, -0.78], [0.25, -0.7], [0.4, -0.42], [0.47, 0.0], [0.52, 0.45], [0.55, 0.9], [0.64, 1.4],
+      [0.71, 1.4], [0.62, 0.9], [0.59, 0.45], [0.54, 0.0], [0.47, -0.46], [0.29, -0.78], [-0.05, -0.85], [-0.44, -0.82], [-0.78, -0.64]], M.inner, 0.55);
+    // Shade on the right half; light on the crown; folds.
+    c.shape(b, [[0.64, -0.3], [1.15, -0.6], [2.5, 1.7], [2.5, B], [1.35, B], [1.1, 3.0], [0.86, 1.7]], SH, 0.14);
+    c.shape(b, [[-0.62, -0.96], [-0.1, -1.13], [0.5, -1.02], [0.3, -0.88], [-0.2, -0.92]], HI, 0.3);
+    leaf(c, b, [1.2, 1.45], [1.34 * k, 2.3], [1.36 * k, 3.6], 0.1, M.dark, 0.9);
+    leaf(c, b, [1.62 * k, 1.75], [1.74 * k, 2.7], [1.74 * k, 3.8], 0.09, M.dark, 0.9);
+    leaf(c, b, [-1.38 * k, 1.7], [-1.48 * k, 2.5], [-1.5 * k, 3.6], 0.09, M.dark, 0.9);
+    leaf(c, b, [-1.02, 1.42], [-1.1, 2.1], [-1.1, 3.0], 0.08, M.dark, 0.8);
+    leaf(c, b, [0.75, -0.92], [0.97, -0.4], [1.0, 0.3], 0.08, M.dark, 0.7);
+    // Two dark bands across the hanging panels.
+    if (M.band) {
+      c.shape(b, [[-2.3, 2.62], [-1.3, 2.7], [0, 2.6], [1.4, 2.72], [2.4, 2.64], [2.4, 2.86], [1.4, 2.94], [0, 2.82], [-1.3, 2.92], [-2.3, 2.84]], M.band, 0.92);
+      c.shape(b, [[-2.3, 3.04], [-1.3, 3.12], [0, 3.02], [1.4, 3.14], [2.4, 3.06], [2.4, 3.14], [1.4, 3.22], [0, 3.1], [-1.3, 3.2], [-2.3, 3.12]], M.band, 0.92);
+    }
+    c.end();
+    return d;
+  }
+
+  // Cloth wrapped around the head (townsmen): a tail behind the ear, the crown cap, folds.
+  function headcloth(c, f, h) {
+    c.shape(f, [[0.7, -0.4], [0.98, -0.25], [1.06, 0.4], [1.0, 1.1], [0.84, 1.3], [0.74, 0.8], [0.76, 0.2]], mix(h.color, SH, 0.25), 1, true);
+    var lo = h.low || 0;
+    var d = c.shape(f, [[-0.73, -0.3 + lo, 1], [-0.78, -0.7], [-0.54, -1.06], [0.0, -1.2], [0.55, -1.1], [0.88, -0.8], [0.95, -0.36], [0.84, -0.08], [0.62, -0.05],
+      [0.5, -0.36 + lo], [0.25, -0.5 + lo], [-0.1, -0.56 + lo], [-0.48, -0.5 + lo]], h.color, 1, true);
+    c.inside(d);
+    c.shape(f, [[0.3, -1.4], [1.2, -1.2], [1.2, 0.2], [0.5, 0.0], [0.4, -0.6]], SH, 0.22);
+    c.shape(f, [[-0.8, -0.62], [-0.45, -1.0], [0.1, -1.16], [0.0, -0.98], [-0.5, -0.78]], HI, 0.18);
+    leaf(c, f, [-0.74, -0.58 + lo], [-0.1, -0.74 + lo], [0.86, -0.52], 0.09, mix(h.color, SH, 0.4), 0.8);
+    leaf(c, f, [-0.62, -0.88], [0.0, -1.02], [0.82, -0.86], 0.06, mix(h.color, SH, 0.4), 0.7);
+    c.end();
+    return d;
+  }
+
+  // Relaxed hand seen from the back: wrist at the origin, fingers along +u, thumb toward -v.
+  // Hand-local frame in head units (a hand is about 1.4 units long, as long as a face).
+  function hand(c, h, skin, curl) {
+    var d = curl
+      ? c.shape(h, [[0, 0.26, 1], [0.4, 0.32], [0.7, 0.31], [0.9, 0.27], [1.0, 0.14], [1.02, -0.04], [0.96, -0.2], [0.8, -0.3], [0.68, -0.34],
+        [0.7, -0.44], [0.62, -0.53], [0.42, -0.48], [0.2, -0.35], [0, -0.26, 1]], skin, 1, true)
+      : c.shape(h, [[0, 0.26, 1], [0.4, 0.32], [0.72, 0.31], [1.0, 0.3], [1.16, 0.24], [1.22, 0.14], [1.32, 0.1], [1.41, 0.02], [1.4, -0.08], [1.33, -0.18],
+        [1.24, -0.26], [0.95, -0.32], [0.72, -0.35], [0.68, -0.43], [0.82, -0.52], [0.72, -0.59], [0.45, -0.49], [0.2, -0.35], [0, -0.26, 1]], skin, 1, true);
+    c.inside(d);
+    c.shape(h, [[0.2, 0.1], [1.5, 0.05], [1.5, 0.4], [0.2, 0.4]], SH, 0.14);
+    c.shape(h, [[0.1, -0.2], [0.7, -0.3], [0.5, -0.1], [0.15, -0.05]], HI, 0.12);
+    if (curl) c.shape(h, [[0.74, -0.4], [1.1, -0.3], [1.1, 0.4], [0.74, 0.4], [0.8, 0.0]], SH, 0.12);
+    c.end();
+    if (curl) {
+      c.line(h, [[0.78, -0.16], [0.9, -0.14], [0.98, -0.1]], SH, h.s * 0.012, 0.35);
+      c.line(h, [[0.78, 0.0], [0.92, 0.01], [1.0, 0.02]], SH, h.s * 0.012, 0.35);
+      c.line(h, [[0.76, 0.15], [0.88, 0.16], [0.96, 0.15]], SH, h.s * 0.012, 0.35);
+    } else {
+      c.line(h, [[0.82, -0.14], [1.06, -0.13], [1.26, -0.12]], SH, h.s * 0.012, 0.35);
+      c.line(h, [[0.82, 0.02], [1.08, 0.03], [1.3, 0.04]], SH, h.s * 0.012, 0.35);
+      c.line(h, [[0.8, 0.16], [1.0, 0.17], [1.14, 0.17]], SH, h.s * 0.012, 0.35);
+    }
+    return d;
+  }
+
+  // Simple hand as a rounded mitt with finger seams, in a hand-local frame.
+  function mitt(c, h, pts, seams, skin) {
+    var d = c.shape(h, pts, skin, 1, true);
+    for (var i = 0; i < seams.length; i++) c.line(h, seams[i], SH, h.s * 0.014, 0.35);
+    return d;
   }
 
   // ---------------------------------------------------------------- characters
@@ -8393,87 +8718,385 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   var draw = {};
 
   // Menahem: scribe of Capernaum, about 50. Cream mantle with dark bands drawn over his
-  // head, tassel on the corner thrown over his shoulder, gray-streaked beard, a small scroll
-  // held to his chest with ink-darkened fingertips. Sincere and careful.
+  // head, a tassel on the corner thrown over his shoulder, gray-streaked beard, a small
+  // scroll held to his chest, ink-darkened fingertips. Sincere and careful.
   draw.menahem = function (c) {
-    var o = withFace({
-      skin: "#a6744f", lip: "#86493a", brow: "#3a322c", age: 1, open: 0.86, browIn: 0.018, gaze: -0.36, nose: 1.04, hollow: 0.4, jaw: 1.02
-    });
-    var f = frame(292, 228, 122, -0.02);
-    var b = frame(292, 228, 122, 0);
-    var MANTLE = "#dcd1b6", MANTLE_D = "#a69779", MANTLE_IN = "#7f725c", BAND = "#373a46";
-    var TUNIC = "#93703f";
-    // Tunic between the mantle panels.
-    c.shape(b, [[-1.2, 1.4], [0.9, 1.3], [1.2, 5.6, 1], [-1.3, 5.6, 1]], TUNIC, 1, true);
-    c.shape(b, [[0.2, 1.4], [0.9, 1.3], [1.2, 5.6, 1], [0.3, 5.6, 1]], SH, 0.18);
-    neck(c, f, o, 1.05);
-    // Back of the hood, behind the head.
-    c.shape(b, [[-0.3, -1.13], [0.25, -1.17], [0.72, -0.98], [0.97, -0.55], [1.03, 0.05], [1.0, 0.6], [0.6, 0.9], [-0.7, 0.6], [-0.84, -0.3], [-0.72, -0.82]], MANTLE_IN, 1, true);
+    var o = withFace({ skin: "#a6744f", lip: "#86493a", brow: "#3e3630", age: 1, open: 0.88, browIn: 0.022, gaze: -0.2, nose: 1.04, hollow: 0.4, jaw: 1.02 });
+    var f = frame(290, 226, 122, -0.02), b = frame(290, 226, 122, 0);
+    var M = { cloth: "#dcd1b6", dark: "#b6a88a", inner: "#8d806a", band: "#363a47" };
+    neck(c, f, o.skin, 1.05);
+    tunic(c, b, "#93703f", 1, 0.6);
+    hoodBack(c, b, M);
     head(c, f, o);
-    // Hair at the far temple and the forehead line, gray-streaked.
-    c.shape(f, [[-0.7, -0.62], [-0.45, -0.78], [-0.05, -0.8], [0.2, -0.7], [0.1, -0.62], [-0.2, -0.66], [-0.5, -0.6], [-0.62, -0.42], [-0.665, -0.2, 1], [-0.74, -0.25]], "#4a423b");
-    c.line(f, [[-0.66, -0.52], [-0.6, -0.62], [-0.45, -0.7]], "#a49d92", r1(f.s * 0.02), 0.85);
-    c.line(f, [[-0.7, -0.35], [-0.66, -0.5]], "#b9b2a6", r1(f.s * 0.016), 0.8);
-    // Beard: full, gray-streaked, below the cheekbones.
-    var BEARD = "#4f463e";
-    var beard = c.shape(f, [[-0.68, 0.12], [-0.6, 0.42], [-0.44, 0.52], [-0.3, 0.5], [-0.26, 0.535], [-0.2, 0.5], [-0.04, 0.52], [0.18, 0.44], [0.36, 0.22], [0.46, 0.3],
-      [0.5, 0.75], [0.36, 1.15], [0.08, 1.4], [-0.22, 1.48], [-0.5, 1.32], [-0.7, 0.98], [-0.76, 0.5]], BEARD, 1, true);
-    c.group('clip-path="' + c.clip(beard) + '"');
-    c.shape(f, [[0.1, 0.5], [0.5, 0.2], [0.6, 1.2], [0.1, 1.5]], SH, 0.25);
-    folds(c, f, [
-      [[-0.62, 0.62], [-0.58, 0.9], [-0.46, 1.18]], [[-0.4, 0.82], [-0.36, 1.1], [-0.28, 1.36]], [[-0.18, 0.85], [-0.14, 1.12], [-0.1, 1.35]],
-      [[0.04, 0.8], [0.06, 1.05], [0.02, 1.3]], [[0.22, 0.7], [0.26, 0.95], [0.2, 1.15]], [[-0.66, 0.25], [-0.64, 0.5]]
-    ], "#a8a196", r1(f.s * 0.022), 0.75);
-    folds(c, f, [[[-0.52, 0.7], [-0.48, 0.98]], [[-0.28, 0.9], [-0.24, 1.2]], [[0.14, 0.86], [0.14, 1.1]]], "#cfc8bc", r1(f.s * 0.016), 0.7);
-    c.end();
-    // Mouth and mustache.
+    // Hair at the far temple and along the forehead, gray at the temple.
+    c.shape(f, [[-0.72, -0.6], [-0.45, -0.76], [-0.05, -0.79], [0.22, -0.7], [0.12, -0.63], [-0.2, -0.67], [-0.5, -0.61], [-0.63, -0.42], [-0.67, -0.12, 1], [-0.75, -0.25]], "#463e37");
+    leaf(c, f, [-0.71, -0.3], [-0.66, -0.5], [-0.5, -0.66], 0.05, "#aaa398", 0.9);
+    leaf(c, f, [-0.4, -0.7], [-0.2, -0.73], [0.05, -0.74], 0.03, "#aaa398", 0.6);
+    beard(c, f, { color: "#5a5047", e: 0.04, len: 0.36, hi: "#b3ac9f", locks: [
+      [[-0.64, 0.42], [-0.6, 0.72], [-0.5, 1.02], 0.07, 0.75], [[-0.4, 0.8], [-0.36, 1.08], [-0.26, 1.36], 0.07, 0.8], [[-0.16, 0.86], [-0.12, 1.14], [-0.1, 1.4], 0.06, 0.65],
+      [[0.04, 0.82], [0.06, 1.06], [0.02, 1.3], 0.06, 0.55], [[0.22, 0.66], [0.26, 0.9], [0.2, 1.12], 0.06, 0.5], [[-0.5, 0.5], [-0.46, 0.66], [-0.4, 0.8], 0.05, 0.6],
+      [[-0.42, 0.53], [-0.3, 0.5], [-0.16, 0.53], 0.03, 0.7]
+    ] });
     mouth(c, f, o, true);
-    c.shape(f, [[-0.47, 0.66], [-0.44, 0.56], [-0.34, 0.5], [-0.255, 0.53], [-0.17, 0.5], [-0.04, 0.53], [0.02, 0.63], [-0.08, 0.6], [-0.255, 0.585], [-0.4, 0.6]], "#5a5148");
-    c.line(f, [[-0.42, 0.57], [-0.32, 0.535]], "#b3ac9f", r1(f.s * 0.016), 0.7);
-    c.line(f, [[-0.14, 0.535], [-0.03, 0.56]], "#b3ac9f", r1(f.s * 0.016), 0.6);
-    // Mantle front: over the crown, down both sides of the face, onto the shoulders.
-    var mantle = [
-      [-0.78, 5.6, 1], [-0.7, 2.2], [-0.76, 1.4], [-0.8, 0.6], [-0.76, 0.0], [-0.7, -0.6, 1], [-0.42, -0.74], [-0.05, -0.77], [0.24, -0.69],
-      [0.38, -0.42], [0.45, 0.0], [0.5, 0.45], [0.52, 0.9], [0.6, 1.4], [0.7, 2.2], [0.66, 5.6, 1], [2.25, 5.6, 1], [2.2, 3.0], [2.12, 2.0], [1.85, 1.55],
-      [1.25, 1.2], [1.02, 0.6], [1.03, 0.05], [0.97, -0.55], [0.72, -0.98], [0.25, -1.17], [-0.3, -1.13], [-0.72, -0.84], [-0.88, -0.3],
-      [-0.92, 0.45], [-1.02, 1.05], [-1.48, 1.45], [-1.82, 1.9], [-1.94, 3.0], [-1.98, 5.6, 1]
-    ];
-    var md = c.shape(b, mantle, MANTLE, 1, true);
-    c.group('clip-path="' + c.clip(md) + '"');
-    // Hood interior along the face opening.
-    c.shape(b, [[-0.7, -0.6], [-0.42, -0.74], [-0.05, -0.77], [0.24, -0.69], [0.38, -0.42], [0.45, 0.0], [0.5, 0.45], [0.52, 0.9], [0.6, 1.4],
-      [0.76, 1.42], [0.66, 0.9], [0.62, 0.4], [0.56, -0.05], [0.5, -0.5], [0.3, -0.82], [-0.05, -0.9], [-0.45, -0.86], [-0.76, -0.66]], MANTLE_IN, 0.85);
-    c.shape(b, [[-0.7, -0.6], [-0.76, 0.0], [-0.8, 0.6], [-0.76, 1.4], [-0.86, 1.4], [-0.9, 0.6], [-0.86, -0.1], [-0.78, -0.6]], MANTLE_IN, 0.7);
-    // Shade on the right half and in the folds; light on the crown.
-    c.shape(b, [[0.62, -0.2], [1.1, -0.6], [2.4, 1.6], [2.4, 5.7], [1.3, 5.7], [1.0, 3.0], [0.8, 1.6]], SH, 0.16);
-    c.shape(b, [[-0.6, -0.95], [-0.1, -1.12], [0.5, -1.0], [0.3, -0.85], [-0.2, -0.9]], HI, 0.3);
-    folds(c, b, [[[1.15, 1.3], [1.3, 2.0], [1.32, 3.2]], [[1.6, 1.7], [1.72, 2.6], [1.7, 3.6]], [[-1.4, 1.6], [-1.5, 2.4], [-1.5, 3.4]], [[-1.0, 1.3], [-1.1, 2.2]]],
-      MANTLE_D, r1(b.s * 0.05), 0.8);
-    // Two dark bands across the hanging panels.
-    c.shape(b, [[-2.1, 2.62], [-1.2, 2.7], [-0.6, 2.62], [-0.6, 2.86], [-1.2, 2.94], [-2.1, 2.86]], BAND, 0.92);
-    c.shape(b, [[-2.1, 3.04], [-1.2, 3.12], [-0.6, 3.04], [-0.6, 3.12], [-1.2, 3.2], [-2.1, 3.12]], BAND, 0.92);
-    c.shape(b, [[0.6, 2.6], [1.4, 2.72], [2.4, 2.66], [2.4, 2.9], [1.4, 2.96], [0.6, 2.84]], BAND, 0.92);
-    c.shape(b, [[0.6, 3.02], [1.4, 3.14], [2.4, 3.08], [2.4, 3.16], [1.4, 3.22], [0.6, 3.1]], BAND, 0.92);
+    hoodFront(c, b, M, 1);
+    // Corner thrown over the near shoulder; its tassel (one cord blue) hangs behind.
+    c.shape(b, [[1.5, 1.42], [1.98, 1.52], [2.2, 1.78], [2.16, 2.12, 1], [1.82, 1.9], [1.56, 1.66]], mix(M.cloth, SH, 0.1), 1, true);
+    c.circle(b(2.16, 2.16), b.s * 0.05, "#cdbfa0");
+    leaf(c, b, [2.12, 2.18], [2.1, 2.45], [2.08, 2.8], 0.05, "#e7ddc5");
+    leaf(c, b, [2.17, 2.18], [2.19, 2.47], [2.2, 2.84], 0.045, "#3e5d8a");
+    leaf(c, b, [2.2, 2.18], [2.25, 2.44], [2.29, 2.76], 0.05, "#e7ddc5");
+    c.sil.push(c.ref(sm(b, [[2.04, 2.1], [2.3, 2.1], [2.32, 2.84], [2.06, 2.82]])));
+    // Small scroll held to the chest; the fist grips its lower end, thumb over the top.
+    var q = b(-0.74, 2.72), h = frame(q[0], q[1], 122, -0.5), skin = mix(o.skin, SH, 0.06);
+    c.shape(h, [[-0.3, -0.1, 1], [1.1, -0.1, 1], [1.1, 0.1, 1], [-0.3, 0.1, 1]], "#d5c096", 1, true);
+    c.shape(h, [[-0.3, -0.1, 1], [1.1, -0.1, 1], [1.1, -0.04, 1], [-0.3, -0.04, 1]], HI, 0.4);
+    c.shape(h, [[-0.3, 0.05, 1], [1.1, 0.05, 1], [1.1, 0.1, 1], [-0.3, 0.1, 1]], SH, 0.2);
+    c.shape(h, [[1.08, -0.1], [1.15, 0], [1.08, 0.1], [1.03, 0]], "#ecdcb5", 1, true);
+    c.shape(h, [[-0.45, 0.12], [-0.2, 0.04], [-0.12, 0.3], [-0.4, 0.46]], mix("#93703f", SH, 0.2), 1, true);
+    mitt(c, h, [[-0.22, -0.1], [-0.02, -0.16], [0.17, -0.14], [0.22, 0.03], [0.2, 0.2], [0.0, 0.25], [-0.17, 0.22], [-0.25, 0.06]],
+      [[[-0.1, 0.0], [-0.1, 0.2]], [[0.0, 0.0], [0.0, 0.22]], [[0.1, 0.0], [0.1, 0.2]]], skin);
+    leaf(c, h, [-0.2, -0.08], [-0.02, -0.17], [0.16, -0.12], 0.07, mix(skin, HI, 0.12));
+    c.shape(h, [[0.1, -0.15], [0.16, -0.16], [0.19, -0.11], [0.13, -0.1]], "#262b38", 0.75);
+    c.shape(h, [[0.12, 0.13], [0.19, 0.12], [0.2, 0.19], [0.13, 0.2]], "#262b38", 0.7);
+    c.shape(h, [[0.02, 0.15], [0.08, 0.15], [0.08, 0.21], [0.02, 0.21]], "#262b38", 0.55);
+    c.shape(h, [[-0.25, 0.1], [0.22, 0.1], [0.2, 0.2], [0.0, 0.25], [-0.17, 0.22]], SH, 0.18);
+  };
+
+  // Hanan: Menahem's student, 17. Barely a beard, bright curious eyes, a wax tablet held
+  // up in one hand and a stylus in the other. Undyed tunic, olive mantle over one shoulder.
+  draw.hanan = function (c) {
+    var o = withFace({ skin: "#b4835b", lip: "#9b5443", brow: "#2a1e17", jaw: 0.95, chin: 0.96, round: 0.18, open: 1.08, gaze: -0.16, browUp: 0.035,
+      browIn: 0.02, browT: 0.85, arch: 1.25, smile: 0.3, part: 0.3, blush: 1, eye: 1.06 });
+    var f = frame(294, 238, 116, -0.03), b = frame(300, 238, 116, 0), B = bot(b);
+    neck(c, f, o.skin, 0.95);
+    tunic(c, b, "#d2c4a3", 0.95, 1);
+    // Olive mantle over the far shoulder, falling across the front.
+    var man = c.shape(b, [[-0.42, 1.34], [-1.28, 1.48], [-1.64, 1.86], [-1.76, 2.6], [-1.8, B, 1], [2.0, B, 1], [1.98, 4.3], [1.1, 3.75], [0.3, 2.9], [-0.18, 2.0]], "#6c7744", 1, true);
+    c.inside(man);
+    c.shape(b, [[-0.42, 1.34], [-0.18, 2.0], [0.3, 2.9], [1.1, 3.75], [1.98, 4.3], [1.98, 4.5], [1.0, 3.95], [0.16, 3.05], [-0.32, 2.1], [-0.56, 1.4]], "#86915a");
+    leaf(c, b, [-1.2, 1.7], [-1.3, 2.7], [-1.3, 4.2], 0.1, "#4f5730", 0.9);
+    leaf(c, b, [-0.6, 2.4], [-0.5, 3.4], [-0.3, 4.6], 0.09, "#4f5730", 0.8);
+    c.shape(b, [[-1.0, 1.4], [-1.7, 1.86], [-1.5, 2.0], [-0.9, 1.6]], HI, 0.16);
     c.end();
-    // Corner thrown over the near shoulder, its tassel hanging behind.
-    c.shape(b, [[1.62, 1.42], [2.02, 1.5], [2.22, 1.72], [2.2, 2.05, 1], [1.86, 1.88], [1.62, 1.66]], mix(MANTLE, SH, 0.12), 1, true);
-    c.line(b, [[2.18, 2.0], [2.2, 2.25], [2.17, 2.55]], "#e6dcc4", r1(b.s * 0.05));
-    c.circle(b(2.2, 2.25), b.s * 0.045, "#cfc3a6");
-    c.line(b, [[2.2, 2.3], [2.26, 2.72]], "#3f5f8a", r1(b.s * 0.026));
-    c.line(b, [[2.16, 2.3], [2.13, 2.7]], "#e6dcc4", r1(b.s * 0.026));
-    // Small scroll held to the chest, fingertips darkened by ink.
-    var SKIN_H = mix(o.skin, SH, 0.08);
-    c.shape(b, [[-0.95, 2.62], [-0.2, 2.18], [0.06, 2.42], [-0.7, 2.86]], "#d6c197", 1, true);
-    c.shape(b, [[-0.95, 2.62], [-0.2, 2.18], [-0.12, 2.27], [-0.86, 2.7]], HI, 0.35);
-    c.shape(b, [[-0.25, 2.12], [-0.12, 2.1], [0.1, 2.38], [0.03, 2.48]], "#a88a5c", 1, true);
-    c.shape(b, [[-1.0, 2.58], [-0.9, 2.55], [-0.68, 2.82], [-0.76, 2.9]], "#a88a5c", 1, true);
-    var hand = c.shape(b, [[-0.92, 3.1], [-0.82, 2.56], [-0.62, 2.42], [-0.42, 2.44], [-0.36, 2.62], [-0.5, 2.94], [-0.62, 3.25]], SKIN_H, 1, true);
-    c.line(b, [[-0.66, 2.5], [-0.56, 2.7]], SH, r1(b.s * 0.016), 0.35);
-    c.line(b, [[-0.52, 2.46], [-0.44, 2.66]], SH, r1(b.s * 0.016), 0.35);
-    c.shape(b, [[-0.66, 2.47], [-0.59, 2.43], [-0.55, 2.52], [-0.62, 2.55]], "#232937", 0.85);
-    c.shape(b, [[-0.52, 2.44], [-0.45, 2.42], [-0.42, 2.5], [-0.49, 2.53]], "#232937", 0.85);
-    c.shape(b, [[-0.6, 2.95], [-0.4, 2.65], [-0.5, 3.0], [-0.62, 3.25]], SH, 0.2);
-    void hand;
+    head(c, f, o);
+    beard(c, f, { stubble: 0.09 });
+    mouth(c, f, o, false);
+    hair(c, f, { color: "#241a14", line: 0.03, bump: 0.05, n: 7, vol: 1.05, side: 0.2,
+      fringe: [[-0.5, -0.52], [-0.32, -0.62], [-0.12, -0.56]],
+      locks: [[[-0.6, -0.7], [-0.3, -0.92], [0.1, -1.0], 0.05, 0.18], [[-0.2, -0.66], [0.1, -0.8], [0.4, -0.86], 0.04, 0.14]] });
+    // Wax tablet, tilted, wood frame around dark wax with a few scratched strokes.
+    var t = frame(b(0.05, 2.5)[0], b(0.05, 2.5)[1], 116, -0.1);
+    c.shape(t, [[-0.66, -0.42, 1], [0.66, -0.42, 1], [0.66, 0.42, 1], [-0.66, 0.42, 1]], "#9c7348", 1, true);
+    c.shape(t, [[-0.57, -0.33, 1], [0.57, -0.33, 1], [0.57, 0.33, 1], [-0.57, 0.33, 1]], "#3c3127");
+    c.shape(t, [[-0.66, -0.42, 1], [0.66, -0.42, 1], [0.66, -0.36, 1], [-0.66, -0.36, 1]], HI, 0.3);
+    c.line(t, [[-0.46, -0.18], [-0.3, -0.21], [-0.12, -0.17], [0.1, -0.2]], "#74624d", t.s * 0.014, 0.8);
+    c.line(t, [[-0.46, -0.04], [-0.22, -0.07], [0.0, -0.03], [0.3, -0.06]], "#74624d", t.s * 0.014, 0.8);
+    c.line(t, [[-0.46, 0.1], [-0.3, 0.08], [-0.1, 0.11]], "#74624d", t.s * 0.014, 0.8);
+    var skin = mix(o.skin, SH, 0.05);
+    // Near hand holds the right edge, fingers over the front.
+    mitt(c, t, [[0.44, -0.28], [0.62, -0.36], [0.82, -0.3], [0.86, 0.2], [0.7, 0.36], [0.48, 0.3], [0.42, 0.12], [0.44, -0.08]],
+      [[[0.47, -0.12], [0.62, -0.12]], [[0.46, 0.04], [0.62, 0.04]], [[0.46, 0.18], [0.62, 0.19]]], skin);
+    c.shape(t, [[0.66, -0.4], [0.88, -0.3], [0.88, 0.3], [0.66, 0.4]], SH, 0.16);
+    // Far hand pinches a bone stylus resting on the wax.
+    leaf(c, t, [-0.42, 0.2], [-0.3, 0.02], [-0.14, -0.18], 0.035, "#e2d3b0");
+    mitt(c, t, [[-0.54, 0.16], [-0.38, 0.1], [-0.3, 0.22], [-0.34, 0.46], [-0.5, 0.56], [-0.62, 0.4]], [[[-0.5, 0.26], [-0.38, 0.24]]], skin);
+  };
+
+  // Yonah: fisherman, about 24. Sun-darkened, short beard, sturdy, warm smile, sleeves
+  // pushed up on a bare arm, a coil of rope over his far shoulder. Faded indigo tunic.
+  draw.yonah = function (c) {
+    var o = withFace({ skin: "#8b5a3a", lip: "#743e2d", brow: "#1d1611", jaw: 1.1, chin: 1.0, round: 0.05, open: 0.92, gaze: -0.16, crinkle: 0.8, smile: 0.7,
+      browT: 1.18, arch: 0.8, browIn: 0.008, blush: 0.4 });
+    var f = frame(300, 230, 124, -0.015), b = frame(306, 230, 124, 0), B = bot(b);
+    neck(c, f, o.skin, 1.2);
+    tunic(c, b, "#3d5b74", 1.08, 0.9);
+    // Near arm: sleeve bunched above the elbow, bare forearm below.
+    var arm = c.shape(b, [[1.6, 2.2], [2.16, 2.24], [2.22, 3.4], [2.26, B, 1], [1.58, B, 1], [1.56, 3.3]], o.skin, 1, true);
+    c.inside(arm);
+    c.shape(b, [[1.98, 2.2], [2.4, 2.2], [2.4, B], [2.04, B]], SH, 0.24);
+    leaf(c, b, [1.66, 3.0], [1.74, 3.6], [1.72, 4.4], 0.06, SH, 0.2);
+    c.end();
+    c.shape(b, [[1.48, 1.95], [1.98, 1.84], [2.26, 2.1], [2.28, 2.5], [1.94, 2.62], [1.56, 2.6]], "#4a6a84", 1, true);
+    leaf(c, b, [1.6, 2.22], [1.9, 2.18], [2.22, 2.3], 0.06, "#2c4458", 0.9);
+    leaf(c, b, [1.62, 2.44], [1.92, 2.4], [2.2, 2.46], 0.05, "#2c4458", 0.8);
+    head(c, f, o);
+    beard(c, f, { color: "#1f1813", e: 0.02, len: -0.04, hi: "#5b4a3d", locks: [[[-0.5, 0.62], [-0.44, 0.8], [-0.34, 0.94], 0.04, 0.4], [[0.1, 0.7], [0.14, 0.84], [0.1, 0.96], 0.04, 0.3]] });
+    mouth(c, f, o, true);
+    hair(c, f, { color: "#1e1712", bump: 0.07, n: 10, line: 0.05, vol: 1.0, side: 0.12, hi: "#6b5646",
+      locks: [[[-0.55, -0.8], [-0.3, -0.98], [0.0, -1.06], 0.05, 0.3]] });
+    // Rope coil over the far shoulder, twisted strands marked along the ring.
+    var rc = b(-1.2, 2.56), r = frame(rc[0], rc[1], 124, 0.22);
+    var outer = curve(mapPts(r, ellPts(0, 0, 0.66, 0.98, 16)), true), inner = curve(mapPts(r, ellPts(0, 0, 0.44, 0.76, 16)), true);
+    c.fill(outer + inner, "#b39462", 1, false, ' fill-rule="evenodd"');
+    c.sil.push(c.ref(outer));
+    c.inside(outer + inner);
+    c.add('<path d="' + outer + inner + '" fill="none" stroke="#6f5636" stroke-width="3" stroke-dasharray="6 9" opacity=".6" clip-rule="evenodd"/>');
+    c.shape(r, [[0.1, -1.2], [1.0, -0.4], [0.9, 1.2], [-0.3, 1.2]], SH, 0.2);
+    c.shape(r, [[-0.8, -0.6], [-0.2, -1.1], [-0.1, -0.85], [-0.6, -0.4]], HI, 0.25);
+    c.end();
+    c.fill(curve(mapPts(r, ellPts(0, 0, 0.55, 0.87, 16)), true), "none", 1, false, ' stroke="#7d6440" stroke-width="2" opacity=".45"');
+  };
+
+  // Asher's face, shared by both poses: about 24, thinner, wry, guarded but kind eyes.
+  function asherFace() {
+    return withFace({ skin: "#a87b5c", lip: "#8a5141", brow: "#241b16", jaw: 0.94, chin: 1.0, hollow: 1, open: 0.84, gaze: -0.12, wry: 0.6,
+      smile: 0.2, browIn: 0.012, browT: 0.95, arch: 0.9, tired: 0.3 });
+  }
+  function asherHead(c, f, o) {
+    head(c, f, o);
+    beard(c, f, { color: "#2b211b", e: -0.01, len: -0.03, hi: "#5d4c40", locks: [[[-0.55, 0.5], [-0.5, 0.7], [-0.4, 0.86], 0.04, 0.35], [[0.2, 0.5], [0.24, 0.66], [0.2, 0.84], 0.04, 0.3]] });
+    mouth(c, f, o, true);
+    hair(c, f, { color: "#251b16", vol: 1.04, bump: 0.05, n: 8, line: 0.0, side: 0.24, hi: "#6a5444",
+      fringe: [[-0.5, -0.5], [-0.34, -0.56], [-0.08, -0.6]],
+      locks: [[[-0.6, -0.76], [-0.3, -0.95], [0.05, -1.02], 0.05, 0.25], [[-0.46, -0.5], [-0.3, -0.62], [-0.1, -0.7], 0.04, 0.2]] });
+  }
+  var ASHER_TUNIC = "#93604b", CLOAK = "#6b4f3b", CLOAK_HI = "#866650", CLOAK_FOLD = "#4e392b";
+
+  // Lying back: seen from beside the bed and a little above, the bust reclines on a diagonal.
+  // His head rests on a rolled pillow that frames it; the worn brown cloak is pulled up to
+  // his chest like a blanket and falls over the side of the bed; one hand rests on it.
+  function asherLying(c) {
+    var o = asherFace(), PIL = "#d2c5a6", rot = -0.52;
+    var b = frame(262, 318, 106, rot), f = b;
+    var pil = c.shape(b, [[-1.66, -1.3], [0.0, -1.38], [1.8, -1.3], [2.02, -0.3], [1.86, 0.8], [0.0, 0.86], [-1.7, 0.8], [-1.92, -0.26]], PIL, 1, true);
+    c.inside(pil);
+    c.shape(b, [[-2.3, 0.32], [2.3, 0.32], [2.3, 1.2], [-2.3, 1.2]], SH, 0.16);
+    c.shape(b, [[-2.3, -1.5], [2.3, -1.5], [2.3, -1.12], [-2.3, -1.12]], HI, 0.4);
+    var bands = [-1.42, -1.26, 1.34, 1.5];
+    for (var i = 0; i < 4; i++) c.shape(b, [[bands[i], -1.5, 1], [bands[i] + 0.08, -1.5, 1], [bands[i] + 0.08, 1.0, 1], [bands[i], 1.0, 1]], "#7a5a44", 0.8);
+    // The head presses into the pillow: a soft shadow beside and below it.
+    c.shape(b, [[-0.5, -1.16], [0.62, -1.14], [1.02, -0.4], [0.98, 0.7], [-0.2, 0.84], [-0.86, 0.4], [-0.84, -0.6]], SH, 0.2);
+    c.end();
+    c.shape(b, [[-1.92, -0.26], [-1.8, -1.0], [-1.66, -1.3], [-1.5, -0.26], [-1.62, 0.76], [-1.76, 0.6]], mix(PIL, SH, 0.16));
+    neck(c, f, o.skin, 0.9);
+    tunic(c, b, ASHER_TUNIC, 0.92, 0.9, 3.2);
+    asherHead(c, f, o);
+    // Cloak over him; it falls over the side of the bed on the right.
+    var top = mapPts(b, [[-2.36, 2.12, 1], [-1.1, 1.95], [0.2, 2.05], [1.35, 1.93], [2.34, 2.08, 1]]);
+    var low = mapPts(b, [[-2.5, 3.2], [-2.6, 4.6, 1]]);
+    var cl = c.fill(curve([[330, 912, 1]].concat(low.reverse(), top, [[594, 470], [598, 912, 1]]), true), CLOAK, 1, true);
+    c.inside(cl);
+    c.shape(b, [[-2.5, 2.14], [-1.1, 1.97], [0.2, 2.07], [1.35, 1.95], [2.5, 2.1], [2.5, 2.36], [1.35, 2.17], [0.2, 2.29], [-1.1, 2.2], [-2.5, 2.4]], CLOAK_HI);
+    c.shape(V, [[560, 380], [620, 380], [620, 912], [520, 912], [540, 600]], SH, 0.22);
+    leaf(c, b, [-1.7, 2.45], [-1.8, 3.3], [-2.0, 4.4], 0.12, CLOAK_FOLD, 0.9);
+    leaf(c, b, [-0.6, 2.45], [-0.66, 3.6], [-0.8, 5.0], 0.11, CLOAK_FOLD, 0.8);
+    leaf(c, b, [0.6, 2.5], [0.62, 3.4], [0.5, 4.6], 0.1, CLOAK_FOLD, 0.8);
+    leaf(c, V, [574, 520], [584, 700], [580, 900], 18, CLOAK_FOLD, 0.8);
+    c.shape(b, [[-1.5, 2.85], [-1.06, 2.8], [-1.02, 3.3], [-1.46, 3.36]], "#5c4535");
+    c.add('<path d="' + sm(b, [[-1.5, 2.85, 1], [-1.06, 2.8, 1], [-1.02, 3.3, 1], [-1.46, 3.36, 1]]) + '" fill="none" stroke="#a1825f" stroke-width="2" stroke-dasharray="4 6" opacity=".7"/>');
+    c.end();
+    // His near hand rests on the cloak, the wrist coming out from under its edge.
+    var w = b(1.25, 2.02);
+    hand(c, frame(w[0], w[1], 100, 2.05, true), mix(o.skin, SH, 0.04), true);
+  }
+
+  // Standing: upright for the first time, the same face, the cloak folded over his forearm.
+  function asherStanding(c) {
+    var o = asherFace();
+    var f = frame(298, 226, 118, -0.02), b = frame(302, 226, 118, 0), B = bot(b);
+    var skin = mix(o.skin, SH, 0.05);
+    neck(c, f, o.skin, 0.9);
+    tunic(c, b, ASHER_TUNIC, 0.92, 0.9);
+    asherHead(c, f, o);
+    // Near forearm across his waist; elbow-length sleeve; the hand at its end.
+    c.shape(b, [[1.98, 2.56], [2.0, 3.0], [1.2, 2.98], [0.62, 2.94], [0.6, 2.66], [1.2, 2.64]], skin, 1, true);
+    c.shape(b, [[1.6, 2.2], [2.04, 2.22], [2.1, 3.02], [1.66, 3.0]], mix(ASHER_TUNIC, SH, 0.1), 1, true);
+    var w = b(0.72, 2.8);
+    hand(c, frame(w[0], w[1], 100, Math.PI - 0.5, true), skin, true);
+    // The folded cloak hangs over the forearm, both halves falling in front of him.
+    var cl = c.shape(b, [[0.78, 2.7], [1.0, 2.56], [1.32, 2.52], [1.58, 2.58], [1.7, 2.76], [1.78, 3.4], [1.84, B, 1], [0.56, B, 1], [0.66, 3.4]], CLOAK, 1, true);
+    c.inside(cl);
+    c.shape(b, [[0.78, 2.7], [1.0, 2.56], [1.32, 2.52], [1.58, 2.58], [1.7, 2.76], [1.7, 2.92], [1.32, 2.76], [1.0, 2.78], [0.8, 2.9]], CLOAK_HI);
+    c.shape(b, [[1.3, 2.4], [2.2, 2.4], [2.2, B], [1.36, B]], SH, 0.2);
+    leaf(c, b, [0.86, 3.0], [0.92, 4.0], [0.84, 5.4], 0.12, CLOAK_FOLD, 0.9);
+    leaf(c, b, [1.22, 3.0], [1.3, 4.2], [1.26, 5.6], 0.12, CLOAK_FOLD, 0.85);
+    leaf(c, b, [1.58, 3.0], [1.66, 4.0], [1.64, 5.4], 0.1, CLOAK_FOLD, 0.8);
+    c.end();
+  }
+
+  draw.asher = function (c, opts) {
+    if (opts && opts.pose === "standing") asherStanding(c);
+    else asherLying(c);
+  };
+
+  // Asher's mother: head covering, tired and tender, a clay water jar held at her side.
+  draw.mother = function (c) {
+    var o = withFace({ skin: "#9f6d4b", lip: "#87493b", brow: "#2a201b", jaw: 0.9, chin: 0.95, round: 0.2, open: 0.8, gaze: -0.14, tired: 0.9,
+      browIn: 0.03, browT: 0.75, arch: 1.1, smile: 0.2, lash: 1.15, age: 0.4, blush: 0.5 });
+    var f = frame(296, 248, 112, -0.07), b = frame(300, 248, 112, 0), B = bot(b);
+    var VE = "#6d4a58", VD = "#4f3441";
+    // Veil behind the head.
+    c.shape(b, [[-0.34, -1.12], [0.3, -1.16], [0.8, -0.95], [1.06, -0.5], [1.14, 0.2], [1.1, 0.8], [0.6, 1.0], [-0.7, 0.7], [-0.9, -0.3], [-0.76, -0.86]], VD, 1, true);
+    neck(c, f, o.skin, 0.88);
+    tunic(c, b, "#86705a", 0.9, 0.8);
+    head(c, f, o);
+    mouth(c, f, o, false);
+    // Hair under the wrap: dark, one gray strand at the far temple.
+    c.shape(f, [[-0.72, -0.58], [-0.4, -0.72], [0.1, -0.72], [0.3, -0.6], [0.36, -0.3], [0.2, -0.5], [-0.2, -0.6], [-0.56, -0.52], [-0.665, -0.2, 1], [-0.74, -0.3]], "#2b211b");
+    leaf(c, f, [-0.7, -0.3], [-0.64, -0.46], [-0.48, -0.58], 0.04, "#958a7e", 0.85);
+    // Undyed inner wrap across the forehead.
+    c.shape(f, [[-0.8, -0.62], [-0.4, -0.78], [0.1, -0.8], [0.48, -0.66], [0.5, -0.86], [0.1, -1.0], [-0.4, -0.98], [-0.82, -0.8]], "#cdbf9f");
+    c.shape(f, [[-0.8, -0.62], [-0.4, -0.78], [0.1, -0.8], [0.48, -0.66], [0.48, -0.7], [0.1, -0.85], [-0.4, -0.83], [-0.8, -0.67]], SH, 0.18);
+    // Veil front: over the crown, down both sides of the face, over the shoulders.
+    var vd = c.shape(b, [
+      [-0.9, B, 1], [-0.86, 2.6], [-0.78, 1.7], [-0.86, 0.9], [-0.86, 0.1], [-0.76, -0.66, 1], [-0.44, -0.84], [0.0, -0.9], [0.4, -0.78], [0.52, -0.5],
+      [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7], [1.0, 2.6], [1.0, B, 1], [2.0, B, 1], [1.98, 2.6], [1.86, 1.84], [1.5, 1.5], [1.16, 1.2],
+      [1.1, 0.5], [1.12, -0.1], [1.02, -0.66], [0.72, -1.04], [0.2, -1.22], [-0.36, -1.18], [-0.8, -0.92], [-0.98, -0.3], [-1.0, 0.5], [-1.08, 1.2],
+      [-1.4, 1.52], [-1.64, 1.9], [-1.74, 2.6], [-1.78, B, 1]
+    ], VE, 1, true);
+    c.inside(vd);
+    c.shape(b, [[-0.76, -0.66], [-0.44, -0.84], [0.0, -0.9], [0.4, -0.78], [0.52, -0.5], [0.5, 0.0], [0.52, 0.6], [0.6, 1.2], [0.86, 1.7],
+      [0.96, 1.66], [0.7, 1.2], [0.62, 0.6], [0.6, 0.0], [0.62, -0.5], [0.46, -0.88], [0.0, -0.98], [-0.46, -0.92], [-0.82, -0.7]], VD, 0.7);
+    c.shape(b, [[0.66, -0.3], [1.2, -0.6], [2.4, 1.7], [2.4, B], [1.5, B], [1.2, 3.0], [0.9, 1.7]], SH, 0.18);
+    c.shape(b, [[-0.66, -1.0], [-0.1, -1.18], [0.5, -1.06], [0.3, -0.94], [-0.2, -0.98]], HI, 0.2);
+    leaf(c, b, [0.8, -0.95], [1.0, -0.4], [1.04, 0.4], 0.08, VD, 0.8);
+    leaf(c, b, [-1.2, 1.6], [-1.36, 2.6], [-1.4, 3.8], 0.1, VD, 0.85);
+    leaf(c, b, [1.3, 1.6], [1.5, 2.4], [1.56, 3.6], 0.1, VD, 0.85);
+    c.end();
+    // Clay water jar held against her side, her hand over its shoulder.
+    var jc = b(1.42, 3.0), j = frame(jc[0], jc[1], 112, 0.08);
+    var jar = c.shape(j, [[-0.17, -0.9, 1], [0.17, -0.9, 1], [0.15, -0.66], [0.48, -0.5], [0.58, -0.1], [0.52, 0.4], [0.3, 0.8], [0.0, 0.92], [-0.3, 0.8], [-0.52, 0.4], [-0.58, -0.1], [-0.48, -0.5], [-0.15, -0.66]], "#a6603c", 1, true);
+    c.inside(jar);
+    c.shape(j, [[0.1, -0.9], [0.8, -0.6], [0.8, 1.0], [0.0, 1.0], [0.24, 0.2]], SH, 0.26);
+    c.shape(j, [[-0.46, -0.44], [-0.2, -0.56], [-0.28, -0.1], [-0.5, 0.1]], HI, 0.22);
+    c.add('<path d="' + curve(mapPts(j, [[-0.56, -0.2], [0.0, -0.12], [0.56, -0.2]]), false) + '" fill="none" stroke="#6e3a22" stroke-width="3" opacity=".5"/>');
+    c.end();
+    c.shape(j, [[-0.22, -0.96, 1], [0.22, -0.96, 1], [0.22, -0.86, 1], [-0.22, -0.86, 1]], "#b97350", 1, true);
+    var skin = mix(o.skin, SH, 0.05);
+    mitt(c, j, [[-0.62, -0.52], [-0.36, -0.62], [-0.12, -0.56], [-0.04, -0.36], [-0.2, -0.26], [-0.48, -0.24], [-0.66, -0.34]],
+      [[[-0.3, -0.5], [-0.12, -0.42]], [[-0.34, -0.42], [-0.14, -0.34]]], skin);
+  };
+
+  // Asher's little brother: about 10, tousled hair, lively grin.
+  draw.brother = function (c) {
+    var o = withFace({ skin: "#ad7650", lip: "#9b5644", brow: "#2a1f18", jaw: 0.86, chin: 0.9, round: 0.45, open: 1.12, gaze: -0.2, browUp: 0.04,
+      browIn: 0.012, browT: 0.8, arch: 1.2, smile: 0.85, part: 0.7, eye: 1.14, blush: 1.2, nose: 0.88, mouthW: 0.95 });
+    var f = frame(312, 352, 100, 0.07), b = frame(314, 352, 100, 0);
+    neck(c, f, o.skin, 0.85);
+    tunic(c, b, "#ad8a50", 0.82, 0.9);
+    head(c, f, o);
+    mouth(c, f, o, false);
+    hair(c, f, { color: "#2a1f18", spiky: true, bump: 0.13, n: 9, vol: 1.06, line: -0.02, side: 0.14, hi: "#7a604a",
+      fringe: [[-0.54, -0.44, 1], [-0.36, -0.6], [-0.2, -0.46, 1]],
+      locks: [[[-0.6, -0.7], [-0.3, -0.96], [0.1, -1.04], 0.05, 0.3]] });
+  };
+
+  // Neighbor: an ordinary townsman, middle-aged, bringing news; head cloth, gray in the beard.
+  draw.neighbor = function (c) {
+    var o = withFace({ skin: "#9b6a45", lip: "#80463a", brow: "#2b231e", jaw: 1.06, round: 0.3, open: 1.04, gaze: -0.18, browUp: 0.045,
+      browIn: 0.026, part: 0.5, smile: 0.05, age: 0.6, nose: 1.08 });
+    var f = frame(296, 236, 120, -0.02), b = frame(302, 236, 120, 0), B = bot(b);
+    neck(c, f, o.skin, 1.1);
+    tunic(c, b, "#7a5c44", 1.05, 0.8);
+    // Gray-brown mantle over both shoulders, open in front.
+    var mn = c.shape(b, [[-1.95, B, 1], [-1.9, 2.6], [-1.76, 1.86], [-1.3, 1.46], [-0.56, 1.3], [-0.5, 1.6], [-0.7, 2.6], [-0.6, B, 1],
+      [0.8, B, 1], [0.86, 2.6], [0.62, 1.56], [0.58, 1.26], [1.42, 1.4], [2.0, 1.76], [2.12, 2.6], [2.16, B, 1]], "#8a7f70", 1, true);
+    c.inside(mn);
+    c.shape(b, [[0.6, 1.2], [2.4, 1.5], [2.4, B], [1.3, B], [1.1, 3.0]], SH, 0.16);
+    leaf(c, b, [-1.3, 1.8], [-1.4, 2.8], [-1.42, 4.2], 0.1, "#6a6155", 0.9);
+    leaf(c, b, [1.4, 1.8], [1.56, 2.8], [1.6, 4.2], 0.1, "#6a6155", 0.9);
+    c.shape(b, [[-1.7, 1.9], [-1.2, 1.5], [-0.6, 1.36], [-0.9, 1.6], [-1.4, 1.9]], HI, 0.16);
+    c.end();
+    head(c, f, o);
+    hair(c, f, { color: "#2c241e", line: 0.0, side: 0.18 });
+    beard(c, f, { color: "#2e2620", e: 0.04, len: 0.08, hi: "#9b948a", locks: [[[-0.6, 0.5], [-0.56, 0.72], [-0.46, 0.92], 0.05, 0.6], [[-0.3, 0.8], [-0.26, 1.0], [-0.2, 1.12], 0.04, 0.5], [[0.16, 0.66], [0.2, 0.86], [0.14, 1.02], 0.04, 0.4]] });
+    mouth(c, f, o, true);
+    headcloth(c, f, { color: "#c4b28c" });
+  };
+
+  // Passerby: an ordinary person in the lane, a little in shadow, glancing sideways while
+  // muttering. Still human and plain, never villainous.
+  draw.passerby = function (c) {
+    var o = withFace({ skin: "#976b4b", lip: "#7a473b", brow: "#262019", open: 0.86, gaze: -0.4, browIn: 0.006, smile: -0.12, part: 0.12, age: 0.5, sclera: "#d2c4aa" });
+    var f = frame(300, 240, 118, -0.03), b = frame(304, 240, 118, 0), B = bot(b);
+    var CL = "#5d554a";
+    c.shape(b, [[-0.36, -1.1], [0.3, -1.15], [0.78, -0.94], [1.02, -0.5], [1.08, 0.2], [1.04, 0.8], [0.6, 1.0], [-0.7, 0.7], [-0.88, -0.3], [-0.76, -0.84]], mix(CL, SH, 0.4), 1, true);
+    neck(c, f, o.skin, 1.0);
+    tunic(c, b, "#6b5b49", 1.0, 0.8);
+    head(c, f, o);
+    beard(c, f, { color: "#3a3029", e: 0.0, len: 0.0, hi: "#8a8076", locks: [[[-0.56, 0.5], [-0.5, 0.7], [-0.4, 0.88], 0.04, 0.4]] });
+    mouth(c, f, o, true);
+    // Head cloth pulled forward; its edge shades the eyes.
+    var hd = c.shape(b, [
+      [-0.86, B, 1], [-0.8, 2.4], [-0.84, 1.4], [-0.84, 0.5], [-0.8, -0.2], [-0.72, -0.48, 1], [-0.4, -0.58], [0.0, -0.6], [0.3, -0.52], [0.44, -0.3],
+      [0.5, 0.1], [0.54, 0.6], [0.62, 1.2], [0.8, 1.7], [0.9, 2.4], [0.9, B, 1], [2.04, B, 1], [2.0, 2.6], [1.9, 1.86], [1.5, 1.48], [1.12, 1.2], [1.06, 0.5],
+      [1.08, -0.1], [0.98, -0.62], [0.7, -1.02], [0.2, -1.2], [-0.34, -1.16], [-0.78, -0.9], [-0.96, -0.36], [-1.0, 0.5], [-1.06, 1.2], [-1.4, 1.5],
+      [-1.7, 1.9], [-1.8, 2.6], [-1.84, B, 1]
+    ], CL, 1, true);
+    c.inside(hd);
+    c.shape(b, [[0.6, -0.3], [1.2, -0.6], [2.4, 1.7], [2.4, B], [1.4, B], [1.1, 3.0], [0.86, 1.7]], SH, 0.2);
+    leaf(c, b, [-1.25, 1.7], [-1.4, 2.6], [-1.44, 3.8], 0.1, "#423c34", 0.9);
+    leaf(c, b, [1.36, 1.7], [1.54, 2.5], [1.6, 3.8], 0.1, "#423c34", 0.9);
+    leaf(c, b, [0.78, -0.9], [0.98, -0.4], [1.02, 0.3], 0.08, "#423c34", 0.8);
+    c.end();
+    c.shape(f, [[-0.75, -0.5], [-0.4, -0.6], [0.0, -0.62], [0.42, -0.5], [0.46, -0.16], [0.0, -0.24], [-0.4, -0.22], [-0.7, -0.2]], "#10131c", 0.14);
+    c.tint = ["#141824", 0.1];
+  };
+
+  // One member of a group: neck, tunic, head, beard, mouth, hair or head cloth.
+  function member(c, x, y, R, m) {
+    var o = withFace(m.face);
+    var f = frame(x, y, R, m.tilt || 0), b = frame(x + R * 0.05, y, R, 0);
+    if (m.hood) hoodBack(c, b, m.hood);
+    neck(c, f, o.skin, m.neck || 1);
+    tunic(c, b, m.tunic, m.k || 0.86, 0.8);
+    head(c, f, o);
+    if (!m.hood) hair(c, f, m.hair);
+    if (m.beard) beard(c, f, m.beard);
+    mouth(c, f, o, !!m.beard);
+    if (m.cloth) headcloth(c, f, m.cloth);
+    if (m.hood) hoodFront(c, b, m.hood, m.k || 0.86);
+    if (m.net) {
+      var nd = c.shape(b, [[0.9, 1.3], [1.6, 1.42], [2.02, 1.86], [2.1, 3.6], [1.5, 3.8], [1.2, 2.6]], "#bca77f", 0.92, true);
+      c.inside(nd);
+      var g = "";
+      for (var i = -6; i < 12; i++) {
+        var p0 = b(0.8 + i * 0.16, 1.2), p1 = b(0.8 + i * 0.16 + 1.4, 3.9), p2 = b(0.8 + i * 0.16 + 1.4, 1.2), p3 = b(0.8 + i * 0.16, 3.9);
+        g += "M" + nums(p0) + "L" + nums(p1) + "M" + nums(p2) + "L" + nums(p3);
+      }
+      c.add('<path d="' + g + '" stroke="#6e5c40" stroke-width="2" opacity=".55"/>');
+      c.shape(b, [[1.5, 1.3], [2.3, 1.6], [2.3, 4.0], [1.6, 4.0]], SH, 0.2);
+      c.end();
+    }
+  }
+
+  // Yonah's net partners, together in one image (number deliberately not emphasized).
+  draw.partners = function (c) {
+    member(c, 300, 214, 80, {
+      face: { skin: "#9a6943", lip: "#80463a", brow: "#2b231e", open: 0.9, smile: 0.3, crinkle: 0.5, gaze: -0.2, age: 0.7, jaw: 1.04 },
+      tunic: "#c4b494", cloth: { color: "#b9a682" }, hair: { color: "#2c241e" },
+      beard: { color: "#3a322b", e: 0.03, len: 0.1, hi: "#a59d92", locks: [[[-0.5, 0.6], [-0.44, 0.8], [-0.34, 0.98], 0.05, 0.7], [[0.1, 0.7], [0.14, 0.9], [0.1, 1.04], 0.05, 0.6]] }
+    });
+    member(c, 172, 322, 88, {
+      face: { skin: "#7c5034", lip: "#6c392b", brow: "#1d1611", open: 0.95, smile: 0.5, crinkle: 0.6, gaze: -0.18, jaw: 1.05, browT: 1.1 },
+      tunic: "#5a7262", hair: { color: "#1c1511", bump: 0.08, n: 10, line: 0.04, hi: "#5b4a3d" },
+      beard: { color: "#1f1813", e: 0.0, len: -0.05 }
+    });
+    member(c, 432, 330, 88, {
+      face: { skin: "#8a5a3a", lip: "#74402f", brow: "#211a15", open: 0.9, smile: 0.25, gaze: -0.2, jaw: 1.1, nose: 1.06, browT: 1.1 },
+      tunic: "#6d5440", cloth: { color: "#9c7d57", low: 0.06 }, hair: { color: "#211a15" }, net: true,
+      beard: { color: "#211a15", e: 0.05, len: 0.12, hi: "#5b4a3d", locks: [[[-0.5, 0.6], [-0.44, 0.84], [-0.34, 1.02], 0.05, 0.4]] }
+    });
+  };
+
+  // Some of the scribes: mantles over their heads like Menahem's, composed and stern, not evil.
+  draw.scribes = function (c) {
+    var M1 = { cloth: "#e0d6be", dark: "#b8aa8d", inner: "#90836c", band: "#2f3442" };
+    var M2 = { cloth: "#d6cbb0", dark: "#ae9f81", inner: "#867963", band: "#2f3442" };
+    member(c, 304, 212, 80, {
+      face: { skin: "#b07d55", lip: "#8e4c3c", brow: "#2a201a", open: 0.86, gaze: -0.12, browIn: -0.008, smile: -0.06, jaw: 0.98 },
+      tunic: "#7d6a4c", hood: M2, k: 0.82, beard: { color: "#2a201a", e: -0.02, len: -0.02 }
+    });
+    member(c, 176, 320, 90, {
+      face: { skin: "#a6744f", lip: "#86493a", brow: "#4a423b", open: 0.84, gaze: -0.14, browIn: -0.01, smile: -0.08, age: 1, hollow: 0.4 },
+      tunic: "#8a6a3c", hood: M1, k: 0.84,
+      beard: { color: "#6e665d", e: 0.05, len: 0.4, hi: "#c2bbaf", locks: [[[-0.6, 0.5], [-0.54, 0.82], [-0.44, 1.12], 0.07, 0.8], [[-0.3, 0.8], [-0.24, 1.1], [-0.16, 1.38], 0.07, 0.8], [[0.06, 0.78], [0.1, 1.04], [0.06, 1.3], 0.06, 0.6]] }
+    });
+    member(c, 430, 328, 88, {
+      face: { skin: "#8f6244", lip: "#7a4234", brow: "#211a15", open: 0.84, gaze: -0.14, browIn: -0.012, smile: -0.08, jaw: 1.06, nose: 1.08, age: 0.4 },
+      tunic: "#5e5444", hood: M2, k: 0.84,
+      beard: { color: "#221b16", e: 0.04, len: 0.22, hi: "#5f5046", locks: [[[-0.5, 0.6], [-0.44, 0.86], [-0.34, 1.1], 0.05, 0.4]] }
+    });
   };
 
   // ---------------------------------------------------------------- public API
@@ -8485,12 +9108,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     ids: IDS.slice(),
     // Every portrait looks toward screen-left; mirror with CSS scaleX(-1) to face right.
     facing: FACING,
-    // render(id, { pose?: "standing"|"lying" (asher only), uid?: string }) -> SVG string, or
-    // null for unknown ids (including "jesus", who is never drawn).
+    // render(id, { pose?: "standing"|"lying" (asher only, default "lying"), uid?: string })
+    // -> SVG string, or null for unknown ids (including "jesus", who is never drawn).
     render: function (id, opts) {
       var o = opts || {};
       if (typeof id !== "string" || !Object.prototype.hasOwnProperty.call(draw, id)) return null;
       var uid = typeof o.uid === "string" && /^[A-Za-z0-9_-]{1,24}$/.test(o.uid) ? o.uid : (++renderCount).toString(36);
+      PREC = 1;
       var c = new Ctx(id, uid);
       draw[id](c, o);
       return c.svg();
@@ -8889,6 +9513,51 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     $("light").setAttribute("data-level", level || "off");
   }
 
+  // Anchor the light on the place the art reserves for it (BHS.art.lightAt, in canvas units),
+  // mapping canvas -> screen through the SVG's xMidYMid slice transform. Falls back to CSS.
+  function placeLight() {
+    var light = $("light");
+    var art = BHS.art;
+    var key = S.artKey ? S.artKey.split("|") : null;
+    var drawn = key ? (art && typeof art.resolve === "function" ? art.resolve(key[0], key[1]) : key[0]) : null;
+    var pt = drawn && art && art.lightAt && art.lightAt[drawn];
+    if (!pt) {
+      light.style.removeProperty("--light-x");
+      light.style.removeProperty("--light-y");
+      return;
+    }
+    var stage = $("stage");
+    var W = stage.clientWidth;
+    var H = stage.clientHeight;
+    var artEl = $("art");
+    if (!W || !H || !artEl) return;
+    var vbW = 1600;
+    var vbH = 1600;
+    var svg = artEl.querySelector(".art__layer.is-on svg");
+    var vb = svg && svg.getAttribute("viewBox");
+    if (vb) {
+      var parts = vb.split(/[\s,]+/).map(Number);
+      if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+        vbW = parts[2];
+        vbH = parts[3];
+      }
+    }
+    // Layout box of the art (ignores the small pov tilt) relative to the stage.
+    var ax = artEl.offsetLeft;
+    var ay = artEl.offsetTop;
+    var aw = artEl.offsetWidth;
+    var ah = artEl.offsetHeight;
+    var s = Math.max(aw / vbW, ah / vbH);
+    var x = ax + (aw - vbW * s) / 2 + pt[0] * s;
+    var y = ay + (ah - vbH * s) / 2 + pt[1] * s;
+    var lx = light.offsetLeft;
+    var ly = light.offsetTop;
+    var lw = light.offsetWidth || W;
+    var lh = light.offsetHeight || H;
+    light.style.setProperty("--light-x", (((x - lx) / lw) * 100).toFixed(2) + "%");
+    light.style.setProperty("--light-y", (((y - ly) / lh) * 100).toFixed(2) + "%");
+  }
+
   function setCaption(t) {
     var c = $("caption");
     var key = t ? JSON.stringify(t) + "|" + S.lang : "";
@@ -9083,6 +9752,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     setArt(st.bg, st.pov, st.time);
     setPov(st.pov);
     setLight(st.light);
+    placeLight();
     setCaption(st.caption);
     setPinned(st.pinned, state);
     setEcho(v.now && v.now.echo);
@@ -9203,6 +9873,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     resetPlay();
     $("play").hidden = false;
     renderActions(v.actions || [], step);
+    // Portraits step back while a choice is open; the engine keeps them for the next line.
+    var castLayer = $("cast");
+    if (castLayer) castLayer.classList.toggle("is-away", step.kind === "choice");
     var panel = $("panel");
     var text = $("text");
     var hush = !!(v.now && v.now.hush);
@@ -9236,6 +9909,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         break;
       case "press":
         panel.hidden = true;
+        $("play").classList.add("play--press");
         renderPress(step);
         break;
       case "endingTitle":
@@ -9808,7 +10482,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var resizeTimer = 0;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(anchorCast, 120);
+      resizeTimer = setTimeout(function () {
+        anchorCast();
+        placeLight();
+      }, 120);
     });
     try {
       if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(anchorCast);
@@ -10030,10 +10707,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // ------------------------------------------------------------------ screens
 
   function setScreen(name) {
+    var changed = app.screen !== name;
     app.screen = name;
     doc.body.setAttribute("data-screen", name);
     V.showLayer(name);
-    V.closeSettings();
+    // Re-rendering the same screen (for example after A+/A-) keeps the settings panel open.
+    if (changed) V.closeSettings();
     if (!PLAY_SCREENS[name]) doc.body.classList.remove("is-idle");
   }
 

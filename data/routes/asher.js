@@ -312,7 +312,8 @@
       fx("hush"),
       { type: "verse", id: "first-words-2", key: "MT_9_2B2" },
       fx("light", { level: "soft" }),
-      fx("actionReply", { action: "getup", text: t("아직.", "Not yet.") }),
+      // Neutral observation: nothing here suggests forgiveness is unlocking his body (SPEC 7.2; lead decision).
+      fx("actionReply", { action: "getup", text: t("다리는 그대로다.", "My legs haven't changed.") }),
 
       // The c3 memory returns right after the first words.
       line("동생의 우는 얼굴이 스친다. 아직 사과하지 못한 그날.", "His little brother's crying face flashes before him. The day he never apologized for."),

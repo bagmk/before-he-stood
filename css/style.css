@@ -296,7 +296,8 @@ body.is-last .veil {
   opacity: 0;
   mix-blend-mode: screen;
   transition: opacity 1.8s ease, transform 2.2s var(--ease-out);
-  background: radial-gradient(48% 36% at 50% var(--light-y, 38%), rgba(255, 251, 238, 0.95) 0%, rgba(255, 239, 200, 0.62) 28%, rgba(255, 224, 160, 0.22) 55%, rgba(255, 224, 160, 0) 78%);
+  /* main.js/ui.js anchor the bloom to BHS.art.lightAt for the drawn scene via --light-x/--light-y. */
+  background: radial-gradient(48% 36% at var(--light-x, 50%) var(--light-y, 38%), rgba(255, 251, 238, 0.95) 0%, rgba(255, 239, 200, 0.62) 28%, rgba(255, 224, 160, 0.22) 55%, rgba(255, 224, 160, 0) 78%);
 }
 
 .light::after {
@@ -2201,7 +2202,7 @@ body[data-screen="final"] .seg {
     --panel-radius: 1vh;
     --dock-gap: 1.6vh;
     --badge: 4.6vh;
-    --hdr-btn: 5.6vh;
+    --hdr-btn: max(44px, 5.6vh);
     --header-h: 8vh;
     --focus-w: 0.55vh;
     --gutter-l: max(3vw, env(safe-area-inset-left, 0px));
@@ -2297,12 +2298,12 @@ body[data-screen="final"] .seg {
     width: min(168vh, 95vw);
     max-height: 66vh;
     align-self: center;
-    padding: 2vh 2.4vh 2.2vh;
+    padding: 1.8vh 2.4vh 2vh;
     border-radius: 1vh;
   }
 
   .choices__prompt {
-    margin: 0 0.3vh 1.3vh;
+    margin: 0 0.3vh 1.1vh;
     line-height: 1.3;
   }
 
@@ -2317,7 +2318,7 @@ body[data-screen="final"] .seg {
 
   .choices__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.2vh;
+    gap: 1.1vh;
   }
 
   .choices.is-stacked .choices__list {
@@ -2357,15 +2358,52 @@ body[data-screen="final"] .seg {
     padding: 1.6vh 6vh;
   }
 
+  /* Asher's gray actions hang from the panel's bottom-left edge, out of the flow, so the
+     panel keeps its usual place. During the lit press they return as a large centred row. */
   .actions {
+    position: absolute;
+    left: calc(var(--gutter-l) + 2.6vh);
+    bottom: calc(var(--safe-bottom) + 4vh - max(22px, 3vh));
+    z-index: 2;
+    gap: 1.2vh;
+  }
+
+  .act {
+    flex: 0 0 auto;
+    min-width: 17vh;
+    min-height: max(44px, 6vh);
+    padding: 0.5vh 2vh;
+    border-radius: 0.9vh;
+    font-size: 2.4vh;
+    background: rgba(46, 43, 39, 0.94);
+    box-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.35);
+  }
+
+  .act .en {
+    display: inline;
+    margin-left: 0.5em;
+  }
+
+  .play--press .actions {
+    position: static;
     width: var(--panel-w);
     align-self: center;
     gap: 1.6vh;
   }
 
-  .act {
-    min-height: 8vh;
-    border-radius: 1vh;
+  .play--press .act {
+    flex: 1 1 0;
+    min-height: 9vh;
+    font-size: 3vh;
+  }
+
+  .play--press .act .en {
+    display: block;
+    margin-left: 0;
+  }
+
+  .play--press .act.glow {
+    font-size: var(--fs-press);
   }
 
   .reply {
@@ -2394,7 +2432,7 @@ body[data-screen="final"] .seg {
   }
 
   .btn--text {
-    min-height: 6vh;
+    min-height: max(44px, 6vh);
   }
 
   .title-page {
@@ -2469,7 +2507,7 @@ body[data-screen="final"] .seg {
   }
 
   .teacher-link {
-    min-height: 5vh;
+    min-height: max(44px, 5vh);
     font-size: 2.4vh;
   }
 
@@ -2798,14 +2836,27 @@ body[data-screen="final"] .seg {
 
 /* ------------------------------------------------------------------ motion preferences */
 
+/* Reduced motion: no typewriter (main.js), no shake, no sway or pulse; only short opacity
+   fades remain. Transitions are switched off everywhere first, so no property (such as
+   font-style) ever animates by accident, then the few intended fades are restored. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
     animation-delay: 0s !important;
-    transition-duration: 150ms !important;
+    transition: none !important;
+  }
+  .art__layer,
+  .reply,
+  .cast,
+  .figure,
+  .light,
+  .light::after,
+  .caption,
+  .topbar {
+    transition: opacity 150ms ease !important;
   }
   .stage[data-pov="lying"] .art__sway,
   .light[data-level="bright"],
@@ -2817,15 +2868,14 @@ body[data-screen="final"] .seg {
   }
 }
 
-/* ?test=1: instant everything for automated playtests. */
+/* ?test=1: no transitions and no animation time at all, so every screen settles at once. */
 html.is-test *,
 html.is-test *::before,
 html.is-test *::after {
-  animation-duration: 0.01ms !important;
+  transition: none !important;
+  animation-duration: 0s !important;
   animation-delay: 0s !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  transition-delay: 0s !important;
 }
 
 html.is-test .echo mark {

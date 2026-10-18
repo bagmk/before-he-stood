@@ -387,6 +387,51 @@
     $("light").setAttribute("data-level", level || "off");
   }
 
+  // Anchor the light on the place the art reserves for it (BHS.art.lightAt, in canvas units),
+  // mapping canvas -> screen through the SVG's xMidYMid slice transform. Falls back to CSS.
+  function placeLight() {
+    var light = $("light");
+    var art = BHS.art;
+    var key = S.artKey ? S.artKey.split("|") : null;
+    var drawn = key ? (art && typeof art.resolve === "function" ? art.resolve(key[0], key[1]) : key[0]) : null;
+    var pt = drawn && art && art.lightAt && art.lightAt[drawn];
+    if (!pt) {
+      light.style.removeProperty("--light-x");
+      light.style.removeProperty("--light-y");
+      return;
+    }
+    var stage = $("stage");
+    var W = stage.clientWidth;
+    var H = stage.clientHeight;
+    var artEl = $("art");
+    if (!W || !H || !artEl) return;
+    var vbW = 1600;
+    var vbH = 1600;
+    var svg = artEl.querySelector(".art__layer.is-on svg");
+    var vb = svg && svg.getAttribute("viewBox");
+    if (vb) {
+      var parts = vb.split(/[\s,]+/).map(Number);
+      if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+        vbW = parts[2];
+        vbH = parts[3];
+      }
+    }
+    // Layout box of the art (ignores the small pov tilt) relative to the stage.
+    var ax = artEl.offsetLeft;
+    var ay = artEl.offsetTop;
+    var aw = artEl.offsetWidth;
+    var ah = artEl.offsetHeight;
+    var s = Math.max(aw / vbW, ah / vbH);
+    var x = ax + (aw - vbW * s) / 2 + pt[0] * s;
+    var y = ay + (ah - vbH * s) / 2 + pt[1] * s;
+    var lx = light.offsetLeft;
+    var ly = light.offsetTop;
+    var lw = light.offsetWidth || W;
+    var lh = light.offsetHeight || H;
+    light.style.setProperty("--light-x", (((x - lx) / lw) * 100).toFixed(2) + "%");
+    light.style.setProperty("--light-y", (((y - ly) / lh) * 100).toFixed(2) + "%");
+  }
+
   function setCaption(t) {
     var c = $("caption");
     var key = t ? JSON.stringify(t) + "|" + S.lang : "";
@@ -581,6 +626,7 @@
     setArt(st.bg, st.pov, st.time);
     setPov(st.pov);
     setLight(st.light);
+    placeLight();
     setCaption(st.caption);
     setPinned(st.pinned, state);
     setEcho(v.now && v.now.echo);
@@ -737,6 +783,7 @@
         break;
       case "press":
         panel.hidden = true;
+        $("play").classList.add("play--press");
         renderPress(step);
         break;
       case "endingTitle":
@@ -1309,7 +1356,10 @@
     var resizeTimer = 0;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(anchorCast, 120);
+      resizeTimer = setTimeout(function () {
+        anchorCast();
+        placeLight();
+      }, 120);
     });
     try {
       if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(anchorCast);

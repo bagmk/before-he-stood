@@ -29,7 +29,8 @@
       // DAWN: Menahem's room, Psalm 103 with Hanan (c1, c2)
       // ---------------------------------------------------------------
       { id: "dawn", type: "scene", bg: "dawn_lamp", caption: { ko: "새벽 · 므나헴의 방", en: "Dawn · Menahem's room" } },
-      { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers." } },
+      // His notes sit by the lamp from the start: he writes there, never on the sacred scroll (lead decision).
+      { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다. 곁에는 기록장이 펼쳐져 있다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers. His notes lie open beside it." } },
       { type: "line", text: { ko: "새벽마다 그는 같은 고백으로 하루를 연다. {{v:DT_6_4}}", en: "Every dawn he begins the day with the same words: {{v:DT_6_4}}" } },
       { type: "line", text: { ko: "맞은편에서 제자 하난이 두루마리를 들여다본다. 오늘 읽을 곳은 시편 103편이다.", en: "Across from him, his student Hanan leans over the scroll. Today's reading is Psalm 103." } },
       { type: "verse", key: "PS_103_3" },
@@ -45,7 +46,7 @@
             set: { underline: "subject" },
             text: { ko: "“주님이시다. 주어를 분명히 해라.”", en: "“The Lord. Be clear about the subject.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가* 아래에 밑줄을 긋는다.", en: "Menahem draws a line under the first word, *who*." } },
+              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가*를 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } },
               { type: "line", speaker: "hanan", text: { ko: "다 주님이 하시는 일이군요.", en: "So it's all the Lord's doing." } }
             ]
           },
@@ -55,7 +56,7 @@
             set: { underline: "order" },
             text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“So forgiving is named first, and healing after.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *사하시며*와 *고치시며* 사이에 작은 점을 찍는다.", en: "Menahem puts a small dot between *forgives* and *heals*." } },
+              { type: "line", text: { ko: "므나헴은 기록장에 *사하시며*와 *고치시며*를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } },
               { type: "line", speaker: "hanan", text: { ko: "그렇게 읽으니 새롭네요.", en: "I've never read it that way." } }
             ]
           },
@@ -65,7 +66,7 @@
             set: { underline: "sick" },
             text: { ko: "“아픈 사람에게 이 구절은 어떻게 들릴까.”", en: "“I wonder how this line sounds to someone who is sick.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *병*이라는 글자 아래에 밑줄을 긋는다.", en: "Menahem draws a line under *diseases*." } },
+              { type: "line", text: { ko: "므나헴은 *병*이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } },
               { type: "line", speaker: "hanan", text: { ko: "위로가 되겠죠. 아니면 더 아프거나요.", en: "It might comfort them. Or hurt even more." } }
             ]
           },
@@ -75,7 +76,7 @@
             set: { underline: "whole" },
             text: { ko: "“설명하기 전에 시 전체를 읽자.”", en: "“Before I explain, let's read the whole psalm.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem rolls the scroll back to the psalm's first verse." } },
+              { type: "line", text: { ko: "므나헴은 아무것도 적지 않고, 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem writes nothing down. He rolls the scroll back to the psalm's first verse." } },
               { type: "line", speaker: "hanan", text: { ko: "처음부터요?", en: "From the very top?" } }
             ]
           }
@@ -254,11 +255,11 @@
       { type: "verse", key: "MT_9_2B" },
       // One echo per underline value so the line right after each echo is always shown with it.
       { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I underlined this morning bleeds through. The one who forgives is the Lord." } },
+      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 옮겨 적은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I copied into my notes this morning bleeds through. The one who forgives is the Lord." } },
       { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot from this morning comes back. Forgiving first, healing after." } },
+      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot in my notes from this morning comes back. Forgiving first, healing after." } },
       { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 *병*이라는 글자가 번진다. 저 침상 위의 사람에게로.", en: "The word I underlined this morning, *diseases*, bleeds toward the man on the bed." } },
+      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *병*이라는 말이 번진다. 저 침상 위의 사람에게로.", en: "The word I wrote in my notes this morning, *diseases*, bleeds toward the man on the bed." } },
       { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
       { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning rises over the moment." } },
       { type: "fx", fx: "light", level: "soft" },
@@ -436,7 +437,7 @@
           {
             id: "d",
             lens: 2,
-            text: { ko: "정확한 말을 기억해 두자. 아침의 시편 옆에 적게.", en: "Remember the exact words, and write them beside this morning's psalm." },
+            text: { ko: "정확한 말을 기억해 두자. 기록장에 아침의 시편과 나란히 적게.", en: "Remember the exact words, to write them in my notes beside this morning's psalm." },
             reaction: [
               { type: "line", text: { ko: "므나헴은 그 말을 속으로 한 자 한 자 되새긴다.", en: "Menahem goes over the words in his head, one by one." } }
             ]
@@ -469,7 +470,7 @@
             lens: 2,
             text: { ko: "아침의 구절을 속으로 다시 읽는다.", en: "He silently reads the morning's verse again." },
             reaction: [
-              // Underline callback: the psalm returns with the same mark.
+              // Callback: the psalm returns with the word he noted at dawn highlighted.
               { type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
               { type: "line", speaker: "thought", text: { ko: "같은 문장이다. 그런데 오늘은 다르게 읽힌다.", en: "The same words. Today they read differently." } }
             ]
@@ -504,7 +505,7 @@
       { id: "night", type: "scene", bg: "lamp_night", caption: { ko: "밤 · 므나헴의 방", en: "Night · Menahem's room" } },
       { type: "line", text: { ko: "긴 하루가 저문다. 등잔불 아래 기록장이 펼쳐져 있다.", en: "The long day is over. His notes lie open under the oil lamp." } },
       // Callback: c8 d memorized the exact words for this page.
-      { when: { choice: "c8", is: "d" }, type: "line", text: { ko: "낮에 외워 둔 말을, 아침의 시편 옆에 한 자 한 자 옮겨 적는다.", en: "Next to the morning's psalm, he copies out the words he memorized at noon, one by one." } },
+      { when: { choice: "c8", is: "d" }, type: "line", text: { ko: "기록장에 아침의 시편을 적고, 그 옆에 낮에 외워 둔 말을 한 자 한 자 옮겨 적는다.", en: "In his notes he writes out the morning's psalm, and beside it, one by one, the words he memorized at noon." } },
       { type: "line", speaker: "hanan", text: { ko: "선생님, 오늘 일을 뭐라고 적으실 거예요?", en: "Teacher, what are you going to write about today?" } },
       {
         type: "choice",
@@ -556,10 +557,10 @@
         beats: [
           { type: "line", text: { ko: "므나헴은 그 주장을 누구보다 정확히 알아들었다.", en: "Menahem understood that claim more precisely than anyone there." } },
           { type: "line", text: { ko: "하나님만 하실 수 있는 말을, 한 사람이 자기 권한으로 했다.", en: "One man said, on his own authority, what only God can say." } },
-          // Underline callback: what he marked at dawn.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 밑줄 그은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he underlined this morning was the Lord. Today a man stood in that very place and spoke." } },
+          // Callback: what he noted at dawn.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 기록장에 옮겨 적은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he copied into his notes this morning was the Lord. Today a man stood in that very place and spoke." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one mouth." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 *병*에 밑줄을 그었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he underlined *diseases*. Today the man who healed a disease also claimed to forgive sins." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 기록장에 *병*이라고 적었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he wrote *diseases* in his notes. Today the man who healed a disease also claimed to forgive sins." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the last line he wrote (c10).
           { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "그는 마지막 줄에 *신성모독*이라고 적었다.", en: "On the last line he wrote: *blasphemy*." } },
@@ -577,11 +578,11 @@
           { type: "line", text: { ko: "밤. 므나헴은 시편 103편을 다시 편다.", en: "Night. Menahem opens Psalm 103 again." } },
           // Underline callback: the same highlight as at dawn and at the first words.
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 그은 밑줄이 그대로 있다. 사하시는 분도, 고치시는 분도 주님이시다.", en: "This morning's underline is still there. The one who forgives and heals is the Lord." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "기록장에는 아침에 옮겨 적은 *그가*라는 말이 그대로 있다. 사하시는 분도, 고치시는 분도 주님이시다.", en: "The word he copied this morning, *who*, is still in his notes. The one who forgives and heals is the Lord." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 그대로 있다. 용서, 그리고 치유.", en: "The little dot from this morning is still there. Forgiving, then healing." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "기록장에는 아침에 찍은 작은 점이 그대로 있다. 용서, 그리고 치유.", en: "The little dot from this morning is still in his notes. Forgiving, then healing." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그은 밑줄이 그대로 있다. *병*이라는 글자 아래.", en: "This morning's underline is still there, under *diseases*." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "기록장에는 아침에 적은 *병*이라는 말이 그대로 있다.", en: "The word he wrote this morning, *diseases*, is still in his notes." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침처럼, 그 시를 다시 처음부터 읽는다.", en: "As he did this morning, he reads the psalm again from the top." } },
           { type: "line", text: { ko: "오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "Today both of those things happened, in that order, at one man's word." } },
@@ -602,10 +603,10 @@
           // Callback: where his eyes went at c9.
           { when: { choice: "c9", is: "c" }, type: "line", text: { ko: "침상을 들고 멀어지던 뒷모습이 아직 눈에 선하다.", en: "He can still see the man's back as he walked away with his bed." } },
           { when: { choice: "c9", is: "d" }, type: "line", text: { ko: "그를 들고 왔던 사람들이 빈손으로 그와 함께 걸어가던 모습이 떠오른다.", en: "He remembers the men who carried him there, walking home beside him empty-handed." } },
-          // Underline callback (scenario: the marked word returns in every ending), one line per c1 pick.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지에 밑줄을 그었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he underlined who does it. Tonight what catches his eye is who it is done for." } },
+          // Callback (scenario: the word he noted at dawn returns in every ending), one line per c1 pick.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지를 기록장에 적었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he wrote down who does it. Tonight what catches his eye is who it is done for." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning he saw only a dot between two words. Today he saw a man lying in between." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 *병*에 그은 밑줄 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he underlined this morning, *diseases*, he now sees a face from today." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 기록장에 적은 *병*이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he wrote in his notes this morning, *diseases*, he now sees a face from today." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 오늘 밤엔 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning reads tonight like one man's story." } }
         ],
         last: { ko: "나는 오늘 율법으로 그 사람을 판단했다. 그는 권한으로 그 사람을 일으켰다.", en: "Today I judged that man by the Law. He raised him up by his authority." }
