@@ -2815,7 +2815,9 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     padding-right: 4.4vh;
   }
 
-  /* Three options in the 2 x 2 grid: the last one sits centered under the first two. */
+  /* Three options in the 2 x 2 grid: the last one sits centered under the first two. A single option
+     left after a scold sits centered too. */
+  .choices:not(.is-stacked) .choices__list[data-n="1"] > .opt:only-child,
   .choices:not(.is-stacked) .choices__list[data-n="3"] > .opt:nth-child(3):last-child {
     grid-column: 1 / -1;
     justify-self: center;
@@ -3223,10 +3225,10 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
       "head actions"
       "list list";
     column-gap: 3vw;
-    row-gap: 2.6vh;
+    row-gap: 2vh;
     height: 100%;
     min-height: 0;
-    padding: calc(var(--safe-top) + 9vh) 4vw calc(var(--safe-bottom) + 4vh);
+    padding: calc(var(--safe-top) + 8.6vh) 4vw calc(var(--safe-bottom) + 3vh);
   }
 
   .treespage-head {
@@ -3237,6 +3239,13 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .treespage .treepage-title {
     font-size: calc(4.6vh * var(--text-scale));
+  }
+
+  /* One line for the title, so the three trees keep the height. */
+  .treespage .treepage-title .en {
+    display: inline;
+    margin: 0 0 0 0.5em;
+    font-size: 0.62em;
   }
 
   .treespage .treepage-hint {
@@ -3271,18 +3280,39 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     border-radius: 1.2vh;
   }
 
+  /* Three trees side by side must fit one screen with every branch seen: tighter wood, smaller tags
+     (never below 2.2vh), short lines. */
   .tree--compact {
-    --trunk-w: 3.8vh;
-    --stem-w: 3.8vh;
-    --stem-h: 1.6vh;
-    --level-h: 6.4vh;
-    --tag-fs: 2.5vh;
+    --trunk-w: 3.4vh;
+    --stem-w: 3vh;
+    --stem-h: 1.5vh;
+    --level-h: 5.6vh;
+    --tag-fs: 2.4vh;
     --tag-fs-en: 2.2vh;
-    padding: 2vh 0.6vw 1.6vh;
+    padding: 1.6vh 0.5vw 1.4vh;
+  }
+
+  .tree--compact .tree__goaltitle {
+    margin-bottom: 1.2vh;
+    line-height: 1.2;
+  }
+
+  .tree--compact .tree__star {
+    width: calc(var(--trunk-w) * 1.6);
+    height: calc(var(--trunk-w) * 1.6);
   }
 
   .tree--compact .branch__snip {
-    margin: 0 0.15vh;
+    margin: 0;
+  }
+
+  .tree--compact .branch__tag {
+    padding: 0.2em 0.45em 0.24em;
+    line-height: 1.2;
+  }
+
+  .tree--compact .tree__plate {
+    margin-top: 1vh;
   }
 
   .tree__tip {

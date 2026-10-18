@@ -1,7 +1,8 @@
 // tests/routes-smoke.mjs - plays the REAL route files through the engine and reports anything the
 // engine cannot handle. Run: node tests/routes-smoke.mjs   (exit code 1 on errors, 0 on warnings only)
 // Complements tools/validate.mjs; this checks engine compatibility, not prose rules.
-// Version 3 routes: 4 choices (c1-c4), the last counts double; scribe and friend have one cut option.
+// Version 4 routes (story mode): choices c1..cN with 2-4 options; each option continues, cuts the story
+// (bad: id -> endings.bad[id] -> snip card) or is scolded away (scold: { speaker?, text } -> re-ask).
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -67,6 +68,7 @@ function checkT(r, where, t) {
     }
     if (/\n/.test(t[lang])) err(r, `${where}: line break inside ${lang}`);
     if (/<[a-z]/i.test(t[lang])) warn(r, `${where}: looks like HTML in ${lang}`);
+    if (/[0-9]/.test(t[lang].replace(TOKEN, ""))) err(r, `${where}: ASCII digits on screen in ${lang} (version 4: no numbers)`);
   }
 }
 
@@ -104,28 +106,33 @@ function walkBeats(r, route, list, where, ctx) {
         if (ctx.inReaction) err(r, `${w}: choice inside a reaction`);
         ctx.choices.push(b);
         checkT(r, w + ".prompt", b.prompt);
-        if (!Array.isArray(b.options) || b.options.length !== 4) err(r, `${w}: needs exactly 4 options`);
+        const n = Array.isArray(b.options) ? b.options.length : 0;
+        if (n < 2 || n > 4) err(r, `${w}: needs 2-4 options, has ${n}`);
+        let cont = 0;
         (b.options || []).forEach((o, k) => {
           const ow = `${w}.${o && o.id}`;
           if (!o || o.id !== "abcd"[k]) err(r, `${ow}: option ids must be a,b,c,d in order`);
-          if (!(o.lens === null || o.lens === 1 || o.lens === 2 || o.lens === 3)) err(r, `${ow}: lens must be 1|2|3|null (got ${JSON.stringify(o.lens)})`);
-          if (o.cut !== undefined && o.cut !== true) err(r, `${ow}: cut must be true when present`);
-          if (o.cut === true) {
-            ctx.cuts.push(b.id + "/" + o.id);
-            if (o.lens !== null) err(r, `${ow}: a cut option must have lens null`);
+          if (o.cut !== undefined || o.lens !== undefined) err(r, `${ow}: lens/cut fields of the lens releases (version 4 uses bad / scold)`);
+          if (o.bad !== undefined && o.scold !== undefined) err(r, `${ow}: both bad and scold`);
+          const kind = E.optionOutcome(o);
+          if (kind === "continue") cont++;
+          if (kind === "bad") ctx.bads.push(o.bad);
+          if (kind === "scold") {
+            ctx.scolds++;
+            checkT(r, ow + ".scold", o.scold.text);
+            const sp = o.scold.speaker || "narrator";
+            if (!PSEUDO.includes(sp) && !(BHS.characters && BHS.characters[sp])) err(r, `${ow}: unknown scold speaker ${sp}`);
+            if (sp === "jesus") err(r, `${ow}: a scold by Jesus`);
           }
           checkT(r, ow + ".text", o.text);
           if (o.set && typeof o.set === "object") Object.keys(o.set).forEach((f) => ctx.flagsSet.add(f));
           if (o.reaction) {
-            const n = o.reaction.length;
-            if (n > 2) {
-              // more than two is fine when `when` variants guarantee at most two play
-              const unconditional = o.reaction.filter((x) => x && !x.when && x.type !== "fx" && x.type !== "scene").length;
-              if (unconditional > 2) warn(r, `${ow}: ${unconditional} unconditional reaction beats (spec: 0-2)`);
-            }
+            const unconditional = o.reaction.filter((x) => x && !x.when && x.type !== "fx" && x.type !== "scene").length;
+            if (unconditional > 1) warn(r, `${ow}: ${unconditional} unconditional reaction beats (spec: 0-1)`);
             walkBeats(r, route, o.reaction, ow + ".reaction", Object.assign({}, ctx, { inReaction: true }));
           }
         });
+        if (!cont) err(r, `${w}: no continue option (a dead end)`);
         break;
       }
       case "fx":
@@ -192,7 +199,7 @@ function checkCond(r, where, c, ctx) {
     return;
   }
   if ("lastLens" in c || "c10lens" in c) {
-    if (!ctx.allowAllChoices) warn(r, `${where}: ${"lastLens" in c ? "lastLens" : "c10lens"} used outside endings`);
+    err(r, `${where}: a lens condition (the lens releases); version 4 has no lenses`);
     return;
   }
   if ("var" in c) {
@@ -202,12 +209,9 @@ function checkCond(r, where, c, ctx) {
   err(r, `${where}: unknown condition ${JSON.stringify(c)}`);
 }
 
-const CHOICE_IDS = ["c1", "c2", "c3", "c4"];
-const CUT_ROUTES = ["scribe", "friend"];
-
 function staticChecks(r) {
   const route = BHS.routes[r];
-  const ctx = { choices: [], flagsSet: new Set(), flagsUsed: new Set(), inReaction: false, cuts: [] };
+  const ctx = { choices: [], flagsSet: new Set(), flagsUsed: new Set(), inReaction: false, bads: [], scolds: 0 };
   if (route.id !== r) err(r, `route.id is ${route.id}`);
   (route.actions || []).forEach((a, i) => {
     if (!a.id) err(r, `actions[${i}] without id`);
@@ -216,49 +220,57 @@ function staticChecks(r) {
   });
   walkBeats(r, route, route.beats, "beats", ctx);
   const ids = ctx.choices.map((c) => c.id);
-  if (JSON.stringify(ids) !== JSON.stringify(CHOICE_IDS)) err(r, `choice ids ${JSON.stringify(ids)} (want c1..c4 in order, once each)`);
-  if (E.lastChoiceId(r) !== "c4") err(r, `the double-weight choice is ${E.lastChoiceId(r)}, expected c4`);
-  if (CUT_ROUTES.includes(r)) {
-    if (ctx.cuts.length !== 1) err(r, `expected exactly one cut option, found ${ctx.cuts.length} (${ctx.cuts.join(", ")})`);
-    else if (!/^c[23]\//.test(ctx.cuts[0])) err(r, `the cut option ${ctx.cuts[0]} must be in c2 or c3`);
-  } else if (ctx.cuts.length) err(r, `no cut option allowed (found ${ctx.cuts.join(", ")})`);
+  if (ids.some((id, i) => id !== "c" + (i + 1))) err(r, `choice ids ${JSON.stringify(ids)} (want c1, c2, ... in order, once each)`);
   const endCtx = Object.assign({}, ctx, { allowAllChoices: true });
   walkBeats(r, route, route.endingPreface, "endingPreface", endCtx);
-  const keys = ["1", "2", "3"].concat(CUT_ROUTES.includes(r) ? ["cut"] : []);
-  keys.forEach((k) => {
-    const e = route.endings && route.endings[k];
-    if (!e) return err(r, `endings.${k} missing`);
-    walkBeats(r, route, e.beats, `endings.${k}.beats`, endCtx);
-    checkT(r, `endings.${k}.last`, e.last);
-  });
-  if (!CUT_ROUTES.includes(r) && route.endings && route.endings.cut) err(r, "endings.cut present in a route without a cut option");
+  const good = route.endings && route.endings.good;
+  if (!good) err(r, "endings.good missing");
+  else {
+    checkT(r, "endings.good.title", good.title);
+    const v = BHS.scripture && BHS.scripture[good.verse];
+    if (!v || v.refOnly) err(r, `endings.good.verse ${good.verse} is not a verse with text`);
+    walkBeats(r, route, good.beats, "endings.good.beats", endCtx);
+    checkT(r, "endings.good.last", good.last);
+  }
+  const bad = (route.endings && route.endings.bad) || {};
+  for (const id of ctx.bads) if (!bad[id]) err(r, `bad "${id}" has no endings.bad.${id}`);
+  for (const [id, e] of Object.entries(bad)) {
+    if (!ctx.bads.includes(id)) err(r, `endings.bad.${id} is unreachable`);
+    checkT(r, `endings.bad.${id}.title`, e.title);
+    walkBeats(r, route, e.beats, `endings.bad.${id}.beats`, endCtx);
+    checkT(r, `endings.bad.${id}.last`, e.last);
+  }
   walkBeats(r, route, route.endingCoda, "endingCoda", endCtx);
   ctx.flagsUsed.forEach((f) => {
     if (!ctx.flagsSet.has(f)) err(r, `flag "${f}" is tested but never set`);
   });
 }
 
-function play(r, picker) {
-  const g = E.createGame(r);
+// Plays one game with a pick function; returns the shown step kinds, screens and how it stopped.
+function play(g, picker, max = 3000) {
   let screens = 0;
   const seen = [];
-  for (let i = 0; i < 3000; i++) {
+  for (let i = 0; i < max; i++) {
     const s = g.step;
-    if (s.kind === "end") break;
-    // Screens as in SPEC 3.3 and tools/validate.mjs: line (including the last line), verse, choice, press.
-    if (s.kind === "line" || s.kind === "last" || s.kind === "verse" || s.kind === "choice" || s.kind === "press") screens++;
+    if (s.kind === "end" || s.kind === "snip") break;
+    // Screens as in SPEC 4.5 and tools/validate.mjs: line (the last line too), verse, memory, choice, press.
+    if (s.kind === "line" || s.kind === "last" || s.kind === "verse" || s.kind === "memory" || s.kind === "choice" || s.kind === "press") screens++;
     if (s.kind === "line") {
       ["ko", "en"].forEach((l) => {
         const txt = E.plainText(s.text, l, g.state);
-        if (/\[[A-Z0-9_]+\]|…”/.test(txt) && /\{\{/.test(JSON.stringify(s.text))) err(r, `unresolved token in "${txt.slice(0, 40)}"`);
+        if (/\[[A-Z0-9_]+\]|…”/.test(txt) && /\{\{/.test(JSON.stringify(s.text))) err(g.state.routeId, `unresolved token in "${txt.slice(0, 40)}"`);
       });
     }
-    seen.push(s.kind);
-    if (s.kind === "choice") g.choose(picker(s, g));
-    else if (s.kind === "press") g.press();
+    seen.push(s.kind + (s.id ? ":" + s.id : ""));
+    if (s.kind === "choice") {
+      if (!g.choose(picker(s, g))) {
+        err(g.state.routeId, `choose refused at ${s.id}`);
+        break;
+      }
+    } else if (s.kind === "press") g.press();
     else g.next();
   }
-  return { g, screens, seen, ended: g.step.kind === "end" };
+  return { screens, seen, stop: g.step.kind, id: g.step.kind === "snip" ? g.step.id : g.state.ending && g.state.ending.id };
 }
 
 const report = {};
@@ -267,36 +279,68 @@ for (const r of ["scribe", "friend", "asher"]) if (!routeIds.includes(r)) err(r,
 
 for (const r of routeIds) {
   staticChecks(r);
-  const out = { screens: [], cutScreens: [], endings: { 1: 0, 2: 0, 3: 0, cut: 0 } };
-  // Uniform strategies.
-  for (const fixed of ["a", "b", "c", "d"]) {
-    const { screens, seen, ended } = play(r, () => fixed);
-    // The route ends right after the ending (title card, beats, last line, coda); the UI then opens the gallery.
-    if (!seen.includes("endingTitle") || !seen.includes("last") || !ended) err(r, `all-${fixed}: ending sequence incomplete`);
-  }
-  // Every path (4^4 = 256): the game must end with the ending computeLens predicts, within the screen budget,
-  // and a saved game must resume to the same ending from any point.
-  for (let n = 0; n < 256; n++) {
-    const map = {};
-    for (let i = 0; i < 4; i++) map["c" + (i + 1)] = "abcd"[(n >> (2 * i)) & 3];
-    const { g, screens, ended } = play(r, (s) => map[s.id]);
-    const exp = E.computeLens(r, map);
-    const want = r + "-" + (exp.cut ? "cut" : exp.lens);
-    if (!ended || !g.state.ending || g.state.ending.id !== want) err(r, `path ${JSON.stringify(map)}: ended ${g.state.ending && g.state.ending.id}, expected ${want}`);
-    out.endings[exp.cut ? "cut" : exp.lens]++;
-    (exp.cut ? out.cutScreens : out.screens).push(screens);
-    if (screens > 32) err(r, `path ${JSON.stringify(map)}: ${screens} screens (budget 32)`);
-  }
+  const route = BHS.routes[r];
+  const out = { truePaths: 0, cutPaths: 0, trueScreens: [], cutScreens: [], scoldsTried: 0, retries: 0 };
+  const choices = E.choiceBeats(route);
+  const cont = choices.map((cb) => cb.options.filter((o) => E.optionOutcome(o) === "continue").map((o) => o.id));
+  // Every true path (each combination of continue options) ends in the true ending.
+  const walkTrue = (k, picks) => {
+    if (k === choices.length) {
+      const res = play(E.createGame(r), (s, g) => picks[s.id] || g.continueOption(s));
+      out.truePaths++;
+      out.trueScreens.push(res.screens);
+      if (res.stop !== "end" || res.id !== r + "-good") err(r, `true path ${JSON.stringify(picks)} stopped at ${res.stop} ${res.id}`);
+      if (res.screens > 30) err(r, `true path ${JSON.stringify(picks)}: ${res.screens} screens (max 30)`);
+      return;
+    }
+    for (const id of cont[k]) walkTrue(k + 1, Object.assign({}, picks, { [choices[k].id]: id }));
+  };
+  walkTrue(0, {});
+  // Every cut option along the first true path: its snip card, then Try again back at the same choice.
+  choices.forEach((cb) => {
+    cb.options.filter((o) => E.optionOutcome(o) === "bad").forEach((o) => {
+      const g = E.createGame(r);
+      let shown = null;
+      const res = play(g, (s, gg) => {
+        if (s.id === cb.id) {
+          shown = s.options.map((x) => x.id).join("");
+          return o.id;
+        }
+        return gg.continueOption(s);
+      });
+      out.cutPaths++;
+      out.cutScreens.push(res.screens);
+      if (res.stop !== "snip" || res.id !== `${r}-bad-${o.bad}`) err(r, `${cb.id}/${o.id} stopped at ${res.stop} ${res.id}, expected the snip card of ${r}-bad-${o.bad}`);
+      if (res.screens > 20) err(r, `${cb.id}/${o.id}: ${res.screens} screens on the cut path (max 20)`);
+      if (!g.retry() || g.step.kind !== "choice" || g.step.id !== cb.id || g.step.options.map((x) => x.id).join("") !== shown) err(r, `${cb.id}/${o.id}: Try again did not return to ${cb.id} with options ${shown}`);
+      else out.retries++;
+    });
+  });
+  // Every scold: the line plays, the option goes, the same choice comes back without it.
+  choices.forEach((cb) => {
+    cb.options.filter((o) => E.optionOutcome(o) === "scold").forEach((o) => {
+      const g = E.createGame(r);
+      g.fastForward({ until: (s) => s.kind === "choice" && s.id === cb.id });
+      if (!g.choose(o.id)) return err(r, `${cb.id}/${o.id}: the scold option could not be picked`);
+      for (let i = 0; i < 6 && g.step.kind !== "choice"; i++) g.next();
+      if (g.step.kind !== "choice" || g.step.id !== cb.id || g.step.options.some((x) => x.id === o.id) || !g.step.removed.includes(o.id)) err(r, `${cb.id}/${o.id}: the choice was not asked again without the scolded option`);
+      else out.scoldsTried++;
+    });
+  });
+  // A saved game resumes to the same place from any point (random plans, cut paths included).
   let seed = 7;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
   for (let k = 0; k < 40; k++) {
-    const map = {};
-    for (let i = 0; i < 4; i++) map["c" + (i + 1)] = "abcd"[Math.floor(rnd() * 4)];
+    const pickRandom = (s) => s.options[Math.floor(rnd() * s.options.length)].id;
     const a = E.createGame(r);
     const stopAt = 1 + Math.floor(rnd() * 30);
-    for (let i = 0; i < stopAt && a.step.kind !== "end"; i++) {
-      if (a.step.kind === "choice") a.choose(map[a.step.id]);
-      else if (a.step.kind === "press") a.press();
+    const plan = [];
+    for (let i = 0; i < stopAt && a.step.kind !== "end" && a.step.kind !== "snip"; i++) {
+      if (a.step.kind === "choice") {
+        const id = pickRandom(a.step);
+        plan.push(id);
+        a.choose(id);
+      } else if (a.step.kind === "press") a.press();
       else a.next();
     }
     const snap = JSON.parse(JSON.stringify(a.serialize()));
@@ -305,32 +349,12 @@ for (const r of routeIds) {
       continue;
     }
     const b = E.restoreGame(snap);
-    const ra = play2(a, map);
-    const rb = play2(b, map);
-    if (JSON.stringify(ra) !== JSON.stringify(rb)) err(r, `resume after ${stopAt} steps differs from the uninterrupted game (${JSON.stringify(map)})`);
+    const ra = play(a, (s, g) => g.continueOption(s));
+    const rb = play(b, (s, g) => g.continueOption(s));
+    if (JSON.stringify(ra) !== JSON.stringify(rb)) err(r, `resume after ${stopAt} steps differs from the uninterrupted game`);
   }
-  const pct = (v, total) => (100 * v / total).toFixed(1) + "%";
-  const nonCut = out.endings[1] + out.endings[2] + out.endings[3];
-  out.enumeration = { 1: pct(out.endings[1], nonCut), 2: pct(out.endings[2], nonCut), 3: pct(out.endings[3], nonCut), cut: pct(out.endings.cut, 256) };
-  const sc = out.screens.sort((x, y) => x - y);
-  out.screensMinMedMax = sc.length ? [sc[0], sc[Math.floor(sc.length / 2)], sc[sc.length - 1]] : null;
-  const cs = out.cutScreens.sort((x, y) => x - y);
-  out.cutScreensMinMax = cs.length ? [cs[0], cs[cs.length - 1]] : null;
-  delete out.screens;
-  delete out.cutScreens;
-  report[r] = out;
-}
-
-// Plays a game to its end and returns the shown step kinds plus the ending id.
-function play2(g, map) {
-  const kinds = [];
-  for (let i = 0; i < 3000 && g.step.kind !== "end"; i++) {
-    kinds.push(g.step.kind + (g.step.id ? ":" + g.step.id : ""));
-    if (g.step.kind === "choice") g.choose(map[g.step.id]);
-    else if (g.step.kind === "press") g.press();
-    else g.next();
-  }
-  return { kinds, ending: g.state.ending && g.state.ending.id };
+  const mm = (arr) => (arr.length ? [Math.min(...arr), Math.max(...arr)] : null);
+  report[r] = { truePaths: out.truePaths, trueScreensMinMax: mm(out.trueScreens), cutPaths: out.cutPaths, cutScreensMinMax: mm(out.cutScreens), tryAgainOk: out.retries, scoldsOk: out.scoldsTried, tree: E.treeOf(r).levels.map((l) => l.id + "[" + l.branches.map((b) => b.badId).join(",") + "]").join(" ") };
 }
 
 E.warnings.forEach((w) => warns.push("[engine] " + w));

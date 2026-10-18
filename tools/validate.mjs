@@ -1236,7 +1236,9 @@ function checkChoice(b, cx, w) {
         else if (!PSEUDO_SPEAKERS.includes(sp) && !(isObj(cx.data.characters) && cx.data.characters[sp])) rep.error('schema', ow, `unknown scold speaker ${JSON.stringify(sp)}`);
         if (sc.text === undefined) rep.error('outcome', ow, 'scold needs a text');
         else checkT(sc.text, cx, `${ow} › scold`, { kind: 'line', story: cx.story, speaker: sp });
-        cx.scolds.push({ choice: b.id, option: o.id, w: ow });
+        // Only scolds by another character count toward SPEC 8's 2-3; a character's own "can't"
+        // thought (Asher's get up / go outside options, a teacher request) is not a scold by someone.
+        if (sp !== 'thought') cx.scolds.push({ choice: b.id, option: o.id, w: ow });
       }
     }
     if (!hasBad && !hasScold) nContinue++;
@@ -1323,10 +1325,11 @@ export function simulate(route, data, plan = {}) {
       out.push({ kind: 'choice', beat: b, shown, phase, bg, light });
       const id = nextPick(b, shown, plan);
       const o = opts.find((x) => x.id === id);
-      st.choices[b.id] = o.id;
+      const kind = optionOutcome(o);
+      // Only the pick that moves the story on is the choice's answer; a scolded pick is never recorded.
+      if (kind !== 'scold') st.choices[b.id] = o.id;
       if (isObj(o.set)) Object.assign(st.flags, o.set);
       runList(o.reaction, phase + '/reaction');
-      const kind = optionOutcome(o);
       if (kind === 'scold') {
         rm.push(o.id);
         out.push({ kind: 'line', beat: scoldLine(b, o), phase: phase + '/scold', bg, light });
@@ -2658,7 +2661,8 @@ function selfTest() {
     const d3 = clone(base);
     delete cho(d3, 'asher', 'c3').options[1].scold;
     delete cho(d3, 'asher', 'c4').options[3].scold;
-    return run(d).has('WARN', 'shape', /4 choices/) && run(d2).has('WARN', 'shape', /2 cut branch/) && run(d3).has('WARN', 'shape', /1 scold option/);
+    // "Can't" thoughts are not counted as scolds, so the remaining count is 0 or 1 depending on the fixture.
+    return run(d).has('WARN', 'shape', /4 choices/) && run(d2).has('WARN', 'shape', /2 cut branch/) && run(d3).has('WARN', 'shape', /[01] scold option/);
   });
   t('voice: the scribe narration says 그분 -> WARN; the friend narration says 예수라는 사람 -> WARN', () => {
     const d = clone(base);

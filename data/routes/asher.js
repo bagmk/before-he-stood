@@ -1,5 +1,5 @@
 /* Asher route, version 4 (story mode): "What Did He Call Me?" Owner: asher writer.
- * Rules: docs/SPEC-v4-story.md (overrides docs/SPEC.md on route shape, choices and endings).
+ * Rules: docs/SPEC.md, version 4 (route shape, choices and endings: sections 3.5, 4.5, 4.6, 8).
  * Schema basics, canon and guardrails: docs/SPEC.md §4.5, §6, §7.
  *
  * Shape: five choices c1-c5. Every option has exactly one outcome:
@@ -18,7 +18,7 @@
   var BHS = (window.BHS = window.BHS || {});
   BHS.routes = BHS.routes || {};
 
-  // Tiny builders. They only return plain objects in the SPEC §4.5 / SPEC-v4 §2 shape.
+  // Tiny builders. They only return plain objects in the SPEC §4.5 shape.
   function t(ko, en) {
     return { ko: ko, en: en };
   }

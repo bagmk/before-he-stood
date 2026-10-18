@@ -1,6 +1,6 @@
 /*
  * Friend route, v4 story mode: "A Corner of the Bed" (Yonah). Owner: friend writer.
- * Rules: docs/SPEC-v4-story.md (overrides docs/SPEC.md on route shape, choices and endings).
+ * Rules: docs/SPEC.md, version 4 (route shape, choices and endings: sections 3.5, 4.5, 4.6, 8).
  * Schema basics, canon and guardrails: docs/SPEC.md sections 3.3, 3.4, 4.5, 6 and 7.
  *
  * Shape: one story with five choices (c1-c5). Every option has exactly one outcome:

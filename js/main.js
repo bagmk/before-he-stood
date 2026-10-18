@@ -868,16 +868,23 @@
   }
 
   // Plays the rest of the route along continue options, the true ending included; renderGame then
-  // opens the story tree. On a snip card it tries again first.
+  // opens the story tree. Inside a cut branch it plays on to the snip card (so the branch counts as
+  // seen), then tries again.
   function autoPlay() {
     var g = app.game;
     if (!g || !PLAY_SCREENS[app.screen]) return;
-    if (g.step.kind === "snip") g.retry();
-    g.fastForward({
-      until: function (s) {
-        return s.kind === "end";
+    for (var i = 0; i < 4; i++) {
+      if (g.step.kind === "snip") {
+        if (g.state.ending) markSeen(g.state.ending.id);
+        if (!g.retry()) break;
       }
-    });
+      g.fastForward({
+        until: function (s) {
+          return s.kind === "end";
+        }
+      });
+      if (g.step.kind !== "snip") break;
+    }
     renderGame({ instant: true });
   }
 

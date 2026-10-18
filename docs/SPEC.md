@@ -1,8 +1,8 @@
 # SPEC — 그가 일어나기 전 · Before He Stood
 
-Version 3 (2026-10-18): short routes. Single source of truth for every agent on this project.
-- Version 3 merges the short-route addendum (all three characters played together on one TV in one lesson): 4 choices per route with the last counting double, cut endings, a 3 × 4 endings gallery, the new balance and screen budget. Where docs/scenario-v2.md still describes the 10-choice routes, this file wins.
-- docs/scenario-v2.md (Korean) owns story beats, options, callbacks, ending prose and tone (within the version 3 route shape, §3.5).
+Version 4 (2026-10-18): story mode. Single source of truth for every agent on this project.
+- Version 4 merges the story-mode addendum (the former docs/SPEC-v4-story.md, including the teacher's notes in §0.1): one true ending per character, cut branches with "Try again", scolded options, the story tree, no numbers on screen. It replaces version 3's lenses, scoring, double weight, mismatch line, cut endings, 3 × 4 endings gallery and lens balance.
+- The route files (data/routes/*.js) are the story. docs/scenario-v2.md (Korean) stays as background for voices, callbacks and tone; where it describes lenses or 10-choice routes, this file wins.
 - THIS FILE owns structure, schema, canon facts, glossary, and guardrails. On conflict about structure or facts, this file wins.
 - Never edit a file you do not own (see §1). Put needed changes under "Requests" in your final report.
 
@@ -11,29 +11,46 @@ Version 3 (2026-10-18): short routes. Single source of truth for every agent on 
 ## 0. What we are building
 
 - A mobile-first, bilingual (Korean/English) visual novel for a Korean-American church youth class (4–5 students, ages 14–18). Based on Matthew 9:1–8.
-- The class plays ALL THREE characters together on one TV in a single lesson, about 5 minutes per character read aloud (a phone still plays one character alone): 4 choices × 4 options per character, 3 lens endings per character, plus a cut ending for the scribe and the friend (a choice that ends the route early, §4.5). Then the class fills the 3 × 4 endings grid (rows = three characters, columns = three lenses + "cut short") and the sermon on Matthew 8:23–9:8 follows.
-- Choices never change the biblical event. They change how the protagonist hears it. Endings are never graded (no good/bad/true endings, no visible score).
+- The class plays ALL THREE characters together on one TV in a single lesson, about 5 minutes per character read aloud (a phone still plays one character alone). Each character's route is ONE story that the class pushes forward through 5–6 choices. A wrong choice can cut the story off (a short, funny scene, then "Try again" from that choice) or get scolded away (the option disappears and the same choice is asked again). Each character has exactly ONE ending, the true ending, which closes with that character's memory verse. After it, the route's story tree shows what the class saw: the trunk up to the star and the branches that got cut. The sermon on Matthew 8:23–9:8 follows.
+- Choices never change the biblical event (§4.6). They decide whether the protagonist stays in the story.
+- The story is the point: no numbers on screen during play (no ①②③, no counts, no scores, no visible 1–4 badges on options), no labels such as "good/bad/true ending" anywhere on screen.
 - Static site: plain HTML/CSS/JS. No framework, no build step to play, no network required (Google Fonts optional, always with fallbacks). Must run (a) by double-clicking index.html (file://), (b) on GitHub Pages, (c) as a claude.ai artifact (single-file build, see §5.7).
-- The site is the game only: index.html (plus the single-file builds). There is no teacher page and no final screen with fill-in blanks; after an ending the player goes straight to the endings gallery (both removed 2026-10-18).
+- The site is the game only: index.html (plus the single-file builds). There is no teacher page and no final screen with fill-in blanks; after the true ending the player sees the route's story tree.
 - **All code comments in English only. Never write Korean in code comments.** Korean is fine inside data strings.
 - No audio. No external images. All art is code (SVG).
+
+### 0.1 The teacher's direction (2026-10-18, verbatim intent)
+- "Rather than a dating-sim where you collect different endings, it's more fun to push the story forward. A wrong choice can just end the game (e.g. Asher refuses to go → not healed, the end; the scribe says something outrageous → spends the night in a guardhouse), or a friend / another scribe scolds you ('그건 아니지!') and the option disappears. Only ONE final ending per character; reaching it shows Scripture and the ending. Options can be 2 or 4. Make the options snappy and fun, and weird choices lead to weird (funny) endings — fun for the kids, but not unbiblical."
+- "The wording is awkward. Write in easier words, like a native speaker, not translationese. Make the text easier, readable and natural. Trying to steer toward endings and having numbers pop up in the middle makes it awkward. Focus on the story; don't force it into a format."
+- (Asher) "Make 일어나기 / 밖으로 just options among the choices — it says it can't, and the option turns off. Don't keep them in the middle of the screen."
+- (Asher) "If Asher says he won't go out, end the route right there": he stays home and is not healed (a cut branch; no scolding, no second chance inside the story; the class can use Try again).
+- (With a screenshot of the old 「① 누가? · 그분은 누구신가」 card) "Don't force the story along with choices like this — it can just end. Numbers that keep appearing feel off. Keep ONE ending; before it, the story can get cut off. At the very end just show, as a tree, what we saw. Twelve endings aren't needed — one is enough. Only the branches that got pruned (cut off) go in the tree."
+
+### 0.2 Writing first (applies to every string)
+- **Native Korean first.** Write each line as a Korean speaker would actually say or write it today — then write the English as a native English speaker would, not as a translation of the Korean. Meaning should match; wording should not be word-for-word.
+- **Easy words, short sentences.** High-school readers, read aloud on a TV. One idea per sentence. Avoid literary/archaic vocabulary (e.g. 해명, 연유, 무릇), stiff written forms (~하는 것이다, ~에 대한, ~을 통해, 하나의, 그는 ~했다 in every line), and English calques in Korean (그녀/그 for every reference, passive constructions, "그것은").
+- **Dialogue sounds like people.** Yonah and Asher talk like close friends (반말, teasing, short). Hanan speaks politely but bluntly to his teacher. Menahem is precise and a bit stiff — that is his character, but still natural Korean. Narration is plain and visual.
+- **Story, not scaffolding.** No numbers or game labels inside the story: no lens numbers, no counters, no "sentence count", no stats, no meta-commentary about choices or endings. The story never stops to explain itself.
+- Scripture text stays exactly as published (개역개정 / ESV) through verse beats and tokens; only our own lines change.
+- English data uses straight apostrophes (') inside words; curly quotes “ ” mark spoken words.
 
 ## 1. Files and ownership
 
 | Path | Owner | Notes |
 | --- | --- | --- |
 | docs/SPEC.md, docs/scenario-v2.md | lead | read-only for agents |
-| data/meta.js | lead | titles, lenses, route cards, ending titles, notices |
+| data/meta.js | lead | titles, route cards, notices |
 | data/characters.js | lead | speaker ids, names, colors |
-| data/common.js | lead | prologue, route-select prompt, mismatch line |
+| data/common.js | lead | prologue, route-select prompt and suggested order |
 | data/scripture.js, docs/scripture-sources.md | scripture agent | exact verse text; keys fixed in §4.3 |
-| data/routes/scribe.js | scribe writer | |
+| data/routes/scribe.js | scribe writer | the story, its true ending and cut branches (titles included) |
 | data/routes/friend.js | friend writer | |
 | data/routes/asher.js | asher writer | |
+| drafts/ (when present) | writers | working drafts; never loaded by the game |
 | index.html, css/style.css, js/engine.js, js/ui.js, js/main.js, data/ui-strings.js, tools/build-single.mjs, tests/* (incl. fixtures) | engine agent | |
 | js/art.js | art agent | scene backgrounds as SVG |
 | js/portraits.js | portrait agent | character busts as SVG |
-| tools/validate.mjs, tools/playtest.mjs, qa/* | engine + tools agent (version 3) | |
+| tools/validate.mjs, tools/playtest.mjs, tools/serve.mjs, qa/* | engine + tools agent | |
 | README.md | lead | |
 
 Do not run `git commit`; the lead commits.
@@ -57,7 +74,7 @@ Load order in index.html (fixed):
 4. data/common.js
 5. data/ui-strings.js
 6. data/routes/scribe.js, data/routes/friend.js, data/routes/asher.js
-7. js/engine.js, js/art.js, js/ui.js, js/main.js
+7. js/engine.js, js/art.js, js/portraits.js, js/ui.js, js/main.js
 
 Data files must not depend on each other at load time. js/engine.js must not touch the DOM at load time, so Node can load it with a `window` shim (`globalThis.window = globalThis`).
 
@@ -69,7 +86,7 @@ Data files must not depend on each other at load time. js/engine.js must not tou
 ### 3.2 Tokens inside T strings
 - `{{v:KEY}}` → verse text of KEY in the same language. The engine adds curly quotes “…” around it. Writers never add quotes around a token.
 - `{{r:KEY}}` → verse reference in the same language (`시 107:17` / `Ps 107:17`).
-- `{{var:NAME}}` → integer runtime variable (Asher's counters).
+- `{{var:NAME}}` → integer runtime variable (kept for older data; the version 4 routes use none).
 
 **Rule:** any text presented as a quotation of Scripture must be a `{{v:KEY}}` token or a `verse` beat. Never type scripture wording directly into a string. Paraphrase without quotation marks is fine and may cite `{{r:KEY}}`.
 
@@ -80,49 +97,47 @@ Data files must not depend on each other at load time. js/engine.js must not tou
 | option text | 45 / 60 | 90 / 120 |
 | choice prompt | 50 / 70 | 100 / 130 |
 
-Token text counts as its rendered length. Route budget (version 3): 24–30 screens on a typical path, at most 32 on any path (screens = line + verse + choice + press beats, the ending's lines and last line included; the ending card is not a screen). A path that shows the mismatch line may reach 31. About 4 minutes read silently, about 5 minutes read aloud on a TV. The validator errors above 32 on any path and warns when a path exceeds 31 or the median path exceeds 30.
+Token text counts as its rendered length. Options aim shorter: ≤ 24 Korean / ≤ 48 English characters (the validator lists longer ones as INFO). Our own strings carry no ASCII digits (numbers are written as words: 「마흔 장」, 「오 분만 더」, "forty pages"); verse text, references and ids are exempt. Screen budget and reading time: §4.5.
 
 ### 3.4 Style per language
 Korean
-- Narration: short declarative sentences, mostly present tense (「등잔불이 흔들린다.」). Second person 「너」 only in ending narration and last lines (as in scenario-v2).
+- Narration: short declarative sentences, mostly present tense (「등잔불이 흔들린다.」). Second person 「너」 only in ending narration and last lines.
 - `thought` speaker: the protagonist's inner voice, 반말 monologue.
 - Honorifics: Hanan → Menahem 존댓말 (~요/~습니다; calls him 「선생님」). Menahem → Hanan 반말 (~해라/~지). Yonah ↔ Asher 반말. Asher → mother 존댓말 (~요; 「어머니」). Mother → Asher 반말. Neighbor, passerby, partners: casual.
 - Teen-readable. No modern slang, no heavy archaic style outside Scripture.
 
 English
 - Natural, concise, contemporary, not slangy. Present tense narration. Second person "you" only where the Korean uses 너.
-- Hanan calls Menahem "Teacher". Asher calls his mother "Mom" in casual lines and "Mother" never; pick "Mom".
+- Hanan calls Menahem "Teacher". Asher calls his mother "Mom" (never "Mother").
 - Scripture only via tokens (ESV).
 
 Both
 - Same meaning, same beats. No jokes in one language only.
-- Never mention game mechanics in story text (no "points", "lens", "ending").
+- Never mention game mechanics in story text (no "points", "lens", "ending", "choice", no numbers).
 
-### 3.5 Route shape (version 3)
-Routes are short (about 5 minutes each read aloud together) and end soon after the climax; some choices cut a route short, so students realize "아, 이렇구나" while playing.
-- Exactly **4 choices** per route, ids `c1`…`c4`, in order. The last choice (`c4`) counts double.
-- Each option keeps at most **one** short reaction beat (two only when a `when` variant needs it; a cut option may keep two).
-- Lines stay short (§3.3 soft limits); no long setups. Cut anything that is not needed for the moment.
-- No evening or epilogue scenes. The route ends at the crowd (or at the doorway one step away) right after MT_9_7–MT_9_8, with the final choice and a short ending.
+### 3.5 Route shape (version 4)
+- Each route is ONE linear story with **5–6 choices** (`c1`…`c6`). Each option either **continues**, **cuts** the story into a short funny cut branch (`bad`), or is **scolded** away (`scold`) (§4.5).
+- Exactly ONE **true ending** per route (`endings.good`), reached only by continuing through every choice. It closes with the character's **memory verse** (a big verse card), then the last line (§4.6).
+- **3–4 cut branches** per route (`endings.bad`): short, funny, a little absurd, never mean, never unbiblical. They are not endings to collect; on screen they are pruned branches of the story tree. After one, the class can **try again from that choice**.
+- **Option voice — 톡톡 튀게:** short; spoken words in “ ”, thoughts without quotes, actions as plain verbs (「침상을 내려놓는다.」). Each choice should feel like a real debate for a class: one sincere option, one bold option, one funny/weird option. No option names its outcome; a weird option tempts because it is funny, not because it is labeled. Humor comes from situations and the characters' wit (Asher's dry voice, Yonah's impulsiveness, Menahem's pedantry, Hanan's bluntness) — never from Asher's body or disability, never from violence or injury.
+- **Scolders:** scribe route → Hanan (polite but blunt: 「선생님, 그건 좀…」); friend route → a net partner (`partners`) or Asher; Asher route → Yonah, and Asher's own thought for his "can't" options. Scold lines are short and funny (「그건 아니지!」 energy), never cruel.
+- No evening or epilogue scenes on the true path: it ends at the crowd or one step away (Asher's doorway at most). A cut branch may end somewhere else later that day.
+- Keep: canon and voices; THE LANE (§6.3) and THE CROWD order (§6.4) on every true path; Jesus only through verse beats/tokens; the scribe's 「읽음」 (pinThought + readReceipt); Asher's lying POV and the press sequence 일어나기 → 침상을 들어 → 집으로; the light FX.
+- Dropped in version 4: lenses and scoring, the double-weight last choice, the mismatch line, cut endings and their title cards, the 3 × 4 gallery, Asher's persistent gray buttons (`actions`), numeric codas.
 
-Shared skeleton (adapt per character, keep the order):
-1. Opening (2–3 screens): who, where, the cultural question in one beat (e.g. the psalm, the rumor, "what did I do?").
-2. `c1` — the morning choice (sets up a callback).
-3. THE LANE (2–3 screens): §6.3 facts unchanged, including the passerby's exact line where that route shows it.
-4. THE CROWD — the full fixed sequence of §6.4, unchanged and in order (MT_9_2A … MT_9_8). `c2` and `c3` sit inside it at the moments that matter for this character (e.g. right after the first words; right after MT_9_4Q/MT_9_5). The friend's `c2` sits in the lane.
-5. `c4` (double weight) right after MT_9_7/MT_9_8 — where this character's eyes finally rest.
-6. Ending: title card (engine) → 1–3 short beats → `last` (one line).
+Route skeletons as written (the route files are the story; options paraphrased):
 
-Keep: canon and voices; THE LANE facts; the whole crowd sequence; Jesus only through verse beats/tokens; the scribe's 「읽음」 (pinThought + readReceipt) and the dawn word in his notes; Asher's gray buttons, the lying POV, and the press sequence (일어나기 → 침상을 들어 → 집으로); the light FX.
-Drop: the friend's item mechanic (rope/cloak/water/food), long dawn setups, evening scenes, multi-beat reactions, extra callbacks that need long setup.
+**Scribe — Menahem (Hanan scolds).** 1. Dawn, Psalm 103:3 with Hanan → c1 (go and see / a typo hunt in the scroll → cut `typo`). 2. THE LANE → c2 (pray for the man in silence / agree with the passerby → Hanan scolds / hurry for a front spot). 3. THE CROWD: 9:2A, the first words 9:2B (hush, bright light, Ps 103:3 echo), his unspoken 9:3 thought (pinned) → c3 (shout "Blasphemy!" and push forward → cut `guardhouse` / write it in huge letters → Hanan scolds / walk out → cut `leftEarly` / keep it inside and watch). 4. 「읽음」 at 9:4, 9:4Q, 9:5 → c4 ("which is easier?": forgiveness, nobody can check / rush home to write a rebuttal → cut `rebuttal` / both are easy to say, proving it is hard). 5. 9:6A–9:8 → c5 (four ways to look; "pretend it never happened" → Hanan scolds). True ending: memory verse MT_9_6A.
+
+**Friend — Yonah (a net partner or Asher scolds).** 1. The shore at dawn, the rumor → c1 (let's get Asher / the sea's all mine today → cut `bigCatch` / check the rumor first → a partner scolds). 2. Asher's house: 「내가 뭘 잘못해서 이렇게 된 걸까?」 → c2 (three kind answers / "any guesses?" → Asher scolds 「너까지 그러기야?」). 3. THE LANE: the passerby, Menahem steps aside → c3 (answer the passerby / whisper "all the way" / stop the passerby to argue → cut `debate` / set the bed down → cut `stayedInLane`). 4. THE CROWD: the bed set down, 9:2A, 9:2B → c4 (look at Asher's face / why that first? / "his legs too?" → Asher scolds 「쉿! 나한테 하신 말씀이야.」 / run to tell the town → cut `halfNews`). 5. 9:4–9:8 → c5 (two options). True ending: memory verse MT_9_2A.
+
+**Asher (Yonah scolds; his own thought answers his "can't" options).** 1. Dawn, the ceiling → c1 (pray Ps 41:4 / 「일어나기」 → 「다리가 대답하지 않는다.」, removed / "five more minutes" → cut `nap` / count the beams). 2. Yonah bursts in → c2 ("I want to go, but I'm scared" / the hot springs of Tiberias instead → cut `hotSprings` / 「밖으로 나가기」 → his thought, removed / "No. I'm not going out." → cut `stayedHome` at once, as the teacher asked). 3. THE LANE (carried POV) → c3 (a dry comeback / the back way, away from people → cut `longWay` / "put me down, I'm going home" → Yonah scolds). 4. THE CROWD (lying): 9:2A, 9:2B1, 「나를 뭐라고 부르셨지?」, 9:2B2 → c4 (「일어나 본다」 → 「다리는 그대로다.」, removed / "is he really saying this to me?" / "what about my legs?" → Yonah scolds / "so it was my fault?"). 5. 9:3–9:6B, press 「일어나기」, POV standing, presses 「침상을 들어」 → 「집으로」, 9:7, 9:8 → c5 (two options; "Yonah, you carry the bed" → Yonah scolds 「그건 아니지! 네 침상은 네가 들어!」, which leaves one option, still shown as a normal choice). True ending: memory verse MT_9_2B.
 
 ## 4. Data schema
 
 ### 4.1 data/meta.js (lead)
-`BHS.meta = { version, title: T, subtitle: T, lenses: {1,2,3: {label: T, desc: T}}, cut: {label: T, desc: T}, routeOrder: [...], routes: {routeId: {protagonist, name: T, title: T, tagline: T, firstLine: T, lensDesc: {1,2,3: T}}}, endings: {routeId: {1,2,3: T, cut?: T, cutNote?: T}}, bibleNotice: T, disclaimer: T }`.
-Route files do not define titles. The engine reads route titles and ending titles from meta.
-- `cut` labels the gallery's fourth column and the cut ending card (「중간에 끝남」 / "Cut short"; `desc` under the column heading).
-- `endings.scribe.cut`, `endings.friend.cut`: the titles of the cut endings. `endings.asher.cutNote`: Asher has no cut ending by design; this note fills his cut cell once any Asher ending has been seen (「없음 · 아셀은 걸어서 떠날 수 없었다」).
+`BHS.meta = { version, title: T, subtitle: T, disclaimer: T, bibleNotice: T, routeOrder: [...], routes: { routeId: { protagonist, name: T, title: T, tagline: T, firstLine: T } } }`.
+Route cards read `routes`. The titles of the true ending and of the cut branches live in the route files (§4.6). The lens, cut and ending fields of version 3 (`lenses`, `cut`, `endings`, `routes[*].lensDesc`) are gone.
 
 ### 4.2 data/characters.js (lead)
 `BHS.characters[id] = { name: T, role: T, color: "#hex", drawn?: false }`. Speaker ids for `line` beats come from here, plus the pseudo-speakers in §4.5.
@@ -184,41 +199,48 @@ Reference-only (`refOnly: true`): MT_8_19_20 (마 8:19–20), MT_8_23_27 (마 8:
 Reference format: ko uses 개역개정 abbreviations (마, 막, 눅, 요, 시, 신, 사, 레, 삼하, 왕상, 욥); en uses Matt, Mark, Luke, John, Ps, Deut, Isa, Lev, 2 Sam, 1 Kgs, Job. Ranges use an en dash (–).
 
 ### 4.4 data/common.js (lead)
-`BHS.common = { prologue: [Beat], routeSelect: {prompt: T}, mismatchLine: T }`.
+`BHS.common = { prologue: [Beat], routeSelect: { prompt: T, hint: T } }`. `hint` is the suggested order shown under the prompt (§5.8). The mismatch line of version 3 is gone.
 
 ### 4.5 Route files (writers)
 
 ```js
 BHS.routes.scribe = {
   id: "scribe",
-  actions: [ /* asher only, see below */ ],
   beats: [ /* Beat */ ],
-  endingPreface: [ /* optional Beat list, played before any ending */ ],
+  endingPreface: [ /* optional Beat list, played right before the true ending's title card */ ],
   endings: {
-    "1": { beats: [ /* Beat, 1-3 short beats */ ], last: T },
-    "2": { beats: [...], last: T },
-    "3": { beats: [...], last: T },
-    "cut": { beats: [ /* 2-4 short beats */ ], last: T }   // scribe and friend only
+    good: { title: T, verse: "MT_9_6A", beats: [ /* 1-3 short beats */ ], last: T },
+    bad: {
+      typo: { title: T, beats: [ /* 2-3 short beats */ ], last: T },
+      guardhouse: { title: T, beats: [...], last: T }
+      // 3-4 cut branches per route
+    }
   },
-  endingCoda: [ /* optional Beat list, played after the last line of any ending, the cut ending included */ ]
+  endingCoda: [ /* optional Beat list after the true ending's last line; no numbers or stats */ ]
 };
 ```
 
 **Beat types.** Any beat may carry `when: Cond`; a beat whose condition is false is skipped. Any beat may carry an optional unique `id` (string) for debugging.
 
-1. `{ type: "scene", bg: BG_ID, caption?: T, pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night" }` — change background; optional place/time chip, e.g. `{ko:"새벽 · 므나헴의 방", en:"Dawn · Menahem's room"}`. `time` (default "day") is passed to `BHS.art.render(bg, { pov, time })`; used for asher_home in the evening/night endings. A scene change keeps the current light level and pov unless the beat sets pov.
+1. `{ type: "scene", bg: BG_ID, caption?: T, pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night" }` — change background; optional place/time chip, e.g. `{ko:"새벽 · 므나헴의 방", en:"Dawn · Menahem's room"}`. `time` (default "day") is passed to `BHS.art.render(bg, { pov, time })`. A scene change keeps the current light level and pov unless the beat sets pov.
 2. `{ type: "line", speaker?: SPEAKER, text: T }` — one text box. SPEAKER = a character id (§6.1) | `"narrator"` (default) | `"thought"` (protagonist's inner voice; rendered italic, no name plate) | `"sign"` (centered caption such as 「― 두루마리 펴는 소리 ―」 or 「몇 시간 뒤 / Hours later」).
 3. `{ type: "verse", key: KEY, speaker?: "jesus"|"scribes"|"narrator" }` — scripture card (text + reference). Speaker defaults to the key's speaker. Jesus' words appear ONLY as verse beats or tokens.
-4. `{ type: "choice", id: "c1"…"c4", prompt: T, options: [Option ×4] }` — exactly four per route, ids in order c1…c4. The last choice (the highest cN, c4) counts double automatically; the engine has no hardcoded choice id.
-   `Option = { id: "a"|"b"|"c"|"d", text: T, lens: 1|2|3|null, set?: { flag: value }, reaction?: [Beat], cut?: true }`. Reaction beats (at most one short beat, two only when a `when` variant needs it) play right after the pick. Option ids a–d in order. `cut: true` (with `lens: null`) ends the route early after the reaction (see **Cut endings** below).
+4. `{ type: "choice", id: "c1"…"c6", prompt: T, options: [Option ×2–4] }` — 5–6 choices per route, ids in order (§8).
+   `Option = { id: "a"|"b"|"c"|"d", text: T, set?: { flag: value }, reaction?: [Beat], bad?: "<id>", scold?: { speaker?: SPEAKER, text: T } }`. Option ids a–d in order. An option's `set` applies whenever it is picked.
 5. `{ type: "fx", fx: FX_NAME, ...params }` — see FX list.
-6. `{ type: "press", action?: ACTION_ID, label?: T, hint?: T }` — waits for the player to tap one glowing button. With `action`: that persistent action button turns on and must be tapped. With `label`: a one-off button appears (e.g. 「침상을 들어 / Pick up your bed」).
+6. `{ type: "press", label?: T, hint?: T }` — waits for the player to tap one glowing button (e.g. 「일어나기」, 「침상을 들어 / Pick up your bed」, 「집으로」).
+
+**Option outcomes** (exactly one per option; the validator errors on `bad` together with `scold`):
+- **continue** (no `bad`, no `scold`): the reaction plays (0–1 short beat; two only when a `when` variant needs it), then the story goes on. The pick is the choice's answer (`choices.cN`).
+- **bad**: `bad: "<id>"` names a cut branch in `endings.bad`. The reaction plays (0–1 beat), then the cut branch (§4.6). A cut branch may be reachable from more than one option, even at different choices; every cut branch must be reachable.
+- **scold**: `scold: { speaker?, text }`. The reaction (optional) plays, then the scold line as a normal line by that speaker (`"thought"` = the protagonist's own thought, as in Asher's "can't" options; no speaker = narration). Then the option is **removed** and the **same choice is asked again** (its prompt and the remaining options, in order). Removed options stay removed for the rest of the route, also after Try again. A scolded pick is never the choice's answer: conditions such as `{ choice: "c3", is: "a" }` only see the pick that moved the story on.
+- Every choice keeps a continue option, so after all of its scolds at least one continue option remains (no dead ends). A choice may end up with a single option after a scold; it is still shown as a normal choice.
 
 **Conditions (Cond).** May only reference earlier choices and flags set earlier.
 - `{ choice: "c3", is: "a" }`, `{ choice: "c3", in: ["a","b"] }`
 - `{ flag: "stood", is: true }`, `{ flag: "mark", in: ["he","order"] }` (an unset flag counts as `false`)
-- `{ lastLens: 2 }` — lens of the option chosen at the last choice, c4 (endings, endingPreface and endingCoda only; never true inside `endings.cut`, where no last choice was made). `{ c10lens: 2 }` is the old name and still works.
 - `{ all: [Cond...] }`, `{ any: [Cond...] }`, `{ not: Cond }`
+- `{ lastLens }` / `{ c10lens }` of earlier releases are not supported any more (always false, with an engine warning).
 
 **FX list** (the engine implements exactly these):
 - `{ fx: "light", level: "off"|"soft"|"bright" }` — the light that marks Jesus' presence. `soft` while he is present, `bright` for MT_9_2B and MT_9_6B, `off` when leaving the scene.
@@ -228,66 +250,61 @@ BHS.routes.scribe = {
 - `{ fx: "readReceipt" }` — stamps 「읽음 ✓ / Read ✓」 on the pinned bubble. Scribe route.
 - `{ fx: "unpinThought" }`
 - `{ fx: "pov", pov: "lying"|"standing"|"normal" }` — camera. Asher route.
-- `{ fx: "actionReply", action: ACTION_ID, text: T }` — from now on, tapping that gray action shows this reply. Asher route.
-- `{ fx: "actionsHide" }`, `{ fx: "actionsShow" }` — Asher route.
+- `actionReply`, `actionsHide`, `actionsShow` and the route-level `actions` (version 3's persistent gray buttons) are still read for older data; the version 4 routes use none, and the UI shows no buttons when a route has none.
 
-**Asher's persistent actions** (route-level `actions`):
-```js
-actions: [
-  { id: "getup", label: T, replies: [T, T, T], counter: "getup_count" },
-  { id: "goout", label: T, replies: [T], counter: "goout_count" }
-]
-```
-Gray buttons sit under the text box from the first beat until `actionsHide` or the `press` on getup. The n-th tap shows `replies[min(n-1, last)]` as a transient line that does not advance the story, and increments `vars[counter]`.
+**Screens.** Screens = line + verse + choice + press beats along a path, plus the true ending's memory-verse card (scene and fx beats, the true ending's title card and the snip card are not screens). Counted by tools/validate.mjs on every path:
+- **True path** (every choice answered by a continue option; every combination of continue options and `when` variants): target **24–28** screens, WARN above 28, ERROR above **30**. The cap is counted without scold detours; each detour adds two screens (the scold line and the re-asked choice), and the all-detours maximum is reported as INFO only.
+- **Cut path** (the route start through the cutting option's reaction, the branch beats and its last line): ERROR above **20**.
+- About 5 minutes per character on the true path read aloud, plus about a minute per cut branch the class runs into. The validator reports reading time per route and per cut branch.
 
-**Endings.** At the end of `beats` the engine:
-1. computes the ending lens (§5.1);
-2. plays `common.mismatchLine` if the ending lens ≠ the last choice's lens;
-3. plays `endingPreface`;
-4. shows the ending title card: lens label + title from `meta.endings` (e.g. 「① 누가? · 누가 말했는가」);
-5. plays `endings[lens].beats` (1–3 short beats), then `endings[lens].last` as a large last line;
-6. plays `endingCoda`;
-7. ends the route (step `end`): the UI marks the ending seen (`"<route>-<lens>"`), clears the save and opens the endings gallery (§5.8) with that ending highlighted; the gallery offers 「다른 인물로 하기 / Play another character」 and 「처음 화면 / Title screen」.
+**Try again and the re-ask (engine).** Whenever a choice is shown (a re-ask included), the engine stores a snapshot of the whole state: the stage (background, caption, pov, light, pinned thought, cast), hush and echo, choices, flags, vars, removed options and the step. **Try again** (`game.retry()`) restores that snapshot exactly — the same choice, the same options (scolded ones stay removed), the same scene, light and pinned thought — and keeps it, so Try again works again after the next cut. Saving and resuming work everywhere: mid-route, inside a reaction, a scold or a cut branch, on the snip card (Continue shows it again and Try again still works) and during the true ending.
 
-**Cut endings** ("중간에 끊기는 선택").
-- The **scribe** and **friend** routes each have exactly **one** cut option, in `c2` or `c3`. The **Asher** route has **none** — by design: he cannot walk away. Do not add one.
-- A cut option is an ordinary option with `cut: true` and `lens: null`. After its reaction (at most two beats) the route ends immediately: the engine skips all remaining beats of the route. At that moment the protagonist leaves the scene: the pinned thought is cleared, the light goes off and persistent actions hide (`endings.cut` beats may set a scene or light again). Then: the ending title card shows `meta.cut.label` + `meta.endings[route].cut` (e.g. 「중간에 끝남 · 끝까지 듣지 않은 사람」) → `endings.cut.beats` → `endings.cut.last` → `endingCoda` → end. No lens scoring, no mismatch line, no `endingPreface`. The ending id is `"<route>-cut"`; the gallery marks the route's cut cell.
-- `endings.cut = { beats, last }` with 2–4 short beats: the biblical event still happens without the protagonist (others carry the bed / the crowd still sees it); the protagonist learns of it afterwards (e.g. Hanan tells Menahem; Asher walks past Yonah carrying his own bed). The `last` line is the "아, 이렇구나" moment — concrete, never preachy, never shaming the player. The event itself never changes: Jesus still forgives and heals.
-- Scribe cut: Menahem decides he has heard enough after the first words (and the unspoken 「신성모독」 thought) and leaves before the answer (MT_9_4 onward). Friend cut: Yonah sets the bed down in the lane (「…오늘은 안 되겠어」); the others carry Asher on.
-- Saving and resuming work across a cut (in its reaction, on its card and in its ending).
+### 4.6 Endings: the true ending and the cut branches
+- **Titles** live in the route file: `endings.good.title` and `endings.bad[id].title`. A cut branch's title labels its branch in the story tree: keep it short and funny (2–8 Korean characters, e.g. 「오타 사냥」, 「오 분만 더」). Cut-branch ids: short ascii (`typo`, `guardhouse`, `nap`).
+- **True ending sequence:** `endingPreface` → a title card with the ending's `title` only (no number, no label) → the **memory-verse card** (`verse`, big, with its reference, in the light) → `beats` (1–3 short beats) → `last` (a large last line) → `endingCoda` → the route's story tree (§5.8). The memory-verse card repeats a verse already shown in the crowd; it is not part of the crowd sequence (§6.4).
+- **Cut-branch sequence:** the option's reaction → the protagonist leaves the scene (the pinned thought is cleared, the light goes off; the branch beats may set scene and light again) → `beats` (2–3 short beats) → `last` (the punchline) → the **snip card**: a playful stamp 「싹둑!」 / "Snip!", the branch `title`, the line 「여기서 이야기가 끊겼어요.」 / "The story got cut off here." and two buttons: 「다시 고르기 · Try again」 (default focus; §4.5) and 「처음 화면 · Title screen」 (the save keeps the choice before the cut, so Continue starts there). No number, no "BAD END", no "ending" on the card. No `endingPreface` or `endingCoda` in a cut branch.
+- **Memory verses** (one per character, in data/scripture.js): scribe → `MT_9_6A` (the authority to forgive sins — the answer to his question; the sermon's theme); friend → `MT_9_2A` (Jesus saw *their* faith); asher → `MT_9_2B` (「작은 자야 안심하라 네 죄 사함을 받았느니라」 — what he was called).
+- **The event never changes.** Jesus still comes to Capernaum that day and forgives and heals there. In the scribe's and the friend's cut branches the protagonist misses it, leaves, mixes something up or ends up somewhere silly (and plausible for first-century Galilee); others still carry Asher and he is still healed. In Asher's own cut branches he simply isn't there to receive it (he stays home, sleeps in, goes to the hot springs, takes the back way). The `last` line is a light twist with a tiny "아, 이렇구나", not a sermon. Never shame the player; the class should laugh and press Try again.
+- Allowed comic settings (examples): a typo hunt in a scroll; a forty-page rebuttal; a night in the guardhouse of Capernaum's Roman garrison (the centurion of Matt 8:5 lives here) explaining Leviticus to a bored soldier; a huge catch of fish; winning an argument with the passerby while the crowd goes home; the hot springs of Tiberias (warm water, same legs); "five more minutes" and waking up at dusk to the town's excitement; counting the roof beams again. Not allowed: violence, injury, mocking disability, Jesus refusing or failing, Jesus' words outside verse beats, anything that makes the scribes villains or caricatures (comic flaws are universal: pedantry, pride, overthinking), Mark/Luke-only details (no roof opening), the Talmud.
+- **Seen ids** (stored on the device, §5.3): `"<route>-good"` once the true ending ends, `"<route>-bad-<id>"` once a snip card shows.
 
-### 4.6 data/ui-strings.js (engine agent)
-All UI chrome strings (buttons, labels, settings, gallery, errors) as T objects in `BHS.ui`.
+### 4.7 data/ui-strings.js (engine agent)
+All UI chrome strings (buttons, labels, settings, snip card, story trees, errors) as T objects in `BHS.ui`. They must read naturally to native Korean and English speakers (short, easy, no translationese).
 
 ## 5. Engine rules
 
-### 5.1 Lens scoring (tools/validate.mjs reuses this exact rule)
-- Each picked option adds its weight (1; 2 for the last choice) to `score[lens]` when lens is not null. The last choice is the highest cN in the route (c4); nothing is tied to a fixed id.
-- Ending lens = highest score. Tie → the last choice's lens if it is among the tied lenses; otherwise the smallest tied lens number. The mismatch line plays when the ending lens differs from the last choice's lens.
-- A picked cut option gives the cut outcome instead: no lens, no mismatch (§4.5 Cut endings).
-- `BHS.engine.computeLens(routeOrId, choices)` → `{ lens, scores: {1,2,3}, lastLens, c10Lens, mismatch, cut }` where `choices = { c1: "a", …, c4: "d" }`; `c10Lens` is an alias of `lastLens` kept for older callers; on a cut path `{ lens: null, lastLens: null, mismatch: false, cut: true }`. Picks for choice ids the route does not have (for example c5–c10 from an old save) are ignored. Pure function, no DOM.
-- Also exposed: `BHS.engine.lastChoiceId(routeOrId)`, `evalCond(cond, state)`, `resolveText(t, lang, state)` (lang ∈ "ko"|"en"), `fingerprint(routeOrId)` and `canRestore(savedState)` (§5.3).
+### 5.1 Engine API (js/engine.js, `BHS.engine`; pure, no DOM)
+- Data helpers: `getRoute(routeOrId)`, `choiceBeats(route)`, `findChoice(route, id)`, `findOption(choiceBeat, id)`, `optionOutcome(option)` → `"continue"|"bad"|"scold"`, `badTargets(routeOrId)` → `[{ choice, option, badId }]` in beat order, `treeOf(routeOrId)` → `{ routeId, levels: [{ id, branches: [{ badId, id, title, last }] }], good: { id, title, verse } }` (each cut branch at the first choice that leads to it; scolded options are not part of the tree), `goodId(rid)`, `branchId(rid, badId)`, `parseSeenId(id)`.
+- Text: `evalCond(cond, state)`, `resolveText(t, lang, state)` (lang ∈ "ko"|"en"), `resolveSegments`, `plainText`, `pickLang`, `quoteVerse`, `nestQuotes`, `verseText(key, lang)`, `verseDisplay(key, lang)` (§4.3 display rule), `verseRef`, `verseSpeaker`.
+- Saves: `fingerprint(routeOrId)`, `canRestore(savedState)` (§5.3), `STATE_VERSION` (3).
+- Games: `createGame(routeId | "prologue", opts)`, `restoreGame(savedState, opts)`, `createSequence(beats, opts)` (tests). A game has `step` (`line`, `verse`, `choice`, `press`, `endingTitle`, `memory`, `last`, `snip`, `routeSelect`, `end`) and `view()`, `next()`, `choose(optionId)`, `press()`, `retry()`, `canRetry()`, `continueOption(step)`, `optionMarks(seen)` (options whose cut branch is among the seen ids, for the scissors mark), `serialize()`, `fastForward({ until, pick })` (debug and tests; follows continue options and stops at a snip card), `position()`.
+- A choice step is `{ kind: "choice", id, prompt, options: [{ id, text }], removed: [ids], again: bool, justRemoved: { id, text, at } | null }`; the scolded option of a re-ask comes as `justRemoved` for the removal animation.
+- `state.ending` is `{ kind: "good", id: "<route>-good", title, verse }` during the true ending and `{ kind: "bad", id: "<route>-bad-<id>", badId, title, cutAt: { choice, option } }` inside a cut branch.
 
 ### 5.2 Language modes
 `ko`, `en`, `both`. The title screen asks first (default highlight: `both`). In `both`, Korean first, English below in a secondary style. Changeable anytime from the header. Option buttons in `both` show both lines. In `both` the typewriter types the two languages in parallel: both start together and their last characters appear together (the shorter timeline is stretched); one tap completes both.
 
 ### 5.3 Persistence (localStorage, every access in try/catch; game must work without it)
 - `bhs.v1.settings` — language, text speed, text size.
-- `bhs.v1.save` — current route, position, state (resume after an accidental refresh). Save format 2 (version 3): every save carries the route fingerprint, a hash of the route's structure (beat types in order, choice and option ids, cut flags, reaction and ending lengths, actions; text edits keep it). A save that no longer fits the loaded data — a release 1.0 save from the 10-choice routes, or one made before a route was restructured — is removed silently and no "Continue" is offered. Saving and resuming work mid-route, across a cut and during any ending.
-- `bhs.v1.gallery` — endings seen on this device (`"scribe-1"` … `"friend-cut"`). Ids from release 1.0 stay valid; unknown ids are ignored.
+- `bhs.v1.save` — current route, position, state (resume after an accidental refresh). Save format 3 (version 4): every save carries the route fingerprint, a hash of the route's structure (beat types in order, choice and option ids, each option's outcome and cut-branch id, reaction and ending lengths; text edits keep it). A save that no longer fits the loaded data — from release 1.0, from the lens releases (format 2), or from before a route was restructured — is removed silently and no "Continue" is offered.
+- `bhs.v1.gallery` — the seen ids on this device (`"scribe-good"`, `"friend-bad-bigCatch"`; the key name is kept from earlier releases). Ids of earlier releases (`"scribe-1"`, `"friend-cut"`) are ignored and dropped on the next write. Without storage the seen ids live in memory for the session.
 
 ### 5.4 Controls and accessibility
-Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (slow/normal/instant); text size (A−/A+); tap targets ≥ 44px; visible focus; `aria-live` on the text box; `prefers-reduced-motion` → no typewriter, no shake, no lift on the route cards, fades ≤ 150ms. Route select on a keyboard or clicker: 1–3 start a route, arrows and PageUp/PageDown move the focus between the cards, Enter/Space start the focused card.
+Tap/click/Enter/Space to advance; typewriter with tap-to-complete; text speed (slow/normal/instant); text size (A−/A+); tap targets ≥ 44px; visible focus; `aria-live` on the text box; `prefers-reduced-motion` → no typewriter, no shake, no lift on the route cards, fades ≤ 150ms.
+- Choices: options carry no visible numbers; keys 1–4 and A–D pick by place on screen; arrow keys move the focus and Enter picks the focused option; an advance key never picks an option (it only shows the focus).
+- Snip card and story trees: Enter/Space press the focused button; a clicker's next keys (→, ↓, PageDown) press the focused button (the default one when nothing has focus); its previous keys (←, ↑, PageUp) move the focus between the buttons. Right after these screens appear, a short guard ignores keys, so a double press never skips them.
+- Route select on a keyboard or clicker: 1–3 start a route, arrows and PageUp/PageDown move the focus between the cards, Enter/Space start the focused card.
+- Esc opens the in-page menu (home confirm); a second Esc closes it in place.
 
 ### 5.5 Debug and deep links
-`?debug=1` → panel with route, beat index, choices, scores, flags, a "jump to cN" control (the route's own choice ids; a cut option on the way is replaced by the first option that does not end the route) and an auto-pick button. `#scribe`, `#friend`, `#asher` → start that route directly (bare hash tokens only).
+`?debug=1` → panel with route, beat, step, choices, removed options, the current ending or cut branch, Try again state, flags; a jump list with the route's choice ids plus one entry per cut branch (`bad:<id>`, labeled "Cut branch: <id> (cN/x)") — a choice jump replays the route along continue options; a branch jump also takes the cutting option, so the branch starts; an auto-pick button; an auto-play button (to the true ending and the story tree; inside a cut branch it plays to the snip card, marks it seen, then tries again). `#scribe`, `#friend`, `#asher` → start that route directly (bare hash tokens only). `?test=1` → instant text, no animations, no input guard (automated tests).
 
 ### 5.6 Look and feel (engine + art agents)
 Committed single look (not a light/dark pair): scene art fills the stage; text sits on a parchment-like panel with dark ink for daylight legibility. Palette from the place: black basalt (Capernaum's houses), limestone, Galilee blue, olive, lamp amber; Jesus' presence = warm white light, never a figure. Korean serif for story text, a clean sans for UI; real fallback stacks. No emoji in UI.
 
-**Two first-class displays (updated 2026-10-18):**
-1. **TV (primary for class):** the game is shown on a TV connected to a computer, 16:9 landscape (1920×1080 and 1280×720; may be 4K with devicePixelRatio 2), read from 3–5 m away by the whole class. Requirements: story text ≥ about 3.6vh (≈ 39px at 1080p) in landscape, names/options ≥ 3vh, nothing below 2.2vh; text panel centered with a comfortable max width; choices large with number badges 1–4 (2×2 grid when wide); keyboard and presentation clicker control — Space / Enter / → / PageDown / ↓ advance, 1–4 and A–D pick an option, F toggles fullscreen (also a visible fullscreen button), Esc opens the menu; the mouse cursor hides after a few seconds of inactivity; high contrast. Art must compose well at 16:9 (focal content in the upper-middle; the text panel covers roughly the bottom 30%).
-2. **Phone:** portrait 360–430px wide, safe-area insets, touch.
+**Two first-class displays:**
+1. **TV (primary for class):** the game is shown on a TV connected to a computer, 16:9 landscape (1920×1080 and 1280×720; may be 4K with devicePixelRatio 2), read from 3–5 m away by the whole class. Requirements: story text ≥ about 3.6vh (≈ 39px at 1080p) in landscape, names/options ≥ 3vh, nothing below 2.2vh; text panel centered with a comfortable max width; choices large, with no number badges (two columns when wide; a lone last option centered); keyboard and presentation clicker control — Space / Enter / → / PageDown / ↓ advance, 1–4 and A–D pick an option by place, F toggles fullscreen (also a visible fullscreen button), Esc opens the menu; the mouse cursor hides after a few seconds of inactivity; high contrast. Art must compose well at 16:9 (focal content in the upper-middle; the text panel covers roughly the bottom 30%). Nothing scrolls on a TV: the snip card, the story tree and the three story trees fit 1920×1080 and 1280×720 with every branch seen.
+2. **Phone:** portrait 360–430px wide, safe-area insets, touch. Pages may scroll vertically, never sideways.
 Tablets and laptops in between should also look right.
 
 ### 5.7 Builds
@@ -297,10 +314,19 @@ Tablets and laptops in between should also look right.
 
 Both builds play exactly like index.html. The only thing they add is the marker `window.BHS.config = { build: "single" }` before the data scripts; there are no links to other pages.
 
-### 5.8 Route cards and the endings gallery
-- Route select: each card shows its protagonist from js/portraits.js in a band between the tagline and the divider above the first line, as wide as the text: Menahem and Yonah as busts rising from the divider toward the right (cropped by it, facing the text, both at the same size), Asher in his lying pose laid across the band with his bed resting on the divider (never standing: that is the ending). A soft wash in the character's color sits behind the figure, inside the card; on hover or keyboard focus the figure lifts a few px and the wash brightens (no lift under reduced motion or `?test=1`). The art is decorative (`aria-hidden`, `data-testid="routecard-portrait-<route>"`), never covers text, and the card stays text-only without the portrait module.
-- Class flow (all three characters in one lesson): the suggested order `common.routeSelect.hint` shows as a small line under the prompt. A route with any seen ending (lens or cut) is stamped 「✓ 함 / ✓ Played」 (`data-played="true"`, in the free top-left corner of its portrait band, never over text or figure). Once any route has been played, the keyboard focus starts on the first unplayed route in `meta.routeOrder` (with a visible ring), so the teacher presses Enter for the next character; nothing changes when nothing has been played, and the focus stays put when all three have been.
-- Endings gallery: 3 rows (characters) × 4 columns (lenses 1–3, then "cut" headed by `meta.cut.label` and `meta.cut.desc`). Cells: `data-testid="gallery-cell-<route>-<1|2|3|cut>"`, `data-state` = locked | seen | note. A scribe or friend cut cell unlocks with its cut ending (`"<route>-cut"`). Asher's cut cell stays locked until any Asher ending has been seen, then shows `meta.endings.asher.cutNote`, styled as a note (no paper, italic), not as an ending. The ending just seen is highlighted. TV (1920×1080, 1280×720): a name column plus four columns, buttons beside the title, no scrolling. Phone: four columns, each character's name across its row; the page scrolls vertically, never sideways.
+### 5.8 Route cards, the snip card and the story trees
+- **Route select:** each card shows its protagonist from js/portraits.js in a band between the tagline and the divider above the first line, as wide as the text: Menahem and Yonah as busts rising from the divider toward the right (cropped by it, facing the text, both at the same size), Asher in his lying pose laid across the band with his bed resting on the divider (never standing: that is the ending). A soft wash in the character's color sits behind the figure, inside the card; on hover or keyboard focus the figure lifts a few px and the wash brightens (no lift under reduced motion or `?test=1`). The art is decorative (`aria-hidden`, `data-testid="routecard-portrait-<route>"`), never covers text, and the card stays text-only without the portrait module. No counters on the cards.
+- **Class flow:** the suggested order `common.routeSelect.hint` shows as a small line under the prompt. A route whose true ending was seen is stamped 「✓ 함 / ✓ Played」 (`data-played="true"`, `data-testid="routecard-played-<route>"`, in the free top-left corner of its portrait band, never over text or figure); a cut branch alone does not count. Once any route has been played, the keyboard focus starts on the first unplayed route in `meta.routeOrder` (with a visible ring), so the teacher presses Enter for the next character; nothing changes when nothing has been played, and the focus stays put when all three have been.
+- **Options:** no number badges. An option whose cut branch was already seen on this device carries a tiny scissors mark ✂ (`data-snipped="true"`, no text). A scolded option leaves gently: on the re-ask it fades out where it stood while the others keep their places, then the layout closes up without a jump.
+- **Story tree** (after the true ending; `data-testid="tree-<route>"`): a warm cut-paper tree, bottom to top — the root with the character's name, a knot at every choice point, the ★ of the true ending at the top with its title. At each choice point the cut branches grow sideways (alternating sides): a branch seen on this device is a short bough with a red scissors snip and a paper tag with its title; an unseen one is a faint, short, unlabeled stub. Scolded options are not shown. No numbers, counts or percentages. Buttons: 「다른 인물로 하기」 / "Next character" (default focus; goes to the route select) and 「처음 화면」 / "Title screen". TV: words and buttons on the left, the tree on the right.
+- **Story trees from the title** (「이야기 나무」 / "Story trees", `data-testid="trees-open"`): the three trees side by side (stacked on a phone); a route not yet finished shows a faint trunk and an outlined star, with any cut branches already seen still labeled.
+- **Test ids and screens:** `body[data-screen]` ∈ title, prologue, routeSelect, play, endingCard, ending, snip, tree, trees. Play: `advance`, `textbox`, `speaker`, `choice-<option>` (`data-option`, `data-snipped`), `press`, `verse-card`, `memory-verse`, `ending-title`; snip card: `snip-card` (`data-branch`), `snip-stamp`, `snip-title`, `snip-retry`, `snip-home`; trees: `tree-<route>` (`data-done`), `tree-goal-<route>` (`data-state`), `tree-branch-<route>-<badId>` (`data-state` seen|unseen), `tree-next`, `tree-home`, `trees-home`; title: `start`, `continue`, `lang-ko|en|both`, `trees-open`; header: `home`, `hdr-lang-*`, `fullscreen`, `settings-open`; dialogs: `confirm-yes`, `confirm-no`; debug: `debug-select`, `debug-jump`, `debug-autopick`, `debug-autoplay`. Hooks: `window.BHS_DEBUG.state()` / `BHS.ui.debugState()` (screen, routeId, list, beatIndex, step, stepId, options, choices, removed, flags, vars, ending, endingKind, bad, canRetry, seen, light, pov, lang, typing).
+
+### 5.9 Checks
+- `node tools/validate.mjs` (and `--selftest`) — schema, outcomes, story shape, screens, crowd order, passerby line, lengths, digits, canon, and an engine cross-check of every true path and every cut path (Try again included). Writes qa/reports/validate.txt.
+- `node tests/engine.test.mjs`, `node tests/routes-smoke.mjs` — engine unit tests on tests/fixtures/routes.js and smoke runs on the real routes.
+- `node tools/playtest.mjs` — browser playtest (Playwright + Chromium): per route the true path keyboard-only at 1920×1080, mouse at 1280×720, touch at 390×844, every cut branch with its snip card and Try again, every scold and its re-ask, the story tree and the played stamp; the title, story trees, deep links, debug jumps, stale saves and the single-file build. Writes qa/reports/playtest.txt and qa/playtest/*.png.
+- `node tests/ui-playtest.mjs`, `node tests/ui-extra.mjs` — focused browser checks.
 
 ## 6. Canon
 
@@ -327,9 +353,9 @@ How characters refer to Jesus: scribe POV — 「예수라는 사람」, 「그 
 2. **아침 / Morning** — Rumor: Jesus' boat is coming back across the sea. Stories of the storm (8:23–27) and of the demoniacs and the town that begged him to leave (8:28–34) got here first (how is invented). Yonah runs to Asher's house; his partners gather. A neighbor tells Menahem.
 3. **늦은 아침 / Late morning — THE LANE** (§6.3).
 4. **정오 무렵 / Around noon — THE CROWD** (§6.4), on open ground at the edge of town near the shore where Jesus has landed. No house, no roof, no door.
-5. **Right after the crowd** — Endings (version 3): no evening or epilogue scenes; a route ends at the crowd or one step away (Asher's doorway at most).
+5. **Right after the crowd** — the true ending (version 4): no evening or epilogue scenes; it ends at the crowd or one step away (Asher's doorway at most). A cut branch may end elsewhere later that day (the guardhouse at night, Menahem's room by lamplight, the shore, Asher's house in the evening).
 
-### 6.3 THE LANE — one moment, three routes (after c1 in every route; the friend's c2 and its cut sit in the lane)
+### 6.3 THE LANE — one moment, three routes (on every true path, after c1)
 - A narrow lane of black basalt houses sloping down toward the shore. Late morning, bright, a breeze off the water.
 - Yonah and his net partners carry Asher on his bed toward the crowd.
 - A passerby mutters this exact line wherever it is shown:
@@ -350,7 +376,7 @@ How characters refer to Jesus: scribe POV — 「예수라는 사람」, 「그 
 9. MT_9_8 — the crowd is afraid and glorifies God.
 Nobody is punished. Jesus does nothing to the scribes. The scribes do nothing.
 
-Version 3: `c2` and `c3` sit inside this sequence (the friend's `c2` in the lane), `c4` right after MT_9_7/MT_9_8. MT_9_1 is optional in the short routes. The order must hold on every path that is not cut; a cut path may stop early (the scribe leaves after the first words and MT_9_3Q).
+Version 4: the choices sit inside this sequence where they matter for each character; the last choice comes right after MT_9_7/MT_9_8. MT_9_1 is optional. The order must hold on every true path (the validator checks each one); a cut path may stop early. The true ending's memory-verse card repeats a verse already shown here and is not part of the sequence.
 
 ### 6.5 Glossary (use these exact terms)
 | KO | EN |
@@ -400,23 +426,26 @@ Name spellings are fixed. Forbidden variants (validator errors): 메나헴, 므�
 
 ## 7. Theology and accuracy guardrails
 1. Jesus speaks only through scripture keys. No invented words, emotions, or gestures for him.
-2. The game never states or implies that Asher's illness was caused by his sin. Characters may fear it in thoughts or options; narration never confirms it. No "sin removed → body released" visuals. No option gets a correct-answer sound, sparkle, or score.
-3. No ending is better than another. Never write "true/good/bad ending", never show scores or ranks to players.
-4. Scribes are sincere, not villains. Menahem's concern (what belongs to God) is right; the open question is the premise "he is just a man".
+2. The game never states or implies that Asher's illness was caused by his sin. Characters may fear it in thoughts or options; narration never confirms it. No "sin removed → body released" framing or visuals (after 9:2B2, trying to get up still answers 「다리는 그대로다.」). No option gets a correct-answer sound, sparkle, or score.
+3. No scores, ranks or numbers on screen, and never the words "true/good/bad ending" (those are data keys only). A cut branch is a pruned branch of one story, not a failure: never shame the player.
+4. Scribes are sincere, not villains. Menahem's concern (what belongs to God) is right; the open question is the premise "he is just a man". Comic flaws are universal (pedantry, pride, overthinking).
 5. Mark- or Luke-only details (roof, four men, house, "who can forgive sins but God alone" as spoken words) appear only as clearly labeled Easter eggs.
 6. The crowd's response is exactly 9:8.
 7. Cultural views are individual characters' views, never "everyone back then believed X".
-8. Invented material (names, families, backstories, how rumors traveled, dialogue, endings) is acknowledged on the start screen (meta.disclaimer).
+8. Invented material (names, families, backstories, how rumors traveled, dialogue, cut branches) is acknowledged on the start screen (meta.disclaimer).
 9. Never quote the Talmud (Nedarim 41a) in the first-century scenes; it is a later text.
 10. Psalm 103:3's order (forgive, then heal) is literary, not a rule that one must be forgiven before being healed.
+11. The true path follows the biblical story. The options that keep the story going are the ones that keep the person in it (going, carrying, staying, listening), not the ones with the most correct doctrine. Humor never comes from Asher's body or disability, from violence or injury; Jesus never refuses or fails (§4.6). Honorifics follow §3.4 and §6.1 (scribe POV: no honorifics for Jesus; friend and Asher POV: 그분 with honorific verbs).
 
-## 8. Balance rules (lenses, version 3)
-- `c1`–`c3`: the options cover lenses 1, 2 and 3; the fourth option may be any lens or null; a cut option is the null one.
-- `c4`: four options covering lenses 1, 2 and 3 (one lens repeats).
-- Enumerate all 4^4 = 256 paths (tools/validate.mjs): cut paths ≤ 25% (one cut option at one choice is exactly 25%); among the non-cut paths each lens ending gets 20–50% (the validator warns outside 20–50% and errors outside 15–55%).
-- Screen budget: §3.3 (≤ 32 screens on every path).
-- Lens must not be obvious from wording. Options are natural thoughts or actions, never labels.
+## 8. Story shape (version 4; replaces the lens balance rules)
+- 5–6 choices per route (`c1`…`c6`), each with 2–4 options; at least one 2-option choice and at least two 4-option choices per route.
+- 3–4 cut branches (`endings.bad`) and 2–3 scold options per route; most choices have a weird option (a cut or a scold). A character's own "can't" options (scold with speaker "thought", e.g. Asher's 「일어나기」 / 「밖으로 나가기」 / 「일어나 본다」, a teacher request) do not count toward the 2–3.
+- Every choice keeps a continue option; every cut branch is reachable; every option has exactly one outcome.
+- The true ending shows 1–3 beats before its last line; a cut branch 2–3.
+- Screens and reading time: §4.5. Lengths: §3.3.
+- The validator errors on the structural rules (2–4 options, outcomes, a continue option per choice, reachable cut branches, screens) and warns outside the counts above (writer guidance).
+- No option names its outcome. Options are natural thoughts or actions, never labels.
 
 ## 9. Deviation policy and report format
-- Keep scenario-v2's beats, options, callbacks and ending prose. You may tighten wording, split long lines, translate, and adjust lens tags or rewrite an option only when needed for §7 or §8 or for canon consistency (§6). Log every deviation.
+- The route files are the story. Writers may tighten wording, split long lines and fix voice, and change an option or a branch only when needed for §7, §8 or canon consistency (§6). Log every deviation.
 - Final report: (1) files written; (2) deviation log; (3) requests to other owners; (4) self-check results (commands you ran and their output summary).

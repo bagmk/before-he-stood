@@ -863,7 +863,7 @@
     }
     st.justRemoved = null;
     st.stage.speaking = null;
-    // A presented choice is unanswered (after a scold the earlier pick no longer counts).
+    // A presented choice is unanswered.
     delete st.choices[beat.id];
     this._setStep({
       kind: "choice",
@@ -1010,14 +1010,16 @@
     if (!shown) return false;
     var opt = findOption(this._choiceBeat(step.id), optId);
     if (!opt) return false;
-    st.choices[step.id] = optId;
+    var kind = optionOutcome(opt);
+    // Only the pick that moves the story on (continue or bad) is the choice's answer; a scolded pick
+    // is never recorded in `choices` (conditions see the answer, never the scolded option).
+    if (kind !== "scold") st.choices[step.id] = optId;
     st.picks.push(step.id);
     if (opt.set && typeof opt.set === "object") {
       Object.keys(opt.set).forEach(function (k) {
         st.flags[k] = opt.set[k];
       });
     }
-    var kind = optionOutcome(opt);
     if (kind === "bad") {
       this._badFrom(step.id, optId, opt.bad);
     } else if (kind === "scold") {

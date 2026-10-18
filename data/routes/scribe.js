@@ -1,5 +1,5 @@
 /* Scribe route (v4 story mode): Menahem, "The Line I Read This Morning". Owner: scribe writer.
-   Rules: docs/SPEC-v4-story.md (overrides docs/SPEC.md on route shape, choices and endings).
+   Rules: docs/SPEC.md, version 4 (route shape, choices and endings: sections 3.5, 4.5, 4.6, 8).
    Schema basics, canon and guardrails: docs/SPEC.md sections 4.5, 6, 7.
    Shape: dawn (c1) -> THE LANE (c2) -> THE CROWD in the fixed order of SPEC 6.4 (c3 after 9:3,
    c4 after 9:5, c5 after 9:8) -> the true ending with the memory verse MT_9_6A.

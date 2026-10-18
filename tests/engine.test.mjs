@@ -142,7 +142,7 @@ test("scold: the scold line (speaker) plays, then the same choice is asked witho
   assert.equal(g.step.kind, "line");
   assert.equal(g.step.speaker, "hanan");
   assert.equal(g.step.text.ko, "선생님, 그건 좀…");
-  assert.equal(g.state.choices.c1, "c", "the scolded pick counts while its lines play");
+  assert.equal(g.state.choices.c1, undefined, "a scolded pick is never recorded as the choice");
   g.next();
   const s = g.step;
   assert.equal(s.kind, "choice");
