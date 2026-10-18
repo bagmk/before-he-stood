@@ -451,6 +451,16 @@ body.is-last .veil {
   pointer-events: auto;
 }
 
+/* Outside the TV layout the page screens scroll under the header: give it a backdrop there. */
+@media not all and (min-aspect-ratio: 5/4) and (min-width: 960px) and (min-height: 540px) {
+  body[data-screen="routeSelect"] .topbar,
+  body[data-screen="tree"] .topbar,
+  body[data-screen="trees"] .topbar {
+    background: linear-gradient(180deg, rgba(16, 15, 13, 0.96) 0%, rgba(16, 15, 13, 0.96) 72%, rgba(16, 15, 13, 0) 100%);
+    padding-bottom: 16px;
+  }
+}
+
 .topbar__spacer {
   flex: 1;
   pointer-events: none;
@@ -920,6 +930,16 @@ body.is-last .veil {
   font-size: calc(var(--fs-verse-en) * var(--text-scale));
 }
 
+/* No orphan word on a verse or memory card. */
+.panel--verse .text p {
+  text-wrap: balance;
+}
+
+/* The reference keeps clear of the "more" marker in the corner. */
+.panel--verse .ref {
+  padding-right: 1.6em;
+}
+
 .panel--jesus {
   box-shadow: inset 0 0 0 5px var(--light-core), inset 0 0 0 6px rgba(201, 138, 31, 0.5), 0 0 0 1px rgba(255, 240, 205, 0.85), 0 0 48px 12px var(--light-glow), 0 12px 32px rgba(0, 0, 0, 0.32);
 }
@@ -1066,6 +1086,8 @@ body.is-last .veil {
 .choices__list {
   display: grid;
   gap: 9px;
+  /* While the scold removal pins the list height, the rows must not stretch to fill it. */
+  align-content: start;
 }
 
 .opt {
@@ -1157,6 +1179,40 @@ body.is-last .veil {
   transform: scale(0.94);
 }
 
+/* The scolded option is struck through for a moment before it fades (ui.js, REMOVE_HOLD). */
+.opt--leaving .opt__body {
+  text-decoration-line: line-through;
+  text-decoration-color: rgba(163, 57, 43, 0.85);
+  text-decoration-thickness: 0.1em;
+}
+
+/* A clicker's next key held on a focused option fills it from the left; when the fill is complete the
+   option is picked (main.js, HOLD_MS = 800 ms). */
+.opt.is-holding::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: rgba(227, 178, 92, 0.6);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  animation: opt-hold 0.8s linear both;
+}
+
+@keyframes opt-hold {
+  from {
+    -webkit-clip-path: inset(0 100% 0 0);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 .opt .en {
   margin-top: 0.2em;
   font-size: calc(var(--fs-option-en) * var(--text-scale));
@@ -1176,6 +1232,11 @@ body.is-last .veil {
   align-items: center;
   gap: 10px;
   padding-bottom: 6px;
+}
+
+/* Asher stands up (the rise): the next press appears only once he is up (ui.js marks play--rising). */
+.play--rising .pressbox {
+  animation: fade-in 0.5s 1.8s both;
 }
 
 .pressbox__hint {
@@ -1324,6 +1385,11 @@ body.is-last .veil {
   animation: fade-in 1s 1.4s ease both;
 }
 
+/* The last line: one sentence per line where it fits (ui.js breaks after each sentence). */
+.play--last .text p {
+  white-space: pre-line;
+}
+
 /* ------------------------------------------------------------------ memory verse (true ending)
 
    The verse card style, larger and centered on the screen, in the light. */
@@ -1358,6 +1424,7 @@ body.is-last .veil {
 
 .panel--memory .ref {
   margin-top: 1em;
+  padding-left: 1.6em;
   text-align: center;
   font-size: var(--fs-small);
   letter-spacing: 0.04em;
@@ -1944,6 +2011,11 @@ body.is-last .veil {
   white-space: nowrap;
 }
 
+/* "Both" mode: the Korean over the English, a rounded label instead of a pill. */
+.routecard__played--two {
+  border-radius: 0.6em;
+}
+
 /* Without a portrait band the stamp follows the tagline. */
 .routecard__played--flow {
   position: static;
@@ -2400,7 +2472,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 /* Not seen yet: a faint, short, blunt stub with no tag. */
 .branch[data-state="unseen"] .branch__wood {
   width: calc(var(--stem-w) * 0.5);
-  opacity: 0.34;
+  opacity: 0.6;
   filter: none;
 }
 
@@ -2419,7 +2491,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   z-index: 60;
   top: calc(var(--safe-top) + var(--header-h) + 4px);
   right: var(--gutter-r);
-  width: min(300px, calc(100% - var(--gutter-l) - var(--gutter-r)));
+  width: min(380px, calc(100% - var(--gutter-l) - var(--gutter-r)));
   padding: 16px;
   border-radius: 10px;
   color: var(--ink);
@@ -2473,6 +2545,17 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 .chip:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.settings .chip {
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .settings .chip {
+    font-size: 13px;
+    padding-inline: 4px;
+  }
 }
 
 .settings__close {
@@ -2740,6 +2823,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     width: min(36vw, 64vh);
   }
 
+  /* The scribe's punchline stamp, legible from the back of the room. */
+  .receipt {
+    font-size: 3vh;
+    padding: 0.25em 0.8em 0.3em;
+  }
+
   .dock {
     padding-bottom: calc(var(--safe-bottom) + 4vh);
   }
@@ -2784,12 +2873,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   }
 
   .choices__prompt .en {
-    display: inline;
+    display: block;
+    margin-top: 0.2em;
   }
 
   .choices__prompt .en::before {
-    content: "  \00B7  ";
-    color: var(--ink-faint);
+    content: none;
   }
 
   .choices__list {
@@ -3223,6 +3312,16 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     flex: 1;
   }
 
+  /* The root name plate stays inside the card at every TV size, 4:3 included. */
+  .treepage .tree {
+    --level-h: 6.4vh;
+    min-height: 0;
+  }
+
+  .treepage .tree__levels {
+    min-height: 0;
+  }
+
   .treepage-actions {
     grid-area: actions;
     gap: 1.6vh;
@@ -3362,7 +3461,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .settings {
     top: calc(var(--safe-top) + 2vh + var(--hdr-btn) + 1.4vh);
-    width: min(46vh, 60vw);
+    width: min(66vh, 60vw);
     padding: 2.6vh;
     border-radius: 1.2vh;
     font-size: 2.4vh;
@@ -3387,6 +3486,26 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .debug {
     font-size: 12px;
+  }
+}
+
+/* 4:3 screens (projectors): tighter story trees, so the three fit without scrolling (with the web fonts;
+   wider fallback fonts may still scroll a little). */
+@media (min-aspect-ratio: 5/4) and (max-aspect-ratio: 3/2) and (min-width: 960px) and (min-height: 540px) {
+  .tree--compact {
+    --level-h: 4vh;
+    --stem-w: 2vh;
+    padding-left: 0.2vw;
+    padding-right: 0.2vw;
+  }
+
+  .treespage {
+    padding-top: calc(var(--safe-top) + 7vh);
+    row-gap: 1.2vh;
+  }
+
+  .treespage-list {
+    gap: 1.2vw;
   }
 }
 
@@ -3520,8 +3639,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     subtitle: { ko: "그날, 가버나움 · 마태복음 9:1–8", en: "Capernaum, That Day · Matthew 9:1–8" },
 
     disclaimer: {
-      ko: "사건은 마태복음 9:1–8을 따릅니다. 이름, 대화, 인물들의 사연과 결말은 창작입니다.",
-      en: "The event follows Matthew 9:1–8. Names, conversations, backstories, and endings are invented."
+      ko: "사건은 마태복음 9:1–8을 그대로 따라가요. 이름, 대화, 인물들의 사연과 잘린 가지들은 지어낸 이야기예요.",
+      en: "The event follows Matthew 9:1–8. The names, conversations, backstories and side branches are made up."
     },
 
     bibleNotice: {
@@ -4067,7 +4186,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     pinnedThought: T("속생각", "Unspoken thought"),
 
     // True ending
-    endingCardHint: T("눌러서 계속", "Tap to continue"),
+    endingCardHint: T("누르면 넘어가요", "Press to continue"),
 
     // Snip card (a cut branch)
     snipStamp: T("싹둑!", "Snip!"),
@@ -4085,7 +4204,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     treeBranchUnseen: T("아직 안 가 본 가지", "A branch not tried yet"),
 
     // Route select (the suggested-order line itself is BHS.common.routeSelect.hint)
-    routePlayed: T("✓ 함", "✓ Played"),
+    routePlayed: T("✓ 끝까지 함", "✓ Finished"),
 
     // Errors and notices
     storageOff: T("이 기기에서는 저장이 꺼져 있어요. 그래도 끝까지 할 수 있어요.", "Saving is off on this device. You can still play to the end."),
@@ -8676,8 +8795,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   var SIZE_STEPS = [0.9, 1, 1.12, 1.25, 1.4];
   var RATES = { slow: 56, normal: 28, instant: 0 };
-  // Removal of a scolded option: it shows for a moment, fades, then the others glide into place.
-  var REMOVE_HOLD = 140;
+  // Removal of a scolded option: it shows struck through for a moment, fades, then the others glide into
+  // place.
+  var REMOVE_HOLD = 700;
   var REMOVE_FADE = 260;
   var REMOVE_GLIDE = 300;
 
@@ -8699,6 +8819,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     riseTimer: 0,
     choiceTimers: [],
     lastChoice: "",
+    risingNow: false,
     handlers: {}
   };
 
@@ -8861,9 +8982,18 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return [h("span", { class: "ko", lang: "ko" }, ko), h("span", { class: "en", lang: "en" }, en)];
   }
 
-  // Rich text into a host: tokens resolved, *emphasis* -> <em>, verse tokens in span.q.
-  function richInto(host, t, l, state, chars) {
+  // A line break after each sentence (the last line of an ending shows one sentence per line).
+  var SENTENCE_END = /([.?!…][”’"']?)\s+(?=\S)/g;
+
+  // Rich text into a host: tokens resolved, *emphasis* -> <em>, verse tokens in span.q. With
+  // `sentences`, each sentence of our own text starts a new line (CSS: white-space pre-line).
+  function richInto(host, t, l, state, chars, sentences) {
     var segs = E() ? E().resolveSegments(t, l, state) : [{ text: pick(t, l), em: false }];
+    if (sentences) {
+      segs = segs.map(function (x) {
+        return x.kind === "v" ? x : Object.assign({}, x, { text: String(x.text).replace(SENTENCE_END, "$1\n") });
+      });
+    }
     for (var i = 0; i < segs.length; i++) {
       var s = segs[i];
       var wrap = null;
@@ -9130,10 +9260,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     );
   }
 
+  // Returns true when this change starts Asher's rise (lying -> standing, animated).
   function setPov(pov) {
     var stage = $("stage");
     var prev = stage.getAttribute("data-pov") || "normal";
-    if (prev === pov) return;
+    if (prev === pov) return false;
     stage.setAttribute("data-pov", pov);
     if (prev === "lying" && pov !== "lying" && !S.reduced && !S.test) {
       stage.classList.remove("is-rising");
@@ -9143,7 +9274,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       S.riseTimer = setTimeout(function () {
         stage.classList.remove("is-rising");
       }, 2800);
+      return true;
     }
+    return false;
   }
 
   function setLight(level) {
@@ -9407,7 +9540,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   function updateStage(v, state) {
     var st = v.stage;
     setArt(st.bg, st.pov, st.time);
-    setPov(st.pov);
+    S.risingNow = setPov(st.pov);
     setLight(st.light);
     placeLight();
     setCaption(st.caption);
@@ -9488,7 +9621,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           });
         } else p.textContent = txt;
       } else {
-        richInto(p, t, l, state, chars);
+        richInto(p, t, l, state, chars, opts.sentences);
       }
       host.appendChild(p);
       if (chars) groups.push({ chars: chars, rate: rateFor(l, opts.hush) });
@@ -9567,6 +9700,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     updateStage(v, state);
     resetPlay();
     $("play").hidden = false;
+    // The screen that starts Asher's rise shows its press only once he is up (CSS, play--rising).
+    if (S.risingNow) $("play").classList.add("play--rising");
     renderActions(v.actions || [], step);
     // Portraits step back while a choice, a card or the snip card is open; the engine keeps them.
     var castLayer = $("cast");
@@ -9623,7 +9758,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       case "last":
         $("play").classList.add("play--last");
         doc.body.classList.add("is-last");
-        groups = fillText(text, step.text, state, { instant: ctx.instant, hush: false });
+        groups = fillText(text, step.text, state, { instant: ctx.instant, hush: false, sentences: true });
         break;
       case "snip":
         panel.hidden = true;
@@ -9964,10 +10099,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     };
 
     // A clicker's next key presses the default button: Continue when there is a save (so it never
-    // starts over by accident), otherwise Start. With a save, Continue also takes the focus, so its ring
-    // shows what the next key will do (main.js, buttonScreenKey).
-    var startBtn = btn("btn--primary", u("start"), "start", o.onStart);
-    var contBtn = o.hasSave ? btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null) : null;
+    // starts over by accident), otherwise Start. The default button is also the filled one, and with a
+    // save Continue takes the focus, so its ring shows what the next key will do (main.js).
+    var startBtn = btn(o.hasSave ? "btn--ghost" : "btn--primary", u("start"), "start", o.onStart);
+    var contBtn = o.hasSave ? btn("btn--primary", u("continueGame"), "continue", o.onContinue, o.saveLabel || null) : null;
     var actions = [startBtn];
     if (contBtn) actions.push(contBtn);
     actions.push(btn("btn--text", u("treesOpen"), "trees-open", o.onTrees));
@@ -10061,12 +10196,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     });
   }
 
-  // The played stamp: in "both" mode the two languages share one check mark; otherwise one language.
-  function playedText() {
+  // The played stamp: one language, or in "both" mode the Korean over the English with one check mark
+  // (two short lines keep it in the free corner of the portrait band).
+  function playedNodes() {
     var t = u("routePlayed");
-    if (S.lang === "ko") return t.ko;
-    if (S.lang === "en") return t.en;
-    return t.ko + " · " + t.en.replace(/^\s*✓\s*/, "");
+    if (S.lang === "ko") return [t.ko];
+    if (S.lang === "en") return [t.en];
+    return [t.ko, h("span", { class: "en", lang: "en" }, t.en.replace(/^\s*✓\s*/, ""))];
   }
 
   // Played = the route's true ending was seen on this device.
@@ -10098,7 +10234,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // The badge sits in the free top-left corner of the portrait band (never on the figure or the
       // text); the band is aria-hidden, so a hidden copy carries the status for screen readers.
       // Without a portrait band it follows the tagline in the text flow.
-      var badge = played ? h("span", { class: "routecard__played" + (art ? "" : " routecard__played--flow"), "data-testid": "routecard-played-" + id }, playedText()) : null;
+      var badge = played ? h("span", { class: "routecard__played" + (langs().length > 1 ? " routecard__played--two" : "") + (art ? "" : " routecard__played--flow"), "data-testid": "routecard-played-" + id }, playedNodes()) : null;
       if (badge && art) art.appendChild(badge);
       var plateKids = langs().length === 1 ? [pick(r.name, langs()[0])] : [pick(r.name, "ko"), h("span", { class: "plate__en plate__en--stack", lang: "en" }, pick(r.name, "en"))];
       var plate = h("span", { class: "plate", style: c.color ? "--plate:" + c.color : null }, plateKids);
@@ -10372,11 +10508,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var m = $("modal");
     clear(m);
     var titleId = "dlg-title";
-    var no = btn("btn--ghost", o.no, "confirm-no", function () {
+    // "Keep playing" has the focus, so it is also the filled button.
+    var no = btn("btn--primary", o.no, "confirm-no", function () {
       closeModal();
       if (o.onNo) o.onNo();
     });
-    var yes = btn("btn--primary", o.yes, "confirm-yes", function () {
+    var yes = btn("btn--ghost", o.yes, "confirm-yes", function () {
       closeModal();
       if (o.onYes) o.onYes();
     });
@@ -10505,6 +10642,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     anchorCast: anchorCast,
     completeTyping: completeTyping,
     isTyping: isTyping,
+    // True right after a render that started Asher's rise (main.js lengthens that press's guard).
+    risingNow: function () {
+      return !!S.risingNow;
+    },
     typeTimeline: typeTimeline
   };
 })();
@@ -10543,7 +10684,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Input guards in ms: right after a screen appears, every activation (keys, clicks, taps) waits this
   // long, so a double click, a double tap or a quick double press of a clicker never presses something
   // the class has not seen yet. The press beats (Asher's rising) and the snip card wait longest.
-  var GUARD = { line: 220, choice: 400, press: 600, snip: 700, tree: 700, page: 400 };
+  var GUARD = { line: 220, choice: 400, press: 600, rise: 1800, snip: 700, tree: 700, page: 400 };
   var IDLE_MS = 3000;
 
   // ------------------------------------------------------------------ storage (never throws)
@@ -10739,6 +10880,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   function setScreen(name) {
     var changed = app.screen !== name;
+    if (changed) cancelHold();
     app.screen = name;
     doc.body.setAttribute("data-screen", name);
     V.showLayer(name);
@@ -10864,6 +11006,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   function renderGame(opts) {
     var g = app.game;
+    // A hold in progress belongs to the screen that is being replaced.
+    cancelHold();
     if (!g) return showTitle();
     var v = g.view();
     var kind = v.step && v.step.kind;
@@ -10882,7 +11026,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     V.renderPlay(v, { routeId: g.state.routeId, state: tokenState(g), instant: !!(opts && opts.instant), marks: marks });
     // Choices, the press beats and the snip card wait longer, so a double click or a quick double press
     // of a clicker never picks, presses or skips anything the class has not seen.
-    setGuard(kind === "snip" ? GUARD.snip : kind === "press" ? GUARD.press : kind === "choice" ? GUARD.choice : GUARD.line);
+    // The press that comes with Asher's rise waits until he is up (its button fades in then).
+    var press = V.risingNow && V.risingNow() ? GUARD.rise : GUARD.press;
+    setGuard(kind === "snip" ? GUARD.snip : kind === "press" ? press : kind === "choice" ? GUARD.choice : GUARD.line);
     persist();
     refreshDebug();
   }
@@ -11023,13 +11169,84 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Keyboard and presentation-clicker control (SPEC 5.6, TV display).
   var ADVANCE_KEYS = { " ": true, Spacebar: true, Enter: true, ArrowRight: true, ArrowDown: true, PageDown: true };
   var INERT_KEYS = { ArrowLeft: true, ArrowUp: true, PageUp: true };
-  // Presentation clickers send "b" or "." (black screen) and "w" (white screen); here they do nothing.
+  // At a choice a clicker's next keys move the focus to the next option, its previous keys to the
+  // previous one (both wrap around).
+  var NEXT_KEYS = { PageDown: true, ArrowDown: true, ArrowRight: true };
+  var PREV_KEYS = { PageUp: true, ArrowUp: true, ArrowLeft: true };
+  // Presentation clickers send "b" or "." (black screen) and "w" (white screen). At a choice "b" and "."
+  // pick the focused option; everywhere else these keys do nothing.
   var BLANK_KEYS = { b: true, B: true, ".": true, w: true, W: true };
+  var BLANK_PICK = { b: true, B: true, ".": true };
+  // Holding a next key this long on a focused option picks it (a fill runs on the option meanwhile).
+  var HOLD_MS = 800;
 
   // Keys pick options by their place on screen (there are no visible numbers): 1-4 only. Letters are
   // not used, because clickers send letters for other things (see BLANK_KEYS).
   function choiceIndexForKey(key) {
     return /^[1-4]$/.test(key) ? Number(key) - 1 : -1;
+  }
+
+  // The option that has the focus, if any (never one that is leaving after a scold).
+  function focusedOption() {
+    var el = doc.activeElement;
+    var box = doc.getElementById("choices");
+    if (!el || !box || !box.contains(el) || !el.classList || !el.classList.contains("opt") || el.classList.contains("opt--leaving")) return null;
+    return el;
+  }
+
+  // A next key held at a choice: { key, el, optId, steps, timer }. The hold is timed from keydown to
+  // keyup, so it works whether or not the clicker sends key repeat; event.repeat is never used for it.
+  var hold = null;
+  // A key that already did its job (a pick, or the first focus on a fresh choice) and does nothing
+  // more until it is released, so one press never acts twice.
+  var lockedKey = null;
+
+  function cancelHold() {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    if (hold.el) hold.el.classList.remove("is-holding");
+    hold = null;
+  }
+
+  function startHold(key, el) {
+    cancelHold();
+    el.classList.add("is-holding");
+    hold = { key: key, el: el, optId: el.getAttribute("data-option"), steps: app.game ? app.game.state.steps : -1, timer: setTimeout(holdDone, HOLD_MS) };
+  }
+
+  // Same choice presentation, nothing in the way: a hold may still pick or move.
+  function holdStillValid(h) {
+    var g = app.game;
+    return !!g && !!g.step && g.step.kind === "choice" && g.state.steps === h.steps && PLAY_SCREENS[app.screen] && !V.isModalOpen();
+  }
+
+  function holdDone() {
+    var h = hold;
+    hold = null;
+    if (!h) return;
+    h.el.classList.remove("is-holding");
+    // The key is still down: it does nothing more until it is released (no double advance).
+    lockedKey = h.key;
+    if (holdStillValid(h)) onChoose(h.optId);
+  }
+
+  function onKeyUp(ev) {
+    var key = ev.key;
+    if (lockedKey !== null && key === lockedKey) {
+      lockedKey = null;
+      return;
+    }
+    if (hold && hold.key === key) {
+      var h = hold;
+      cancelHold();
+      // Released before the hold picked: a quick press moves the focus on.
+      if (holdStillValid(h)) moveChoiceFocus(1);
+    }
+  }
+
+  function releaseKeys() {
+    cancelHold();
+    lockedKey = null;
   }
 
   // F toggles fullscreen. An input source such as Korean 2-Set reports a jamo for the F key, so the
@@ -11111,6 +11328,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var target = ev.target || {};
     var tag = target.tagName || "";
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!target.isContentEditable;
+    if (lockedKey !== null && key === lockedKey) {
+      ev.preventDefault();
+      return;
+    }
     if (key === "Escape" || key === "Esc") {
       // A held Esc would open and close the menu over and over.
       if (ev.repeat) ev.preventDefault();
@@ -11123,7 +11344,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       if (!ev.repeat) toggleFullscreen();
       return;
     }
-    if (BLANK_KEYS[key]) return;
+    var atChoice = PLAY_SCREENS[app.screen] && app.game && app.game.step && app.game.step.kind === "choice";
+    if (BLANK_KEYS[key] && !(atChoice && BLANK_PICK[key])) return;
     var activateKey = key === " " || key === "Enter" || key === "Spacebar";
     // A held key never activates anything again: auto-repeat must not skip screens, pick an option or
     // press a button natively (preventing the keydown also stops the button's own activation).
@@ -11149,26 +11371,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var kind = step && step.kind;
 
     if (kind === "choice") {
-      var idx = choiceIndexForKey(key);
-      if (idx >= 0) {
-        ev.preventDefault();
-        if (ev.repeat) return;
-        // While a scolded option fades out, the buttons on screen do not match the options yet.
-        if (doc.querySelector("#choices .opt--leaving")) return;
-        if (step.options[idx]) onChoose(step.options[idx].id);
-        return;
-      }
-      if (key === "ArrowDown" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowLeft") {
-        ev.preventDefault();
-        moveChoiceFocus(key === "ArrowDown" || key === "ArrowRight" ? 1 : -1);
-        return;
-      }
-      if (nativeActivate) return;
-      if (ADVANCE_KEYS[key] || INERT_KEYS[key]) {
-        // Never pick an option by accident: an advance key only shows where focus is.
-        ev.preventDefault();
-        if (ADVANCE_KEYS[key]) moveChoiceFocus(0);
-      }
+      choiceKey(ev, key, step, nativeActivate);
       return;
     }
 
@@ -11181,6 +11384,57 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       return;
     }
     if (INERT_KEYS[key]) ev.preventDefault();
+  }
+
+  // A choice by keyboard or clicker: 1-4 pick by place; next keys (PageDown, Down, Right) and previous
+  // keys (PageUp, Up, Left) move the focus, wrapping around; Enter, Space and a clicker's blank-screen
+  // key ("b", ".") pick the focused option. Holding a next key on a focused option for HOLD_MS picks it;
+  // a quick press only moves the focus. With nothing focused (a fresh choice), the first key only shows
+  // the focus on the first option, so nothing is ever picked unseen.
+  function choiceKey(ev, key, step, nativeActivate) {
+    // Another key while a next key is held: the hold no longer stands for the class's pick.
+    if (hold && key !== hold.key) cancelHold();
+    var idx = choiceIndexForKey(key);
+    if (idx >= 0) {
+      ev.preventDefault();
+      if (ev.repeat) return;
+      // While a scolded option fades out, the buttons on screen do not match the options yet.
+      if (doc.querySelector("#choices .opt--leaving")) return;
+      if (step.options[idx]) onChoose(step.options[idx].id);
+      return;
+    }
+    var focused = focusedOption();
+    if (NEXT_KEYS[key]) {
+      ev.preventDefault();
+      if (ev.repeat || hold) return;
+      if (!focused) {
+        moveChoiceFocus(1);
+        lockedKey = key;
+        return;
+      }
+      startHold(key, focused);
+      return;
+    }
+    if (PREV_KEYS[key]) {
+      ev.preventDefault();
+      if (!ev.repeat) moveChoiceFocus(-1);
+      return;
+    }
+    if (BLANK_PICK[key]) {
+      ev.preventDefault();
+      if (ev.repeat) return;
+      lockedKey = key;
+      if (focused) onChoose(focused.getAttribute("data-option"));
+      else moveChoiceFocus(1);
+      return;
+    }
+    // Enter/Space on a focused option (or a header button) keep their native meaning.
+    if (nativeActivate) return;
+    if (ADVANCE_KEYS[key]) {
+      // Enter/Space with nothing focused only show the focus on the first option.
+      ev.preventDefault();
+      moveChoiceFocus(focused ? 0 : 1);
+    }
   }
 
   // Route select on a TV: 1-3 start a route (in card order), arrows and PageUp/PageDown move the focus
@@ -11584,6 +11838,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     renderHeader();
     exposeHooks();
     doc.addEventListener("keydown", onKey);
+    doc.addEventListener("keyup", onKeyUp);
+    // A key released outside the page would stay "held".
+    window.addEventListener("blur", releaseKeys);
     doc.addEventListener("mousemove", wakeCursor, { passive: true });
     doc.addEventListener("mousedown", wakeCursor, { passive: true });
     doc.addEventListener("fullscreenchange", renderHeader);

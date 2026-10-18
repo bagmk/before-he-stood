@@ -448,6 +448,16 @@ body.is-last .veil {
   pointer-events: auto;
 }
 
+/* Outside the TV layout the page screens scroll under the header: give it a backdrop there. */
+@media not all and (min-aspect-ratio: 5/4) and (min-width: 960px) and (min-height: 540px) {
+  body[data-screen="routeSelect"] .topbar,
+  body[data-screen="tree"] .topbar,
+  body[data-screen="trees"] .topbar {
+    background: linear-gradient(180deg, rgba(16, 15, 13, 0.96) 0%, rgba(16, 15, 13, 0.96) 72%, rgba(16, 15, 13, 0) 100%);
+    padding-bottom: 16px;
+  }
+}
+
 .topbar__spacer {
   flex: 1;
   pointer-events: none;
@@ -917,6 +927,16 @@ body.is-last .veil {
   font-size: calc(var(--fs-verse-en) * var(--text-scale));
 }
 
+/* No orphan word on a verse or memory card. */
+.panel--verse .text p {
+  text-wrap: balance;
+}
+
+/* The reference keeps clear of the "more" marker in the corner. */
+.panel--verse .ref {
+  padding-right: 1.6em;
+}
+
 .panel--jesus {
   box-shadow: inset 0 0 0 5px var(--light-core), inset 0 0 0 6px rgba(201, 138, 31, 0.5), 0 0 0 1px rgba(255, 240, 205, 0.85), 0 0 48px 12px var(--light-glow), 0 12px 32px rgba(0, 0, 0, 0.32);
 }
@@ -1063,6 +1083,8 @@ body.is-last .veil {
 .choices__list {
   display: grid;
   gap: 9px;
+  /* While the scold removal pins the list height, the rows must not stretch to fill it. */
+  align-content: start;
 }
 
 .opt {
@@ -1154,6 +1176,40 @@ body.is-last .veil {
   transform: scale(0.94);
 }
 
+/* The scolded option is struck through for a moment before it fades (ui.js, REMOVE_HOLD). */
+.opt--leaving .opt__body {
+  text-decoration-line: line-through;
+  text-decoration-color: rgba(163, 57, 43, 0.85);
+  text-decoration-thickness: 0.1em;
+}
+
+/* A clicker's next key held on a focused option fills it from the left; when the fill is complete the
+   option is picked (main.js, HOLD_MS = 800 ms). */
+.opt.is-holding::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: rgba(227, 178, 92, 0.6);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  animation: opt-hold 0.8s linear both;
+}
+
+@keyframes opt-hold {
+  from {
+    -webkit-clip-path: inset(0 100% 0 0);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 .opt .en {
   margin-top: 0.2em;
   font-size: calc(var(--fs-option-en) * var(--text-scale));
@@ -1173,6 +1229,11 @@ body.is-last .veil {
   align-items: center;
   gap: 10px;
   padding-bottom: 6px;
+}
+
+/* Asher stands up (the rise): the next press appears only once he is up (ui.js marks play--rising). */
+.play--rising .pressbox {
+  animation: fade-in 0.5s 1.8s both;
 }
 
 .pressbox__hint {
@@ -1321,6 +1382,11 @@ body.is-last .veil {
   animation: fade-in 1s 1.4s ease both;
 }
 
+/* The last line: one sentence per line where it fits (ui.js breaks after each sentence). */
+.play--last .text p {
+  white-space: pre-line;
+}
+
 /* ------------------------------------------------------------------ memory verse (true ending)
 
    The verse card style, larger and centered on the screen, in the light. */
@@ -1355,6 +1421,7 @@ body.is-last .veil {
 
 .panel--memory .ref {
   margin-top: 1em;
+  padding-left: 1.6em;
   text-align: center;
   font-size: var(--fs-small);
   letter-spacing: 0.04em;
@@ -1941,6 +2008,11 @@ body.is-last .veil {
   white-space: nowrap;
 }
 
+/* "Both" mode: the Korean over the English, a rounded label instead of a pill. */
+.routecard__played--two {
+  border-radius: 0.6em;
+}
+
 /* Without a portrait band the stamp follows the tagline. */
 .routecard__played--flow {
   position: static;
@@ -2397,7 +2469,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 /* Not seen yet: a faint, short, blunt stub with no tag. */
 .branch[data-state="unseen"] .branch__wood {
   width: calc(var(--stem-w) * 0.5);
-  opacity: 0.34;
+  opacity: 0.6;
   filter: none;
 }
 
@@ -2416,7 +2488,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   z-index: 60;
   top: calc(var(--safe-top) + var(--header-h) + 4px);
   right: var(--gutter-r);
-  width: min(300px, calc(100% - var(--gutter-l) - var(--gutter-r)));
+  width: min(380px, calc(100% - var(--gutter-l) - var(--gutter-r)));
   padding: 16px;
   border-radius: 10px;
   color: var(--ink);
@@ -2470,6 +2542,17 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 .chip:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.settings .chip {
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .settings .chip {
+    font-size: 13px;
+    padding-inline: 4px;
+  }
 }
 
 .settings__close {
@@ -2737,6 +2820,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     width: min(36vw, 64vh);
   }
 
+  /* The scribe's punchline stamp, legible from the back of the room. */
+  .receipt {
+    font-size: 3vh;
+    padding: 0.25em 0.8em 0.3em;
+  }
+
   .dock {
     padding-bottom: calc(var(--safe-bottom) + 4vh);
   }
@@ -2781,12 +2870,12 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   }
 
   .choices__prompt .en {
-    display: inline;
+    display: block;
+    margin-top: 0.2em;
   }
 
   .choices__prompt .en::before {
-    content: "  \00B7  ";
-    color: var(--ink-faint);
+    content: none;
   }
 
   .choices__list {
@@ -3220,6 +3309,16 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     flex: 1;
   }
 
+  /* The root name plate stays inside the card at every TV size, 4:3 included. */
+  .treepage .tree {
+    --level-h: 6.4vh;
+    min-height: 0;
+  }
+
+  .treepage .tree__levels {
+    min-height: 0;
+  }
+
   .treepage-actions {
     grid-area: actions;
     gap: 1.6vh;
@@ -3359,7 +3458,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .settings {
     top: calc(var(--safe-top) + 2vh + var(--hdr-btn) + 1.4vh);
-    width: min(46vh, 60vw);
+    width: min(66vh, 60vw);
     padding: 2.6vh;
     border-radius: 1.2vh;
     font-size: 2.4vh;
@@ -3384,6 +3483,26 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
   .debug {
     font-size: 12px;
+  }
+}
+
+/* 4:3 screens (projectors): tighter story trees, so the three fit without scrolling (with the web fonts;
+   wider fallback fonts may still scroll a little). */
+@media (min-aspect-ratio: 5/4) and (max-aspect-ratio: 3/2) and (min-width: 960px) and (min-height: 540px) {
+  .tree--compact {
+    --level-h: 4vh;
+    --stem-w: 2vh;
+    padding-left: 0.2vw;
+    padding-right: 0.2vw;
+  }
+
+  .treespage {
+    padding-top: calc(var(--safe-top) + 7vh);
+    row-gap: 1.2vh;
+  }
+
+  .treespage-list {
+    gap: 1.2vw;
   }
 }
 

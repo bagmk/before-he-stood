@@ -1,4 +1,6 @@
 // tests/ui-extra.mjs - focused browser checks that complement tests/ui-playtest.mjs (SPEC version 4).
+// At the end it also runs tests/ui-input.mjs (input guards, title keys, deep links, fonts, storage,
+// clicker choices, layout fixes), which can run on its own too.
 // Run: node tests/ui-extra.mjs [--shots]
 import path from "node:path";
 import fs from "node:fs";
@@ -520,7 +522,7 @@ try {
   }
   {
     // Class flow: the suggested order under the prompt; a route whose true ending was seen gets a
-    // "Played" stamp that covers neither text nor figure (a cut branch alone does not count), and the
+    // "Finished" stamp that covers neither text nor figure (a cut branch alone does not count), and the
     // focus starts on the first unplayed route.
     const { ctx, page, errors } = await open(browser, index + "?test=1");
     const look = async (seen) => {
@@ -554,8 +556,8 @@ try {
     const cutOnly = await look(["scribe-bad-typo"]);
     check(Object.values(cutOnly.cards).every((c) => !c.played), "a cut branch alone does not stamp the route");
     const one = await look(["scribe-good"]);
-    check(one.cards.scribe.played === "true" && one.cards.scribe.badge === "✓ 함 · Played" && one.cards.scribe.clear, `scribe played: stamp shown clear of text and figure (${JSON.stringify(one.cards.scribe)})`);
-    check(/Played|함/.test(one.cards.scribe.sr || ""), "the played status is also in the card's accessible text");
+    check(one.cards.scribe.played === "true" && /^✓ 끝까지 함\s+Finished$/.test(one.cards.scribe.badge || "") && one.cards.scribe.clear, `scribe played: stamp shown clear of text and figure (${JSON.stringify(one.cards.scribe)})`);
+    check(/Finished|끝까지 함/.test(one.cards.scribe.sr || ""), "the played status is also in the card's accessible text");
     check(!one.cards.friend.played && !one.cards.asher.played, "only the played route is stamped");
     check(one.focus === "route-friend", `focus starts on the next unplayed route (${one.focus})`);
     await page.keyboard.press("Enter");
@@ -696,6 +698,16 @@ try {
   failures.push("crash: " + (err && err.stack ? err.stack.split("\n").slice(0, 3).join(" / ") : err));
 } finally {
   await browser.close();
+}
+// Input, guards, deep links, storage and layout checks from the v4 audits (tests/ui-input.mjs, which
+// also runs on its own).
+try {
+  const { runInputChecks } = await import("./ui-input.mjs");
+  const r = await runInputChecks(chromium);
+  r.notes.forEach((n) => notes.push("input: " + n));
+  r.failures.forEach((f) => failures.push("input: " + f));
+} catch (err) {
+  failures.push("ui-input crash: " + (err && err.stack ? err.stack.split("\n").slice(0, 3).join(" / ") : err));
 }
 notes.forEach((n) => console.log("note  " + n));
 failures.forEach((f) => console.log("FAIL  " + f));

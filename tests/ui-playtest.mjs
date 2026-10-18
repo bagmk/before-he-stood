@@ -359,8 +359,9 @@ async function titleAndPrologue(browser, sizeName) {
   await ctx.close();
 }
 
-// Keyboard only: keys 1-4 and A-D pick by place, arrows + Enter pick the focused option, Enter on the
-// snip card tries again, PageUp/ArrowLeft never change anything, Enter on the tree goes on.
+// Keyboard only: keys 1-4 pick by place, arrows + Enter pick the focused option, a clicker's PageDown
+// moves the focus and its blank-screen key "b" picks it, Enter on the snip card tries again,
+// PageUp/ArrowLeft never change a line, Enter on the tree goes on.
 async function keyboardOnly(browser, sizeName, routeId) {
   const { ctx, page, errors, url } = await newPage(browser, sizeName);
   const tag = `${sizeName}/${routeId}/keyboard`;
@@ -420,7 +421,11 @@ async function keyboardOnly(browser, sizeName, routeId) {
         check(focused === "choice-" + id, `${tag}: arrows move focus (${focused}, expected choice-${id})`);
         if (args.shots && sizeName === "tv") await shot(page, `${sizeName}-keyboard-focus`);
         await page.keyboard.press("Enter");
-      } else await page.keyboard.press(picks % 2 ? "abcd".charAt(idx) : String(idx + 1));
+      } else if (picks % 2) {
+        // A clicker: PageDown moves the focus (the first press shows it on the first option), "b" picks.
+        for (let j = 0; j <= idx; j++) await page.keyboard.press("PageDown");
+        await page.keyboard.press("b");
+      } else await page.keyboard.press(String(idx + 1));
       picks++;
     } else if (kind === "press") await page.keyboard.press("ArrowRight");
     else {

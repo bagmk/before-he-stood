@@ -30,7 +30,7 @@
   // Input guards in ms: right after a screen appears, every activation (keys, clicks, taps) waits this
   // long, so a double click, a double tap or a quick double press of a clicker never presses something
   // the class has not seen yet. The press beats (Asher's rising) and the snip card wait longest.
-  var GUARD = { line: 220, choice: 400, press: 600, snip: 700, tree: 700, page: 400 };
+  var GUARD = { line: 220, choice: 400, press: 600, rise: 1800, snip: 700, tree: 700, page: 400 };
   var IDLE_MS = 3000;
 
   // ------------------------------------------------------------------ storage (never throws)
@@ -226,6 +226,7 @@
 
   function setScreen(name) {
     var changed = app.screen !== name;
+    if (changed) cancelHold();
     app.screen = name;
     doc.body.setAttribute("data-screen", name);
     V.showLayer(name);
@@ -351,6 +352,8 @@
 
   function renderGame(opts) {
     var g = app.game;
+    // A hold in progress belongs to the screen that is being replaced.
+    cancelHold();
     if (!g) return showTitle();
     var v = g.view();
     var kind = v.step && v.step.kind;
@@ -369,7 +372,9 @@
     V.renderPlay(v, { routeId: g.state.routeId, state: tokenState(g), instant: !!(opts && opts.instant), marks: marks });
     // Choices, the press beats and the snip card wait longer, so a double click or a quick double press
     // of a clicker never picks, presses or skips anything the class has not seen.
-    setGuard(kind === "snip" ? GUARD.snip : kind === "press" ? GUARD.press : kind === "choice" ? GUARD.choice : GUARD.line);
+    // The press that comes with Asher's rise waits until he is up (its button fades in then).
+    var press = V.risingNow && V.risingNow() ? GUARD.rise : GUARD.press;
+    setGuard(kind === "snip" ? GUARD.snip : kind === "press" ? press : kind === "choice" ? GUARD.choice : GUARD.line);
     persist();
     refreshDebug();
   }
@@ -510,13 +515,84 @@
   // Keyboard and presentation-clicker control (SPEC 5.6, TV display).
   var ADVANCE_KEYS = { " ": true, Spacebar: true, Enter: true, ArrowRight: true, ArrowDown: true, PageDown: true };
   var INERT_KEYS = { ArrowLeft: true, ArrowUp: true, PageUp: true };
-  // Presentation clickers send "b" or "." (black screen) and "w" (white screen); here they do nothing.
+  // At a choice a clicker's next keys move the focus to the next option, its previous keys to the
+  // previous one (both wrap around).
+  var NEXT_KEYS = { PageDown: true, ArrowDown: true, ArrowRight: true };
+  var PREV_KEYS = { PageUp: true, ArrowUp: true, ArrowLeft: true };
+  // Presentation clickers send "b" or "." (black screen) and "w" (white screen). At a choice "b" and "."
+  // pick the focused option; everywhere else these keys do nothing.
   var BLANK_KEYS = { b: true, B: true, ".": true, w: true, W: true };
+  var BLANK_PICK = { b: true, B: true, ".": true };
+  // Holding a next key this long on a focused option picks it (a fill runs on the option meanwhile).
+  var HOLD_MS = 800;
 
   // Keys pick options by their place on screen (there are no visible numbers): 1-4 only. Letters are
   // not used, because clickers send letters for other things (see BLANK_KEYS).
   function choiceIndexForKey(key) {
     return /^[1-4]$/.test(key) ? Number(key) - 1 : -1;
+  }
+
+  // The option that has the focus, if any (never one that is leaving after a scold).
+  function focusedOption() {
+    var el = doc.activeElement;
+    var box = doc.getElementById("choices");
+    if (!el || !box || !box.contains(el) || !el.classList || !el.classList.contains("opt") || el.classList.contains("opt--leaving")) return null;
+    return el;
+  }
+
+  // A next key held at a choice: { key, el, optId, steps, timer }. The hold is timed from keydown to
+  // keyup, so it works whether or not the clicker sends key repeat; event.repeat is never used for it.
+  var hold = null;
+  // A key that already did its job (a pick, or the first focus on a fresh choice) and does nothing
+  // more until it is released, so one press never acts twice.
+  var lockedKey = null;
+
+  function cancelHold() {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    if (hold.el) hold.el.classList.remove("is-holding");
+    hold = null;
+  }
+
+  function startHold(key, el) {
+    cancelHold();
+    el.classList.add("is-holding");
+    hold = { key: key, el: el, optId: el.getAttribute("data-option"), steps: app.game ? app.game.state.steps : -1, timer: setTimeout(holdDone, HOLD_MS) };
+  }
+
+  // Same choice presentation, nothing in the way: a hold may still pick or move.
+  function holdStillValid(h) {
+    var g = app.game;
+    return !!g && !!g.step && g.step.kind === "choice" && g.state.steps === h.steps && PLAY_SCREENS[app.screen] && !V.isModalOpen();
+  }
+
+  function holdDone() {
+    var h = hold;
+    hold = null;
+    if (!h) return;
+    h.el.classList.remove("is-holding");
+    // The key is still down: it does nothing more until it is released (no double advance).
+    lockedKey = h.key;
+    if (holdStillValid(h)) onChoose(h.optId);
+  }
+
+  function onKeyUp(ev) {
+    var key = ev.key;
+    if (lockedKey !== null && key === lockedKey) {
+      lockedKey = null;
+      return;
+    }
+    if (hold && hold.key === key) {
+      var h = hold;
+      cancelHold();
+      // Released before the hold picked: a quick press moves the focus on.
+      if (holdStillValid(h)) moveChoiceFocus(1);
+    }
+  }
+
+  function releaseKeys() {
+    cancelHold();
+    lockedKey = null;
   }
 
   // F toggles fullscreen. An input source such as Korean 2-Set reports a jamo for the F key, so the
@@ -598,6 +674,10 @@
     var target = ev.target || {};
     var tag = target.tagName || "";
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!target.isContentEditable;
+    if (lockedKey !== null && key === lockedKey) {
+      ev.preventDefault();
+      return;
+    }
     if (key === "Escape" || key === "Esc") {
       // A held Esc would open and close the menu over and over.
       if (ev.repeat) ev.preventDefault();
@@ -610,7 +690,8 @@
       if (!ev.repeat) toggleFullscreen();
       return;
     }
-    if (BLANK_KEYS[key]) return;
+    var atChoice = PLAY_SCREENS[app.screen] && app.game && app.game.step && app.game.step.kind === "choice";
+    if (BLANK_KEYS[key] && !(atChoice && BLANK_PICK[key])) return;
     var activateKey = key === " " || key === "Enter" || key === "Spacebar";
     // A held key never activates anything again: auto-repeat must not skip screens, pick an option or
     // press a button natively (preventing the keydown also stops the button's own activation).
@@ -636,26 +717,7 @@
     var kind = step && step.kind;
 
     if (kind === "choice") {
-      var idx = choiceIndexForKey(key);
-      if (idx >= 0) {
-        ev.preventDefault();
-        if (ev.repeat) return;
-        // While a scolded option fades out, the buttons on screen do not match the options yet.
-        if (doc.querySelector("#choices .opt--leaving")) return;
-        if (step.options[idx]) onChoose(step.options[idx].id);
-        return;
-      }
-      if (key === "ArrowDown" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowLeft") {
-        ev.preventDefault();
-        moveChoiceFocus(key === "ArrowDown" || key === "ArrowRight" ? 1 : -1);
-        return;
-      }
-      if (nativeActivate) return;
-      if (ADVANCE_KEYS[key] || INERT_KEYS[key]) {
-        // Never pick an option by accident: an advance key only shows where focus is.
-        ev.preventDefault();
-        if (ADVANCE_KEYS[key]) moveChoiceFocus(0);
-      }
+      choiceKey(ev, key, step, nativeActivate);
       return;
     }
 
@@ -668,6 +730,57 @@
       return;
     }
     if (INERT_KEYS[key]) ev.preventDefault();
+  }
+
+  // A choice by keyboard or clicker: 1-4 pick by place; next keys (PageDown, Down, Right) and previous
+  // keys (PageUp, Up, Left) move the focus, wrapping around; Enter, Space and a clicker's blank-screen
+  // key ("b", ".") pick the focused option. Holding a next key on a focused option for HOLD_MS picks it;
+  // a quick press only moves the focus. With nothing focused (a fresh choice), the first key only shows
+  // the focus on the first option, so nothing is ever picked unseen.
+  function choiceKey(ev, key, step, nativeActivate) {
+    // Another key while a next key is held: the hold no longer stands for the class's pick.
+    if (hold && key !== hold.key) cancelHold();
+    var idx = choiceIndexForKey(key);
+    if (idx >= 0) {
+      ev.preventDefault();
+      if (ev.repeat) return;
+      // While a scolded option fades out, the buttons on screen do not match the options yet.
+      if (doc.querySelector("#choices .opt--leaving")) return;
+      if (step.options[idx]) onChoose(step.options[idx].id);
+      return;
+    }
+    var focused = focusedOption();
+    if (NEXT_KEYS[key]) {
+      ev.preventDefault();
+      if (ev.repeat || hold) return;
+      if (!focused) {
+        moveChoiceFocus(1);
+        lockedKey = key;
+        return;
+      }
+      startHold(key, focused);
+      return;
+    }
+    if (PREV_KEYS[key]) {
+      ev.preventDefault();
+      if (!ev.repeat) moveChoiceFocus(-1);
+      return;
+    }
+    if (BLANK_PICK[key]) {
+      ev.preventDefault();
+      if (ev.repeat) return;
+      lockedKey = key;
+      if (focused) onChoose(focused.getAttribute("data-option"));
+      else moveChoiceFocus(1);
+      return;
+    }
+    // Enter/Space on a focused option (or a header button) keep their native meaning.
+    if (nativeActivate) return;
+    if (ADVANCE_KEYS[key]) {
+      // Enter/Space with nothing focused only show the focus on the first option.
+      ev.preventDefault();
+      moveChoiceFocus(focused ? 0 : 1);
+    }
   }
 
   // Route select on a TV: 1-3 start a route (in card order), arrows and PageUp/PageDown move the focus
@@ -1071,6 +1184,9 @@
     renderHeader();
     exposeHooks();
     doc.addEventListener("keydown", onKey);
+    doc.addEventListener("keyup", onKeyUp);
+    // A key released outside the page would stay "held".
+    window.addEventListener("blur", releaseKeys);
     doc.addEventListener("mousemove", wakeCursor, { passive: true });
     doc.addEventListener("mousedown", wakeCursor, { passive: true });
     doc.addEventListener("fullscreenchange", renderHeader);

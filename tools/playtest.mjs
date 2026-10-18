@@ -19,8 +19,9 @@
  * disappears, the same choice is asked again), then the true path.
  * Run matrix (per route):
  *   tv1080 1920x1080, mouse, both languages: plan "all" (screenshots qa/playtest/tv-*.png)
- *   tv1080 keyboard only (Space/Enter/ArrowRight/PageDown/ArrowDown advance, 1-4 / A-D pick by
- *          position, Enter on the snip card and the story tree, no mouse): plan "one", then the route
+ *   tv1080 keyboard only (Space/Enter/ArrowRight/PageDown/ArrowDown advance, 1-4 pick by position, a
+ *          clicker's PageDown moves the focus and "b" picks it, Enter on the snip card and the story
+ *          tree, no mouse): plan "one", then the route
  *          select with the played badge and the focus on the next character
  *   tv720  1280x720, mouse: plan "true", language ko (scribe) / en (friend) / both (asher)
  *   phone  390x844, isMobile, touch, DPR 2: plan "one", with leave-and-resume checks
@@ -811,8 +812,14 @@ async function playRun(browser, R, cfg) {
             let ok = false;
             if (kbd) {
               const idx = s.shown.indexOf(d.id);
-              const key = choiceCount % 3 === 2 ? 'abcd'.charAt(idx) : String(idx + 1);
-              await page.keyboard.press(key);
+              // Every third choice like a clicker: PageDown moves the focus (the first press shows it
+              // on the first option), the blank-screen key "b" picks the focused option.
+              const clicker = choiceCount % 3 === 2;
+              const key = clicker ? `PageDown x${idx + 1}, b` : String(idx + 1);
+              if (clicker) {
+                for (let j = 0; j <= idx; j++) await page.keyboard.press('PageDown');
+                await page.keyboard.press('b');
+              } else await page.keyboard.press(key);
               ok = await waitChange(page, prev, args.stepTimeout);
               if (!ok) run.fail(`keyboard: key "${key}" did not pick option ${d.id} (place ${idx + 1}) at ${cid}`, true);
               acted = ok ? 'key' : null;
@@ -1422,9 +1429,12 @@ async function treesPageCheck(page, out, data, routes, seen, label, shotFile, R)
 async function debugJumpChecks(page, base, out, data, routes) {
   for (const rid of routes) {
     const route = data.routes[rid];
-    await page.goto(base + 'index.html?test=1&debug=1#' + rid, { waitUntil: 'load', timeout: 20000 });
+    // A deep link is used once (its hash leaves the address bar, so a reload shows the title): clear the
+    // storage, then load the link fresh.
+    await page.goto(base + 'index.html?test=1&debug=1', { waitUntil: 'load', timeout: 20000 });
     await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
-    await page.reload({ waitUntil: 'load' });
+    await page.goto('about:blank');
+    await page.goto(base + 'index.html?test=1&debug=1#' + rid, { waitUntil: 'load', timeout: 20000 });
     if (!(await waitScreen(page, 'play', 4000))) { out.push(`FAIL ?debug=1#${rid} did not open the play screen`); continue; }
     await sleep(150);
     const visibleDbg = await page.evaluate(() => { const d = document.getElementById('debug'); return !!(d && window.__qa.vis(d)); });

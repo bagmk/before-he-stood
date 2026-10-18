@@ -55,7 +55,7 @@
     pinnedThought: T("속생각", "Unspoken thought"),
 
     // True ending
-    endingCardHint: T("눌러서 계속", "Tap to continue"),
+    endingCardHint: T("누르면 넘어가요", "Press to continue"),
 
     // Snip card (a cut branch)
     snipStamp: T("싹둑!", "Snip!"),
@@ -73,7 +73,7 @@
     treeBranchUnseen: T("아직 안 가 본 가지", "A branch not tried yet"),
 
     // Route select (the suggested-order line itself is BHS.common.routeSelect.hint)
-    routePlayed: T("✓ 함", "✓ Played"),
+    routePlayed: T("✓ 끝까지 함", "✓ Finished"),
 
     // Errors and notices
     storageOff: T("이 기기에서는 저장이 꺼져 있어요. 그래도 끝까지 할 수 있어요.", "Saving is off on this device. You can still play to the end."),

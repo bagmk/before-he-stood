@@ -15,8 +15,9 @@
 
   var SIZE_STEPS = [0.9, 1, 1.12, 1.25, 1.4];
   var RATES = { slow: 56, normal: 28, instant: 0 };
-  // Removal of a scolded option: it shows for a moment, fades, then the others glide into place.
-  var REMOVE_HOLD = 140;
+  // Removal of a scolded option: it shows struck through for a moment, fades, then the others glide into
+  // place.
+  var REMOVE_HOLD = 700;
   var REMOVE_FADE = 260;
   var REMOVE_GLIDE = 300;
 
@@ -38,6 +39,7 @@
     riseTimer: 0,
     choiceTimers: [],
     lastChoice: "",
+    risingNow: false,
     handlers: {}
   };
 
@@ -200,9 +202,18 @@
     return [h("span", { class: "ko", lang: "ko" }, ko), h("span", { class: "en", lang: "en" }, en)];
   }
 
-  // Rich text into a host: tokens resolved, *emphasis* -> <em>, verse tokens in span.q.
-  function richInto(host, t, l, state, chars) {
+  // A line break after each sentence (the last line of an ending shows one sentence per line).
+  var SENTENCE_END = /([.?!…][”’"']?)\s+(?=\S)/g;
+
+  // Rich text into a host: tokens resolved, *emphasis* -> <em>, verse tokens in span.q. With
+  // `sentences`, each sentence of our own text starts a new line (CSS: white-space pre-line).
+  function richInto(host, t, l, state, chars, sentences) {
     var segs = E() ? E().resolveSegments(t, l, state) : [{ text: pick(t, l), em: false }];
+    if (sentences) {
+      segs = segs.map(function (x) {
+        return x.kind === "v" ? x : Object.assign({}, x, { text: String(x.text).replace(SENTENCE_END, "$1\n") });
+      });
+    }
     for (var i = 0; i < segs.length; i++) {
       var s = segs[i];
       var wrap = null;
@@ -469,10 +480,11 @@
     );
   }
 
+  // Returns true when this change starts Asher's rise (lying -> standing, animated).
   function setPov(pov) {
     var stage = $("stage");
     var prev = stage.getAttribute("data-pov") || "normal";
-    if (prev === pov) return;
+    if (prev === pov) return false;
     stage.setAttribute("data-pov", pov);
     if (prev === "lying" && pov !== "lying" && !S.reduced && !S.test) {
       stage.classList.remove("is-rising");
@@ -482,7 +494,9 @@
       S.riseTimer = setTimeout(function () {
         stage.classList.remove("is-rising");
       }, 2800);
+      return true;
     }
+    return false;
   }
 
   function setLight(level) {
@@ -746,7 +760,7 @@
   function updateStage(v, state) {
     var st = v.stage;
     setArt(st.bg, st.pov, st.time);
-    setPov(st.pov);
+    S.risingNow = setPov(st.pov);
     setLight(st.light);
     placeLight();
     setCaption(st.caption);
@@ -827,7 +841,7 @@
           });
         } else p.textContent = txt;
       } else {
-        richInto(p, t, l, state, chars);
+        richInto(p, t, l, state, chars, opts.sentences);
       }
       host.appendChild(p);
       if (chars) groups.push({ chars: chars, rate: rateFor(l, opts.hush) });
@@ -906,6 +920,8 @@
     updateStage(v, state);
     resetPlay();
     $("play").hidden = false;
+    // The screen that starts Asher's rise shows its press only once he is up (CSS, play--rising).
+    if (S.risingNow) $("play").classList.add("play--rising");
     renderActions(v.actions || [], step);
     // Portraits step back while a choice, a card or the snip card is open; the engine keeps them.
     var castLayer = $("cast");
@@ -962,7 +978,7 @@
       case "last":
         $("play").classList.add("play--last");
         doc.body.classList.add("is-last");
-        groups = fillText(text, step.text, state, { instant: ctx.instant, hush: false });
+        groups = fillText(text, step.text, state, { instant: ctx.instant, hush: false, sentences: true });
         break;
       case "snip":
         panel.hidden = true;
@@ -1303,10 +1319,10 @@
     };
 
     // A clicker's next key presses the default button: Continue when there is a save (so it never
-    // starts over by accident), otherwise Start. With a save, Continue also takes the focus, so its ring
-    // shows what the next key will do (main.js, buttonScreenKey).
-    var startBtn = btn("btn--primary", u("start"), "start", o.onStart);
-    var contBtn = o.hasSave ? btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null) : null;
+    // starts over by accident), otherwise Start. The default button is also the filled one, and with a
+    // save Continue takes the focus, so its ring shows what the next key will do (main.js).
+    var startBtn = btn(o.hasSave ? "btn--ghost" : "btn--primary", u("start"), "start", o.onStart);
+    var contBtn = o.hasSave ? btn("btn--primary", u("continueGame"), "continue", o.onContinue, o.saveLabel || null) : null;
     var actions = [startBtn];
     if (contBtn) actions.push(contBtn);
     actions.push(btn("btn--text", u("treesOpen"), "trees-open", o.onTrees));
@@ -1400,12 +1416,13 @@
     });
   }
 
-  // The played stamp: in "both" mode the two languages share one check mark; otherwise one language.
-  function playedText() {
+  // The played stamp: one language, or in "both" mode the Korean over the English with one check mark
+  // (two short lines keep it in the free corner of the portrait band).
+  function playedNodes() {
     var t = u("routePlayed");
-    if (S.lang === "ko") return t.ko;
-    if (S.lang === "en") return t.en;
-    return t.ko + " · " + t.en.replace(/^\s*✓\s*/, "");
+    if (S.lang === "ko") return [t.ko];
+    if (S.lang === "en") return [t.en];
+    return [t.ko, h("span", { class: "en", lang: "en" }, t.en.replace(/^\s*✓\s*/, ""))];
   }
 
   // Played = the route's true ending was seen on this device.
@@ -1437,7 +1454,7 @@
       // The badge sits in the free top-left corner of the portrait band (never on the figure or the
       // text); the band is aria-hidden, so a hidden copy carries the status for screen readers.
       // Without a portrait band it follows the tagline in the text flow.
-      var badge = played ? h("span", { class: "routecard__played" + (art ? "" : " routecard__played--flow"), "data-testid": "routecard-played-" + id }, playedText()) : null;
+      var badge = played ? h("span", { class: "routecard__played" + (langs().length > 1 ? " routecard__played--two" : "") + (art ? "" : " routecard__played--flow"), "data-testid": "routecard-played-" + id }, playedNodes()) : null;
       if (badge && art) art.appendChild(badge);
       var plateKids = langs().length === 1 ? [pick(r.name, langs()[0])] : [pick(r.name, "ko"), h("span", { class: "plate__en plate__en--stack", lang: "en" }, pick(r.name, "en"))];
       var plate = h("span", { class: "plate", style: c.color ? "--plate:" + c.color : null }, plateKids);
@@ -1711,11 +1728,12 @@
     var m = $("modal");
     clear(m);
     var titleId = "dlg-title";
-    var no = btn("btn--ghost", o.no, "confirm-no", function () {
+    // "Keep playing" has the focus, so it is also the filled button.
+    var no = btn("btn--primary", o.no, "confirm-no", function () {
       closeModal();
       if (o.onNo) o.onNo();
     });
-    var yes = btn("btn--primary", o.yes, "confirm-yes", function () {
+    var yes = btn("btn--ghost", o.yes, "confirm-yes", function () {
       closeModal();
       if (o.onYes) o.onYes();
     });
@@ -1844,6 +1862,10 @@
     anchorCast: anchorCast,
     completeTyping: completeTyping,
     isTyping: isTyping,
+    // True right after a render that started Asher's rise (main.js lengthens that press's guard).
+    risingNow: function () {
+      return !!S.risingNow;
+    },
     typeTimeline: typeTimeline
   };
 })();

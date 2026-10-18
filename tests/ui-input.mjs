@@ -189,11 +189,15 @@ export async function runInputChecks(chromium) {
     await page.waitForFunction(() => document.body.dataset.screen === "title");
   };
   const INSTANT = { lang: "both", speed: "instant", size: 1 };
+  // UI_INPUT_ONLY="title keys,fonts" runs only those blocks.
+  const only = (process.env.UI_INPUT_ONLY || "").split(",").map((x) => x.trim()).filter(Boolean);
   const run = async (name, fn) => {
+    if (only.length && !only.includes(name)) return;
     try {
       await fn();
     } catch (err) {
-      failures.push(`${name}: crashed: ${err && err.stack ? err.stack.split("\n").slice(0, 3).join(" / ") : err}`);
+      const msg = err && err.message ? err.message.split("\n").filter((x) => x.trim()).slice(0, 8).join(" / ") : String(err);
+      failures.push(`${name}: crashed: ${msg}`);
     }
   };
 
@@ -423,8 +427,16 @@ export async function runInputChecks(chromium) {
     await page.waitForTimeout(650);
     await page.dblclick('[data-testid="press"]');
     s = await st(page);
+    const rise = await page.evaluate(() => ({ rising: document.getElementById("play").classList.contains("play--rising"), opacity: Number(getComputedStyle(document.getElementById("pressbox")).opacity) }));
     check(s.step === "press" && s.label === "침상을 들어", `S1: a double click on 「일어나기」 stops at 「침상을 들어」 (${s.step} ${s.label || s.key})`);
-    await page.waitForTimeout(650);
+    check(rise.rising && rise.opacity < 0.2, `rise: 「침상을 들어」 waits while Asher stands up (${JSON.stringify(rise)})`);
+    await page.waitForTimeout(1000);
+    await page.keyboard.press("PageDown");
+    s = await st(page);
+    check(s.step === "press" && s.label === "침상을 들어", `rise: a press during the rise is ignored (${s.step} ${s.label || s.key})`);
+    await page.waitForTimeout(1500);
+    const shown = await page.evaluate(() => Number(getComputedStyle(document.getElementById("pressbox")).opacity));
+    check(shown > 0.9, `rise: 「침상을 들어」 shows once Asher is up (opacity ${shown})`);
     await page.keyboard.press("PageDown");
     await page.waitForTimeout(150);
     await page.keyboard.press("PageDown");
@@ -532,9 +544,9 @@ export async function runInputChecks(chromium) {
     let s = await st(page);
     check(s.steps === s0.steps, `letters: "b", ".", "w" do nothing on a line (${s0.steps} -> ${s.steps})`);
     await move(page, { kind: "choice", id: "c1" }, null, true);
-    for (const key of ["a", "b", "c", "d", "A", "B", "C", "D", ".", "w"]) await page.keyboard.press(key);
+    for (const key of ["a", "c", "d", "A", "C", "D", "w", "W"]) await page.keyboard.press(key);
     s = await st(page);
-    check(s.step === "choice" && s.stepId === "c1" && !s.picks.length, `letters: A-D and the blank-screen keys never pick an option (picks ${s.picks.join()})`);
+    check(s.step === "choice" && s.stepId === "c1" && !s.picks.length && !/^choice-/.test(s.focus || ""), `letters: A-D and "w" do nothing at a choice (picks ${s.picks.join()}, focus ${s.focus})`);
     const shortcuts = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="choice-"]')).map((b) => b.getAttribute("aria-keyshortcuts")));
     check(shortcuts.every((k, i) => k === String(i + 1)), `letters: options announce digit shortcuts only (${shortcuts.join(",")})`);
     // N5 (a): while a scolded option is still leaving, digits wait (the buttons on screen do not match).
@@ -576,6 +588,101 @@ export async function runInputChecks(chromium) {
     await ctx.close();
   });
 
+  // ---------------------------------------------------------------- a clicker at a choice
+  await run("clicker at a choice", async () => {
+    const { ctx, page, errors } = await open(index + "?test=1#scribe");
+    // A four-option choice of the scribe (move, wrap).
+    const four = await page.evaluate(() => {
+      const E = window.BHS.engine;
+      const cb = E.choiceBeats(E.getRoute("scribe")).find((c) => c.options.length === 4);
+      return cb ? cb.id : null;
+    });
+    check(!!four, "clicker: the scribe has a four-option choice");
+    await move(page, { kind: "choice", id: four }, null, true);
+    const opts = await page.evaluate(() => window.BHS_DEBUG.state().options);
+    const focusSeq = [];
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press("PageDown");
+      focusSeq.push((await st(page)).focus);
+    }
+    const wantDown = [0, 1, 2, 3, 0].map((i) => "choice-" + opts[i]);
+    check(focusSeq.join() === wantDown.join(), `clicker: PageDown shows the first option, then moves on and wraps (${focusSeq.join()})`);
+    const upSeq = [];
+    for (let i = 0; i < 2; i++) {
+      await page.keyboard.press("PageUp");
+      upSeq.push((await st(page)).focus);
+    }
+    check(upSeq.join() === ["choice-" + opts[3], "choice-" + opts[2]].join(), `clicker: PageUp moves back and wraps (${upSeq.join()})`);
+    for (const [key, want] of [
+      ["ArrowDown", 3],
+      ["ArrowRight", 0],
+      ["ArrowLeft", 3],
+      ["ArrowUp", 2]
+    ]) {
+      await page.keyboard.press(key);
+      const f = (await st(page)).focus;
+      check(f === "choice-" + opts[want], `clicker: ${key} moves the focus to ${opts[want]} (${f})`);
+    }
+    let s = await st(page);
+    check(!s.picks.includes(four), `clicker: moving never picks (picks ${s.picks.join()})`);
+    // The blank-screen key picks the focused option.
+    await page.keyboard.press("b");
+    s = await st(page);
+    check(s.picks.includes(four) && (s.choices[four] === opts[2] || s.step !== "choice" || s.stepId !== four), `clicker: "b" picks the focused option ${opts[2]} (picks ${s.picks.join()}, choices ${JSON.stringify(s.choices)})`);
+    // "." with nothing focused only shows the focus; then it picks.
+    await page.evaluate(() => window.BHS_DEBUG.startRoute("scribe"));
+    await move(page, { kind: "choice", id: "c1" }, null, true);
+    await page.keyboard.press(".");
+    s = await st(page);
+    check(!s.picks.length && /^choice-/.test(s.focus || ""), `clicker: "." on a fresh choice only shows the focus (${s.focus})`);
+    await page.keyboard.press(".");
+    s = await st(page);
+    check(s.picks.includes("c1"), "clicker: a second \".\" picks the focused option");
+    // Holding PageDown on a focused option picks it after a moment; a fill shows on the option.
+    await page.evaluate(() => window.BHS_DEBUG.startRoute("scribe"));
+    await move(page, { kind: "choice", id: "c1" }, null, true);
+    const c1 = await page.evaluate(() => window.BHS_DEBUG.state().options);
+    await page.keyboard.press("PageDown");
+    await page.keyboard.down("PageDown");
+    await page.waitForTimeout(300);
+    const mid = await page.evaluate(() => ({ holding: Array.from(document.querySelectorAll(".opt.is-holding")).map((b) => b.getAttribute("data-option")), picks: window.BHS_DEBUG.game().state.picks.length }));
+    check(mid.holding.join() === c1[0] && !mid.picks, `clicker: while PageDown is held the focused option shows the fill (${JSON.stringify(mid)})`);
+    await page.waitForTimeout(700);
+    s = await st(page);
+    check(s.picks.includes("c1") && s.choices.c1 === c1[0], `clicker: holding PageDown for 0.8 s picks the focused option ${c1[0]} (${JSON.stringify(s.choices)})`);
+    // Still held: repeats and a stray keydown never act again; the release does nothing either.
+    const after = s.steps;
+    for (let i = 0; i < 4; i++) await page.keyboard.down("PageDown");
+    await page.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", code: "PageDown", bubbles: true, cancelable: true })));
+    await page.waitForTimeout(900);
+    await page.keyboard.up("PageDown");
+    s = await st(page);
+    check(s.steps === after, `clicker: after a hold picks, nothing more happens until the key is released (${after} -> ${s.steps})`);
+    await page.keyboard.press("PageDown");
+    s = await st(page);
+    check(s.steps === after + 1 || s.step === "choice", `clicker: after the release the next press works again (${after} -> ${s.steps})`);
+    // A quick press only moves; a hold on a fresh choice (nothing focused) only shows the focus.
+    await page.evaluate(() => window.BHS_DEBUG.startRoute("scribe"));
+    await move(page, { kind: "choice", id: "c1" }, null, true);
+    await page.keyboard.down("PageDown");
+    await page.waitForTimeout(1100);
+    await page.keyboard.up("PageDown");
+    s = await st(page);
+    check(!s.picks.length && s.focus === "choice-" + c1[0], `clicker: holding PageDown on a fresh choice only shows the first option (picks ${s.picks.join()}, focus ${s.focus})`);
+    await page.keyboard.down("PageDown");
+    await page.waitForTimeout(200);
+    await page.keyboard.up("PageDown");
+    s = await st(page);
+    const holding = await page.evaluate(() => document.querySelectorAll(".opt.is-holding").length);
+    check(!s.picks.length && s.focus === "choice-" + c1[1] && !holding, `clicker: a short press moves the focus without picking (focus ${s.focus}, fill ${holding})`);
+    // Enter and Space pick the focused option.
+    await page.keyboard.press("Enter");
+    s = await st(page);
+    check(s.picks.includes("c1") && s.choices.c1 === c1[1], `clicker: Enter picks the focused option (${JSON.stringify(s.choices)})`);
+    check(errors.length === 0, "clicker: console errors " + errors.join(" | "));
+    await ctx.close();
+  });
+
   // ---------------------------------------------------------------- N5 (b): the scold animation plays once
   await run("scold animation", async () => {
     const { ctx, page, errors } = await open(index + "#scribe", { settings: INSTANT });
@@ -591,16 +698,44 @@ export async function runInputChecks(chromium) {
       await page.click('[data-testid="advance"]');
     }
     let s = await st(page);
-    const leaving = await page.evaluate(() => document.querySelectorAll(".opt--leaving").length);
-    check(s.step === "choice" && s.stepId === sc.choice && leaving === 1, `N5: the re-ask shows the scolded option leaving (${s.stepId}, ${leaving})`);
-    await page.waitForTimeout(1200);
+    const leaving = await page.evaluate(() => {
+      const b = document.querySelector(".opt--leaving .opt__body");
+      return { n: document.querySelectorAll(".opt--leaving").length, strike: b ? getComputedStyle(b).textDecorationLine : null };
+    });
+    check(s.step === "choice" && s.stepId === sc.choice && leaving.n === 1, `N5: the re-ask shows the scolded option leaving (${s.stepId}, ${leaving.n})`);
+    check(/line-through/.test(leaving.strike || ""), `scold cue: the leaving option is struck through (${leaving.strike})`);
+    // While it leaves and the others glide, the options keep their size and stay inside the panel.
+    const frames = await page.evaluate(
+      () =>
+        new Promise((done) => {
+          const out = [];
+          const t0 = performance.now();
+          const tick = () => {
+            const box = document.getElementById("choices").getBoundingClientRect();
+            const opts = Array.from(document.querySelectorAll("#choices .opt:not(.opt--leaving)")).map((b) => b.getBoundingClientRect());
+            out.push({ h: opts.map((r) => Math.round(r.height)), out: opts.some((r) => r.bottom > box.bottom + 1 || r.top < box.top - 1) });
+            if (performance.now() - t0 < 1500) requestAnimationFrame(tick);
+            else done(out);
+          };
+          tick();
+        })
+    );
+    const h0 = frames[0].h;
+    const grew = frames.filter((f) => f.h.some((x, i) => Math.abs(x - h0[i]) > 1)).length;
+    const outside = frames.filter((f) => f.out).length;
+    check(!grew && !outside, `scold removal: the remaining options keep their size and stay in the panel (${frames.length} frames, ${grew} resized, ${outside} outside)`);
     await page.click('[data-testid="hdr-lang-en"]');
     const again = await page.evaluate(() => document.querySelectorAll(".opt--leaving").length);
     check(again === 0, `N5: a language switch at the re-ask does not replay the exit (${again})`);
+    const savedAt = await page.evaluate(() => window.__t.stored());
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => document.body.dataset.screen === "title");
     // The title ignores clicks for a moment after it appears (the guard).
     await page.waitForTimeout(450);
+    if (!(await page.locator('[data-testid="continue"]').count())) {
+      const now = await page.evaluate(() => ({ save: localStorage.getItem("bhs.v1.save"), url: location.href }));
+      throw new Error(`no Continue after the reload: save before ${JSON.stringify(savedAt).slice(0, 200)}; now ${JSON.stringify(now).slice(0, 300)}`);
+    }
     await page.click('[data-testid="continue"]');
     const resumed = await page.evaluate(() => ({ leaving: document.querySelectorAll(".opt--leaving").length, step: window.BHS_DEBUG.state().stepId }));
     check(resumed.step === sc.choice && resumed.leaving === 0, `N5: Continue at a re-ask does not replay the exit (${JSON.stringify(resumed)})`);
@@ -741,6 +876,164 @@ export async function runInputChecks(chromium) {
     check((await page.locator('[data-testid="confirm-yes"]').count()) === 0, "N8: Esc closes the dialog");
     check(errors.length === 0, "dialog: console errors " + errors.join(" | "));
     await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- layout fixes from the visual audit
+  await run("layout", async () => {
+    // The choice prompt's English sits on its own line on a TV.
+    {
+      const { ctx, page, errors } = await open(index + "?test=1#asher");
+      await move(page, { kind: "choice", id: "c1" }, null, true);
+      const pr = await page.evaluate(() => {
+        const en = document.querySelector(".choices__prompt .en");
+        return en ? { display: getComputedStyle(en).display, before: getComputedStyle(en, "::before").content } : null;
+      });
+      check(pr && pr.display === "block" && (pr.before === "none" || pr.before === "normal"), `prompt: the English line stands on its own on a TV (${JSON.stringify(pr)})`);
+      // The last line: one sentence per line.
+      await page.evaluate(() => window.BHS_DEBUG.startRoute("friend"));
+      await move(page, { kind: "last" }, null, true);
+      const last = await page.evaluate(() => Array.from(document.querySelectorAll("#text p")).map((p) => ({ lines: p.textContent.split("\n").length, ws: getComputedStyle(p).whiteSpace })));
+      check(last.length === 2 && last.every((x) => x.lines === 2 && x.ws === "pre-line"), `last line: one sentence per line (${JSON.stringify(last)})`);
+      // The default button is also the filled one (title with a save, the Esc dialog).
+      await page.keyboard.press("Escape");
+      const dlg = await page.evaluate(() => ({ no: document.querySelector('[data-testid="confirm-no"]').className, focus: document.activeElement.getAttribute("data-testid") }));
+      check(/btn--primary/.test(dlg.no) && dlg.focus === "confirm-no", `dialog: "Keep playing" is focused and filled (${JSON.stringify(dlg)})`);
+      await page.click('[data-testid="confirm-yes"]');
+      await page.waitForFunction(() => document.body.dataset.screen === "title");
+      const title = await page.evaluate(() => ({ cont: document.querySelector('[data-testid="continue"]').className, start: document.querySelector('[data-testid="start"]').className }));
+      check(/btn--primary/.test(title.cont) && /btn--ghost/.test(title.start), `title: with a save Continue is the filled button (${JSON.stringify(title)})`);
+      check(errors.length === 0, "layout: console errors " + errors.join(" | "));
+      await ctx.close();
+    }
+    // The story tree's root plate stays inside its card (TV sizes, 4:3 included); the three trees fit 4:3.
+    for (const [w, h] of [
+      [1920, 1080],
+      [1280, 720],
+      [1024, 768]
+    ]) {
+      const { ctx, page, errors } = await open(index + "?test=1", { viewport: { width: w, height: h } });
+      await page.evaluate(() => {
+        const E = window.BHS.engine;
+        const ids = [];
+        ["scribe", "friend", "asher"].forEach((r) => {
+          const t = E.treeOf(r);
+          ids.push(t.good.id);
+          t.levels.forEach((lv) => lv.branches.forEach((b) => ids.push(b.id)));
+        });
+        localStorage.setItem("bhs.v1.gallery", JSON.stringify(ids));
+      });
+      for (const rid of ["scribe", "friend", "asher"]) {
+        await page.evaluate((r) => window.BHS_DEBUG.showTree(r), rid);
+        const m = await page.evaluate(() => {
+          const card = document.querySelector("section.tree").getBoundingClientRect();
+          const plate = document.querySelector(".tree__plate").getBoundingClientRect();
+          const scr = document.getElementById("screen");
+          return { plate: Math.round(plate.bottom), card: Math.round(card.bottom), scroll: scr.scrollHeight - scr.clientHeight };
+        });
+        check(m.plate <= m.card && m.scroll <= 1, `tree ${w}x${h} ${rid}: the name plate stays inside the card, nothing scrolls (${JSON.stringify(m)})`);
+      }
+      await page.evaluate(() => window.BHS_DEBUG.showTrees());
+      const t = await page.evaluate(() => {
+        const scr = document.getElementById("screen");
+        return scr.scrollHeight - scr.clientHeight;
+      });
+      // SPEC 5.6 asks 16:9 TVs to fit; 4:3 depends on the fonts (the web fonts fit, offline fallbacks may not).
+      if (w / h > 1.5) check(t <= 1, `trees ${w}x${h}: the three trees fit without scrolling (${t}px)`);
+      else notes.push(`trees ${w}x${h}: ${t}px to scroll with the fonts of this machine`);
+      check(errors.length === 0, `trees ${w}x${h}: console errors ${errors.join(" | ")}`);
+      await ctx.close();
+    }
+    // Phones: the header has a backdrop over the scrolling page screens; a TV keeps a clear header.
+    for (const [w, h, want] of [
+      [390, 844, true],
+      [1920, 1080, false]
+    ]) {
+      const { ctx, page, errors } = await open(index + "?test=1", { viewport: { width: w, height: h }, dpr: w < 900 ? 2 : 1 });
+      const looks = [];
+      for (const show of ["showTree", "showTrees"]) {
+        await page.evaluate((f) => (f === "showTree" ? window.BHS_DEBUG.showTree("scribe") : window.BHS_DEBUG.showTrees()), show);
+        looks.push(await page.evaluate(() => getComputedStyle(document.getElementById("topbar")).backgroundImage));
+      }
+      check(looks.every((b) => /gradient/.test(b) === want), `header ${w}x${h}: ${want ? "a backdrop" : "no backdrop"} on the tree pages (${looks.map((b) => b.slice(0, 16)).join(", ")})`);
+      check(errors.length === 0, `header ${w}x${h}: console errors ${errors.join(" | ")}`);
+      await ctx.close();
+    }
+    // Settings chips never wrap and stay inside the panel (phone, small phone, tablet, TV).
+    for (const [w, h, dpr] of [
+      [390, 844, 2],
+      [360, 640, 2],
+      [768, 1024, 2],
+      [1920, 1080, 1]
+    ]) {
+      const { ctx, page, errors } = await open(index + "?test=1#scribe", { viewport: { width: w, height: h }, dpr });
+      await page.click('[data-testid="settings-open"]');
+      const m = await page.evaluate(() => {
+        const box = document.getElementById("settings");
+        const inner = box.getBoundingClientRect().right - parseFloat(getComputedStyle(box).paddingRight);
+        const chips = Array.from(box.querySelectorAll(".chip"));
+        return { over: Math.round(Math.max(...chips.map((c) => c.getBoundingClientRect().right)) - inner), ws: getComputedStyle(chips[0]).whiteSpace };
+      });
+      check(m.over <= 1 && m.ws === "nowrap", `settings ${w}x${h}: the chips stay on one line inside the panel (${JSON.stringify(m)})`);
+      check(errors.length === 0, `settings ${w}x${h}: console errors ${errors.join(" | ")}`);
+      await ctx.close();
+    }
+    // TV details: the scribe's 「읽음」 stamp is legible, verse lines are balanced, the reference keeps
+    // clear of the corner marker, unseen tree stubs are visible.
+    {
+      const { ctx, page, errors } = await open(index + "?test=1#scribe");
+      const ok = await page.evaluate(() => {
+        const g = window.BHS_DEBUG.game();
+        g.fastForward({ until: () => !!(g.state.stage.pinned && g.state.stage.pinned.read) });
+        window.BHS_DEBUG.render();
+        return !!document.querySelector(".receipt");
+      });
+      const rc = ok ? await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".receipt")).fontSize)) : 0;
+      check(rc >= 0.029 * 1080, `receipt: 「읽음」 is at least 3vh on a TV (${rc}px)`);
+      await page.evaluate(() => window.BHS_DEBUG.startRoute("scribe"));
+      await move(page, { kind: "verse" }, null, true);
+      const v = await page.evaluate(() => {
+        const p = document.querySelector('[data-testid="verse-card"] #text p');
+        const cs = getComputedStyle(p);
+        return { wrap: cs.textWrapStyle || cs.textWrap || "", pad: parseFloat(getComputedStyle(document.getElementById("ref")).paddingRight) };
+      });
+      check(/balance/.test(v.wrap) && v.pad > 10, `verse card: balanced lines and the reference clear of the marker (${JSON.stringify(v)})`);
+      await page.evaluate(() => window.BHS_DEBUG.showTree("scribe"));
+      const stub = await page.evaluate(() => {
+        const w = document.querySelector('.branch[data-state="unseen"] .branch__wood');
+        return w ? Number(getComputedStyle(w).opacity) : null;
+      });
+      check(stub !== null && stub >= 0.55, `tree: unseen stubs are visible on a TV (opacity ${stub})`);
+      check(errors.length === 0, "TV details: console errors " + errors.join(" | "));
+      await ctx.close();
+    }
+    // The played stamp stays clear of the text and the figure at every size.
+    for (const [w, h, dpr] of [
+      [1920, 1080, 1],
+      [1280, 720, 1],
+      [390, 844, 2]
+    ]) {
+      const { ctx, page, errors } = await open(index + "?test=1", { viewport: { width: w, height: h }, dpr });
+      await page.evaluate(() => {
+        localStorage.setItem("bhs.v1.gallery", JSON.stringify(["scribe-good", "friend-good", "asher-good"]));
+        localStorage.setItem("bhs.v1.save", JSON.stringify({ v: 3, at: 1, screen: "routeSelect", routeId: null, state: null }));
+      });
+      await page.goto(index + "?test=1", { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => document.body.dataset.screen === "title");
+      await page.click('[data-testid="continue"]');
+      const m = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".routecard")).map((c) => {
+          const r = (el) => (el ? el.getBoundingClientRect() : null);
+          const b = r(c.querySelector('[data-testid^="routecard-played-"]'));
+          const fig = r(c.querySelector(".routecard__fig"));
+          const tag = r(c.querySelector(".routecard__tag"));
+          const first = r(c.querySelector(".routecard__first"));
+          return { text: c.querySelector('[data-testid^="routecard-played-"]').innerText.trim().replace(/\s+/g, " "), clear: !!b && b.top >= tag.bottom - 0.5 && b.bottom <= first.top + 0.5 && (!fig || b.right <= fig.left + 0.5 || b.bottom <= fig.top + 0.5), inCard: !!b && b.right <= c.getBoundingClientRect().right };
+        })
+      );
+      check(m.length === 3 && m.every((x) => x.clear && x.inCard && x.text === "✓ 끝까지 함 Finished"), `played stamp ${w}x${h}: "✓ 끝까지 함" over "Finished", clear of text and figure (${JSON.stringify(m)})`);
+      check(errors.length === 0, `played stamp ${w}x${h}: console errors ${errors.join(" | ")}`);
+      await ctx.close();
+    }
   });
 
   // ---------------------------------------------------------------- memory-verse card: "…" and fit
