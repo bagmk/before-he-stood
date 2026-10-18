@@ -4,6 +4,10 @@ The teacher's direction (verbatim intent): "Rather than a dating-sim where you c
 
 Second note from the teacher (same day): "The wording is awkward. Write in easier words, like a native speaker, not translationese. Make the text easier, readable and natural. Trying to steer toward endings and having numbers pop up in the middle makes it awkward. Focus on the story; don't force it into a format."
 
+Fifth note from the teacher (with a screenshot of the old 「① 누가? · 그분은 누구신가」 card): "Don't force the story along with choices like this — it can just end. Numbers that keep appearing feel off. Keep ONE ending; before it, the story can get cut off. At the very end just show, as a tree, what we saw. Twelve endings aren't needed — one is enough. Only the branches that got pruned (cut off) go in the tree."
+
+So: one true ending per character. Wrong choices "prune" the story: a short funny scene, then the story stops (with Try again). The old endings gallery is replaced by a **story tree**. No numbers anywhere on screen during play (no ①②③, no counts, no visible 1–4 badges on options).
+
 ## 0. Writing first (applies to every string)
 - **Native Korean first.** Write each line as a Korean speaker would actually say or write it today — then write the English as a native English speaker would, not as a translation of the Korean. Meaning should match; wording should not be word-for-word.
 - **Easy words, short sentences.** High-school readers, read aloud on a TV. One idea per sentence. Avoid literary/archaic vocabulary (e.g. 해명, 연유, 무릇), stiff written forms (~하는 것이다, ~에 대한, ~을 통해, 하나의, 그는 ~했다 in every line), and English calques in Korean (그녀/그 for every reference, passive constructions, "그것은").
@@ -17,7 +21,7 @@ This addendum OVERRIDES docs/SPEC.md (v3) on: route shape, choices, endings, sco
 - No lenses, no scoring, no double weight, no mismatch line, no cut endings, no 3×4 gallery.
 - Each route = ONE linear story with 5–6 choices. Each option either **continues**, ends the game in a **bad ending**, or is **scolded** away.
 - Each route has exactly ONE **true ending** (the good ending), reached only by continuing through every choice. It closes with the character's **memory verse** (big verse card), then the last line.
-- Each route has **3–4 bad endings**: short, funny, a little absurd, never mean, never unbiblical. After a bad ending the class can **try again from that choice**.
+- Each route has **3–4 cut branches** (data key `endings.bad`): short, funny, a little absurd, never mean, never unbiblical — the story stops there. They are not "endings" to collect; on screen they are pruned branches. After one, the class can **try again from that choice**.
 
 ## 2. Choices and options
 - 5–6 choices per route (`c1`…`c6`), each with **2–4 options** (use both: at least one 2-option choice and at least two 4-option choices per route).
@@ -46,9 +50,9 @@ endings: {
 },
 endingCoda: [ ... ]   // optional, after the good ending only; no numbers or stats
 ```
-- Titles live in the route file (no longer in data/meta.js). Bad ending ids: short ascii, e.g. `typo`, `guardhouse`, `nap`.
-- **Good ending sequence (engine):** title card 「엔딩 · <title>」 / "ENDING · <title>" → the memory-verse card (`verse` key, shown big, with its reference) → `beats` → `last` → `endingCoda` → gallery.
-- **Bad ending sequence (engine):** the option's reaction → title card 「배드 엔딩 · <title>」 / "BAD END · <title>" (playful stamp style) → `beats` → `last` (the punchline) → bad-end screen with two buttons: 「다시 고르기 · Try again」 (default focus; returns to that choice with the state exactly as it was when the choice was shown, scolded options stay removed) and 「처음 화면 · Title screen」.
+- Titles live in the route file (no longer in data/meta.js). A cut branch's `title` labels its branch in the story tree: keep it short and funny (2–8 Korean characters, e.g. 「오타 사냥」, 「5분만 더」). Ids: short ascii, e.g. `typo`, `guardhouse`, `nap`.
+- **True ending sequence (engine):** title card with the ending `title` only (no number, no lens label) → the memory-verse card (`verse` key, shown big, with its reference) → `beats` → `last` → `endingCoda` → the route's story tree.
+- **Cut-branch sequence (engine):** the option's reaction → `beats` → `last` (the punchline) → snip card: a playful stamp 「싹둑!」 / "Snip!", the branch `title`, and 「여기서 이야기가 끊겼어요.」 / "The story got cut off here." (no number, no "BAD END", no "ending") with two buttons: 「다시 고르기 · Try again」 (default focus; returns to that choice with the state exactly as it was when the choice was shown, scolded options stay removed) and 「처음 화면 · Title screen」.
 - Memory verses (one per character; already in data/scripture.js):
   - scribe → `MT_9_6A` (the authority to forgive sins — the answer to his question; the sermon's theme)
   - friend → `MT_9_2A` (Jesus saw *their* faith)
@@ -84,11 +88,12 @@ Third note from the teacher: "Make 일어나기 / 밖으로 just options among t
 5. 9:3–9:6B, press 「일어나기」, POV standing, presses 「침상을 들어」 → 「집으로」, 9:7, 9:8 → c5 (first words standing; e.g. "Race you home!" / "Yonah, you carry the bed" → Yonah scolds 「그건 아니지! 네 침상은 네가 들어!」 / "He spoke to me first.").
 6. Good ending: memory verse MT_9_2B; last line (e.g. 「너를 들고 다니던 침상을, 이제 네가 들고 문을 연다.」). No numeric coda (the old 「일어나기 시도 N번 · 걸린 문장 1개」 is dropped).
 
-## 6. Gallery and route select
-- Gallery rows = characters. Each row: ★ the true ending, then one cell per bad ending (title when seen, 「???」 when not). Header shows the count, e.g. 「엔딩 5 / 14」.
+## 6. Story tree and route select
+- After the true ending, the route's **story tree** appears: the trunk runs from the opening through each choice point to the ★ true ending at the top (or left→right on wide screens); at each choice point, the cut branches grow sideways as short branches with a snip mark. Branches the class has seen on this device are drawn with their `title` (and optionally the first words of their punchline); unseen ones are faint, unlabeled stubs. No numbers, no counts, no percentages anywhere. Buttons: 「다른 인물로 하기」 / "Next character" (default focus; goes to route select) and 「처음 화면」 / "Title screen".
+- The title screen's endings button becomes 「이야기 나무」 / "Story trees": the three trees side by side (a route not yet finished shows a faint trunk).
 - Route cards keep portraits, the order hint and the played badge (played = the true ending seen). No counters on the cards.
-- Title cards carry no numbers: the good ending card shows a small 「엔딩 · Ending」 label and the title; the bad ending card shows a 「배드 엔딩 · BAD END」 stamp and the title.
-- On a choice screen, an option whose bad ending has already been seen on this device may carry a tiny 「BAD」 tag (fun for collectors; no other hints).
+- Options show no visible number badges (keys 1–4 / A–D and arrow keys + Enter still work; the focus ring shows the current option). An option whose cut branch the class has already seen may carry a tiny scissors mark ✂ (no text).
+- Title cards carry no numbers: the true ending card shows only its title; the snip card shows 「싹둑!」, the branch title and the line above.
 
 ## 7. Guardrails (unchanged from SPEC §7 unless stated)
 Jesus speaks only through verse beats and is never drawn. The crowd sequence of §6.4 runs in order on the good path (bad endings may cut it short). Narration never ties Asher's illness to sin (he may fear it; nothing confirms it). No "sin removed → body released" framing (after 9:2B2, trying to get up still answers 「다리는 그대로다」). The good path follows the biblical story; "right" options are the ones that keep the person in the story (going, carrying, staying, listening), not the ones with the most correct doctrine. Honorifics per §3.4 (scribe POV: no honorifics for Jesus; friend/Asher POV: 그분 + honorific verbs).
