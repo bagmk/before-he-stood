@@ -23,10 +23,11 @@
     };
   }
 
-  // Pins his unspoken thought (Matt 9:3) and his c2 pick. Placed first in each non-cut c2
-  // reaction so the bubble is seen unread for one screen before the read receipt at 9:4.
+  // Pins his unspoken thought (Matt 9:3). Placed first in each non-cut c2 reaction so the bubble
+  // is seen unread for one screen before the read receipt at 9:4. Only the 9:3 thought is pinned:
+  // the rebuke in 9:4 answers that thought, not whatever he thought next (c2).
   function pinThought() {
-    return { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q", "choice:c2"] };
+    return { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q"] };
   }
 
   BHS.routes.scribe = {
@@ -91,7 +92,7 @@
       // They step aside, his eyes meet Asher's, nobody speaks to anybody.
       // ---------------------------------------------------------------
       { id: "lane", type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
-      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문에, 므나헴과 하난도 골목을 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is back by boat. Menahem and Hanan head down the lane. Behind them, some men are carrying a man on a bed." } },
+      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문에, 므나헴과 하난도 골목을 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is coming back by boat. Menahem and Hanan head down the lane. Behind them, some men are carrying a man on a bed." } },
       { type: "line", speaker: "passerby", text: { ko: "고통 뒤에 무슨 사연이 있는지 누가 알겠어. 저 사람은 무슨 잘못을 했기에 저렇게 됐을까.", en: "Who knows what's behind suffering like that. What did he do to end up like that?" } },
       { type: "line", text: { ko: "두 사람은 벽 쪽으로 비켜선다. 므나헴은 침상을 힐끗 보다가, 침상 위의 아셀과 눈이 마주친다. 서로 아무 말이 없다.", en: "They step back against the wall. Menahem glances at the bed, and for a moment his eyes meet Asher's. Neither says a word to the other." } },
 
@@ -217,7 +218,7 @@
             lens: 3,
             text: { ko: "어느 쪽이든, 침상 위 저 사람에겐 둘 다 필요하다.", en: "Either way, the man on the bed needs both." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "다리만 낫거나, 마음만 놓이거나. 어느 쪽도 반쪽이다.", en: "Healed legs and a heavy heart, or the other way around. Either would be half." } }
+              { type: "line", speaker: "thought", text: { ko: "하나님 앞에 설 자리와, 땅을 디딜 다리. 어느 하나만으로는 반쪽이다.", en: "A place to stand before God, and legs to stand on. Either one alone is half." } }
             ]
           }
         ]
@@ -278,7 +279,7 @@
           { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 므나헴은 ‘병’이라고 적었다. 오늘 한 사람이 죄를 사하는 권한을 말하고, 병까지 고쳤다.", en: "This morning Menahem wrote *diseases*. Today a man claimed the authority to forgive sins, and healed the disease too." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 므나헴은 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning Menahem read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the line he will write (c4).
-          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "므나헴이 적을 말은 ‘신성모독’. 마태복음 끝에서 대제사장도 같은 말을 한다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "Menahem will write *blasphemy*. At the end of Matthew, the high priest makes the same charge: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
+          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "므나헴이 적을 말은 ‘신성모독’. 마태복음 뒷부분에서 대제사장도 같은 말을 한다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "Menahem will write *blasphemy*. Near the end of Matthew, the high priest makes the same charge: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
           { when: { choice: "c4", is: "d" }, type: "line", text: { ko: "결론 칸은 비어 있다. 그는 누구인가. 그 질문이 내일도 므나헴을 그 자리로 데려갈 것이다.", en: "The space for a conclusion stays empty. Who is he? That question will take Menahem back there tomorrow." } }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.", en: "About God, you were right. What's left is a question about him." }
@@ -291,7 +292,7 @@
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 ‘그가’라는 낱말이 다시 보인다. 사하시는 일도, 고치시는 일도 오늘 한 사람의 말로 일어났다.", en: "He sees this morning's word again: *who*. Forgiving and healing both happened today, at one man's word." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 꼭 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in exactly that order, at one man's word." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in that order, at one man's word." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
           { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 ‘병’이라는 말이 다시 보인다. 오늘 그 병이 한 사람의 말로 나았다. 죄 사함의 말 다음에.", en: "He sees this morning's word again: *diseases*. Today a disease was healed at one man's word, right after the words of forgiveness." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
@@ -307,7 +308,7 @@
         // First-person thoughts, matching the last line; "he" is always Jesus here.
         beats: [
           { type: "line", speaker: "thought", text: { ko: "그는 하나님만 가지신 권한을 말했다. 그러고는 우리를 벌하지도, 무리를 모으지도 않고, 한 사람을 집에 보냈다.", en: "He claimed an authority that belongs to God alone. Then, instead of punishing us or rallying the crowd, he sent one man home." } },
-          { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 누구에게 하시는지가 눈에 걸린다.", en: "This morning I wrote down who does it. Now what catches my eye is who it is done for." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 그 일이 누구에게 일어났는지가 눈에 걸린다.", en: "This morning I wrote down who does it. Now what catches my eye is who it is done for." } },
           { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning I saw only a dot between two words. Today I saw a man lying in between." } },
           { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 적은 ‘병’이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word I wrote this morning, *diseases*, I now see a face from today." } },
           { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 그 시가, 이제는 한 사람의 이야기로 읽힌다.", en: "The psalm I read from the top this morning now reads like one man's story." } }

@@ -78,7 +78,7 @@
           {
             id: "d",
             text: { ko: "“왜 이렇게 됐는지는 나도 몰라.”", en: "“I don't know why this happened either.”" },
-            lens: 1,
+            lens: 2,
             reaction: [{ type: "line", speaker: "asher", text: { ko: "그래. 아무도 모르지.", en: "Yeah. Nobody does." } }]
           }
         ]
@@ -218,9 +218,10 @@
               {
                 type: "line",
                 speaker: "thought",
+                // Points at fear (what "take heart" answers), never at his question about a cause (SPEC 7.2).
                 text: {
-                  ko: "아침에 아셀이 붙들고 있던 질문도, 다리 얘기가 아니었다.",
-                  en: "The question Asher was holding onto this morning wasn't about his legs either."
+                  ko: "아침에 아셀을 짓누르던 것도 다리가 아니었다. 두려움이었다.",
+                  en: "What weighed on Asher this morning wasn't his legs either. It was fear."
                 }
               }
             ]
@@ -340,8 +341,8 @@
             id: "e1-callback-c1a",
             when: { choice: "c1", is: "a" },
             text: {
-              ko: "아침에 아셀이 물었다. “네가 그걸 어떻게 알아?” 그 질문에 답하실 수 있는 분이, 오늘 거기 계셨다.",
-              en: "This morning Asher asked, “How would you know?” Today, the one who could answer that was there."
+              ko: "아침에 아셀이 물었다. “네가 그걸 어떻게 알아?” 오늘 그분은 이유를 따지지 않으셨다. 하나님만 하실 수 있는 말을 하셨다.",
+              en: "This morning Asher asked, “How would you know?” Today Jesus didn't weigh reasons. He said what only God can say."
             }
           }
         ],
@@ -409,14 +410,19 @@
             }
           },
           {
+            // Asher's own words carry the forgiveness this path never heard (Jesus still forgives and heals).
             type: "line",
             id: "cut-smile",
-            text: { ko: "아셀이 요나를 지나며 웃는다.", en: "As he passes Yonah, Asher smiles at him." }
+            text: {
+              ko: "아셀이 요나를 지나며 웃는다. “그분이 나한테 먼저 하신 말이 있어. 나중에 들려줄게.”",
+              en: "As he passes Yonah, Asher smiles. “He said something to me first. I'll tell you later.”"
+            }
           }
         ],
+        // Lands on the others' hands and on grace, not a verdict on the player; echoes the route title.
         last: {
-          ko: "그분은 *그들의* 믿음을 보셨다. 그날 침상을 든 손들 가운데 네 손은 없었다.",
-          en: "He saw *their* faith. That day, your hands weren't among the ones carrying the bed."
+          ko: "네가 놓은 귀퉁이는 다른 손들이 들었다. 그분이 보신 믿음은 그 손들에 있었다.",
+          en: "Other hands took the corner you let go. The faith he saw was in those hands."
         }
       }
     }

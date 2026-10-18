@@ -46,7 +46,7 @@
 
     // Play
     advance: T("다음", "Next"),
-    tapHint: T("화면을 누르면 넘어가요", "Tap to continue"),
+    tapHint: T("누르거나 스페이스 키로 넘어가요", "Tap or press Space to continue"),
     readReceipt: T("읽음 ✓", "Read ✓"),
     pressDefault: T("누르기", "Tap"),
     choiceGroup: T("선택", "Choice"),
@@ -61,12 +61,12 @@
     galleryIntro: T("세로는 인물, 가로는 세 가지 눈과 중간에 끝난 길이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters; columns are the three lenses and the path cut short. Only endings seen on this device appear."),
     galleryLocked: T("아직", "Not yet"),
     galleryCut: T("중간에 끝남", "Cut short"),
-    galleryYours: T("방금 본 엔딩", "Just now"),
+    galleryYours: T("방금 본 엔딩", "Just seen"),
     galleryReplay: T("다른 인물로 하기", "Play another character"),
     galleryHome: T("처음 화면", "Title screen"),
 
-    // Route select
-    routeSelectHint: T("인물을 누르면 시작해요", "Tap a character to begin"),
+    // Route select (the suggested-order line itself is BHS.common.routeSelect.hint)
+    routePlayed: T("✓ 함", "✓ Played"),
 
     // Errors and notices
     storageOff: T("이 기기에서는 저장이 꺼져 있어요. 그래도 끝까지 할 수 있어요.", "Saving is off on this device. You can still play to the end."),

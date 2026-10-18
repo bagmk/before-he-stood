@@ -97,13 +97,13 @@
         1: { ko: "누가 말했는가", en: "Who Spoke" },
         2: { ko: "다시 읽는 시편", en: "The Psalm, Read Again" },
         3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" },
-        cut: { ko: "끝까지 듣지 않은 사람", en: "The One Who Left Early" }
+        cut: { ko: "먼저 자리를 뜬 사람", en: "The One Who Left Early" }
       },
       friend: {
         1: { ko: "우리가 구했던 것보다", en: "More Than We Asked For" },
         2: { ko: "첫마디도 기억한다", en: "I Remember the First Words" },
         3: { ko: "집까지 같이", en: "All the Way Home" },
-        cut: { ko: "멀리서 들은 사람", en: "Heard from Afar" }
+        cut: { ko: "골목에 남은 사람", en: "The One Who Stayed in the Lane" }
       },
       asher: {
         1: { ko: "그분은 누구신가", en: "Who Is He?" },

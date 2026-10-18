@@ -238,7 +238,7 @@
             thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who raised me to my feet said what only God can say.")
           )
         ],
-        last: t("다리를 고칠 분을 만나러 갔다. 죄를 사하는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
+        last: t("다리를 고쳐 주실 분을 만나러 갔다. 죄를 사하시는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
       },
 
       // Lens 2: why these words first?
