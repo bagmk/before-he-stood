@@ -11,9 +11,14 @@
  * Choice map:
  * - c1 shore (3 options): a continue | b bad bigCatch | c scold (partners)
  * - c2 Asher's house (4): a, b, c continue | d scold (Asher)
- * - c3 THE LANE (4): a, b continue | c bad debate | d bad stayedInLane
- * - c4 right after MT_9_2B (4): a, b continue | c scold (Asher) | d bad halfNews
+ * - c3 THE LANE (4): a, b continue | c bad armWrestle (the quarrel) | d bad stayedInLane
+ * - c4 right after MT_9_2B (4): a, b continue | c scold (Asher) | d bad fainted
  * - c5 right after MT_9_8 (2): a, b continue (the ending's beat answers the pick)
+ *
+ * Teacher's note v4.1 (SPEC 3.5): the lane quarrel ends in an absurd contest (an arm-wrestling match on
+ * a fish barrel), and the crowd cut is a faint, not a walk-out.
+ * Asher's portrait is drawn lying until MT_9_6B has been shown, so in a cut branch that shows him
+ * standing (fainted, stayedInLane) his words stay inside narration, never as an "asher" line.
  *
  * Canon kept: Yonah's arrival words are identical to the Asher route; the passerby line is
  * byte-identical to SPEC 6.3; the crowd sequence follows SPEC 6.4 on every true path; the
@@ -148,8 +153,8 @@
           },
           {
             id: "c",
-            text: t("“거기, 잠깐 서 보세요!”", "“Hey! Hold it right there!”"),
-            bad: "debate",
+            text: t("“아저씨, 방금 그 말 취소하세요!”", "“Hey, mister! Take that back!”"),
+            bad: "armWrestle",
             // The bed goes on without him, so Asher still reaches Jesus.
             reaction: [
               say(
@@ -220,9 +225,16 @@
           },
           {
             id: "d",
-            text: t("“이건 온 동네가 알아야 해!”", "“The whole town needs to hear this!”"),
-            bad: "halfNews",
-            reaction: [say(null, "요나가 무리를 헤치고 동네로 달려간다.", "Yonah squeezes out of the crowd and races into town.")]
+            text: t("“꿈 아니지? 누가 나 좀 꼬집어 봐!”", "“Is this a dream? Somebody pinch me!”"),
+            bad: "fainted",
+            // Not a walk-out (teacher's note v4.1): he faints from sheer excitement; a partner catches him.
+            reaction: [
+              say(
+                null,
+                "동료가 요나의 볼을 살짝 꼬집는다. “꿈 아니야.” 요나는 눈을 끔뻑이더니 동료 품에 스르르 쓰러진다.",
+                "A partner gives Yonah's cheek a little pinch. “Not a dream.” Yonah blinks, then faints right into his partner's arms."
+              )
+            ]
           }
         ]
       },
@@ -307,17 +319,24 @@
           last: t("평생 제일 많이 잡은 날. 하필 아무도 고기 얘기를 안 하는 날이었다.", "The biggest catch of his life—on the one day nobody cared about fish.")
         },
 
-        // c3 c: he wins the argument in the lane while the event happens at the shore.
-        debate: {
-          title: t("완벽한 승리", "A Flawless Victory"),
+        // c3 c: the quarrel with the passerby turns into an arm-wrestling match on a fish barrel (a playful
+        // contest, SPEC 4.6). Yonah keeps winning rounds; the passerby takes his words back only when the
+        // news of the healing comes up from the shore. The canon passerby line stays in the lane beat above.
+        armWrestle: {
+          title: t("세기의 팔씨름", "Arm-Wrestle of the Century"),
           beats: [
-            say(null, "말싸움이 길어진다. 구경꾼이 모이고, 요나는 한 발도 안 물러선다.", "The argument drags on. Onlookers gather. Yonah won't give an inch."),
-            say("passerby", "알았어, 알았다고! 내가 졌어. 이제 점심 먹으러 가도 되지?", "Okay, okay! You win! Can I go eat lunch now?"),
-            say(null, "요나가 뿌듯하게 돌아본다. 침상은 벌써 보이지 않고, 바닷가 쪽에서 함성이 올라온다.", "Yonah turns around, beaming. The bed is long gone, and cheering drifts up from the shore.")
+            say("passerby", "싫은데? 팔씨름에서 이기면 취소해 주지.", "Nope. Beat me at arm-wrestling, and I'll take it back."),
+            say(
+              null,
+              "곧 생선 통 위에서 팔씨름 한판이 벌어진다. 골목 사람들은 무화과를 걸고 내기를 한다. 첫판은 요나가 이긴다!",
+              "Soon they're arm-wrestling on a fish barrel, and the whole lane is betting figs. Yonah takes the first round!"
+            ),
+            say("passerby", "방금 건 연습이야! 삼세판! …아니, 다섯 판!", "That one was just practice! Best of three! …No, best of five!")
           ],
+          // Not Asher walking up the lane: that picture belongs to stayedInLane, at the same choice.
           last: t(
-            "요나가 말싸움에서 이긴 날, 아셀이 일어났다. 동네가 뭘 기억할지는 뻔하다.",
-            "The day Yonah won an argument, Asher stood up. Guess which one the town remembers."
+            "행인은 결국 그 말을 취소했다. 바닷가에서 “침상에 누워 있던 사람이 일어났대!” 소리가 들려온 뒤에야.",
+            "In the end, the passerby did take it back—but only after a shout came up from the shore: “The man on the bed got up!”"
           )
         },
 
@@ -336,18 +355,24 @@
           last: t("결국 다들 쳐다보긴 했다. 걸어 올라오는 아셀을.", "Everyone stared after all—at Asher, walking up the lane.")
         },
 
-        // c4 d: he runs off to tell the town after the first words and misses the rest.
-        halfNews: {
-          title: t("반쪽 특종", "Half a Scoop"),
+        // c4 d: he faints from excitement right after the first words, misses everything after them, and
+        // wakes up on the very bed he brought, with Asher (walking) on one of its corners. The event holds:
+        // Asher rose, picked up his bed and went home (MT 9:7); it just had Yonah on it.
+        // The scene keeps the normal pov: the sky_carried art already shows the view from the bed, and a
+        // lying pov here would replay Asher's rise animation on Try again.
+        fainted: {
+          title: t("자리 바꾸기", "Switching Places"),
           beats: [
-            light("off"),
-            { type: "scene", bg: "lane", caption: t("가버나움 골목", "The lanes of Capernaum") },
-            say(null, "요나가 집집마다 문을 두드린다. “들어 보세요! 그분이 아셀한테…!”", "Yonah pounds on door after door. “Listen to this! Jesus just told Asher—!”"),
-            { type: "scene", bg: "crowd" },
-            say(null, "동네 사람들을 잔뜩 데리고 돌아오니, 공터가 텅 비어 간다.", "He comes back with a crowd of neighbors. The field is almost empty."),
-            say("partners", "어디 갔었어? 아셀 벌써 자기 침상 들고 걸어서 집에 갔어.", "Where were you? Asher already picked up his bed and walked home.")
+            { type: "scene", bg: "sky_carried", caption: t("오후 · 집으로 가는 길", "Afternoon · The road home") },
+            say(null, "요나가 눈을 뜬다. 하늘이 흔들거린다. 누가 요나를 침상째 들고 가고 있다.", "Yonah opens his eyes. The sky is swaying. Someone is carrying him on a bed."),
+            say(
+              null,
+              "침상 귀퉁이를 잡은 손 하나를 따라 올려다본다. 아셀이다. 걸으면서 침상을 들고 있다.",
+              "He follows one of the hands on the corners up to a face. It's Asher—walking, and carrying the bed."
+            ),
+            say(null, "아셀이 요나를 내려다보며 웃는다. “깼어? 이번엔 내가 들 차례야.”", "Asher looks down at him and grins. “You're up? My turn to carry.”")
           ],
-          last: t("소식은 제일 먼저 전했다. 반만 들고 뛰어서 그렇지.", "He was first with the news. He just ran off with half of it.")
+          last: t("그날 아셀은 자기 침상을 들고 집에 갔다. 생각보다 좀 무거웠다.", "That day, Asher picked up his bed and went home. It was a little heavier than he expected.")
         }
       }
     }
