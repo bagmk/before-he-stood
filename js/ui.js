@@ -1518,8 +1518,9 @@
   }
 
   // A cut branch: a short bough with the scissors and the branch title when seen; a faint, unlabeled
-  // stub when not.
-  function branchNode(rid, b, seen, side) {
+  // stub when not. `at` is its choice point (0 = the lowest) and `nth` its place among that point's
+  // branches (layoutTree staggers them).
+  function branchNode(rid, b, seen, side, at, nth) {
     var isSeen = seen.indexOf(b.id) >= 0;
     var kids = [h("span", { class: "branch__wood", "aria-hidden": "true" }, h("span", { class: "branch__stem" }))];
     if (isSeen) {
@@ -1528,12 +1529,42 @@
     } else {
       kids.push(h("span", { class: "vh" }, flat(u("treeBranchUnseen"))));
     }
-    return h("div", { class: "branch branch--" + side, "data-state": isSeen ? "seen" : "unseen", "data-testid": "tree-branch-" + rid + "-" + b.badId }, kids);
+    return h("div", { class: "branch branch--" + side, "data-state": isSeen ? "seen" : "unseen", "data-side": side, "data-at": at, "data-nth": nth, "data-testid": "tree-branch-" + rid + "-" + b.badId }, kids);
+  }
+
+  // Sides of the cut branches (SPEC 5.8: they grow sideways, alternating). Bottom to top, the branches
+  // of one choice point alternate sides; each choice point starts on the side that keeps the labeled
+  // (seen) branches most even between the two sides, else on the side the previous branch did not take.
+  // So the labels split evenly (seven labels: four and three) and one choice point never piles its
+  // labels on one side.
+  function branchSides(tree, seen) {
+    var load = { l: 0, r: 0 };
+    var last = "l";
+    var other = function (s) {
+      return s === "l" ? "r" : "l";
+    };
+    return tree.levels.map(function (lv) {
+      var best = null;
+      [other(last), last].forEach(function (start) {
+        var ld = { l: load.l, r: load.r };
+        var sides = lv.branches.map(function (b, j) {
+          var side = j % 2 === 0 ? start : other(start);
+          if (seen.indexOf(b.id) >= 0) ld[side]++;
+          return side;
+        });
+        var gap = Math.abs(ld.l - ld.r);
+        if (!best || gap < best.gap) best = { gap: gap, sides: sides, load: ld };
+      });
+      load = best.load;
+      if (best.sides.length) last = best.sides[best.sides.length - 1];
+      return best.sides;
+    });
   }
 
   // One route's story tree, bottom to top: the root with the character's name, a knot at every choice
   // point (cut branches grow sideways there, alternating sides), the star of the true ending at the top.
-  // Before the true ending was seen the trunk and the star stay faint.
+  // Before the true ending was seen the trunk and the star stay faint. layoutTree places the branches
+  // once the tree is on the page.
   function treeNode(rid, seen, opts) {
     opts = opts || {};
     var eng = E();
@@ -1556,7 +1587,7 @@
     ]);
     var levels = h("ol", { class: "tree__levels" });
     var n = tree ? tree.levels.length : 0;
-    var turn = 0;
+    var sides = tree ? branchSides(tree, seen) : [];
     (tree ? tree.levels : []).forEach(function (lv, k) {
       // Trunk width tapers from the root (k = 0) to the star; each level's segment is a trapezoid.
       var tb = n ? k / n : 0;
@@ -1564,10 +1595,9 @@
       var row = h("li", { class: "tree__level", "data-choice": lv.id, style: "--tb:" + tb.toFixed(3) + ";--tt:" + tt.toFixed(3) });
       var L = h("div", { class: "tree__side tree__side--l" });
       var R = h("div", { class: "tree__side tree__side--r" });
-      lv.branches.forEach(function (b) {
-        var right = turn % 2 === 0;
-        turn++;
-        (right ? R : L).appendChild(branchNode(rid, b, seen, right ? "r" : "l"));
+      lv.branches.forEach(function (b, j) {
+        var side = sides[k][j];
+        (side === "r" ? R : L).appendChild(branchNode(rid, b, seen, side, k, j));
       });
       row.appendChild(L);
       row.appendChild(h("div", { class: "tree__trunk", "aria-hidden": "true" }, [h("span", { class: "tree__bark" }), h("span", { class: "tree__knot" })]));
@@ -1577,6 +1607,311 @@
     var rootRow = h("div", { class: "tree__root" }, [h("span", { class: "tree__base", "aria-hidden": "true" }, h("span", { class: "tree__bark" })), h("span", { class: "tree__ground", "aria-hidden": "true" }), plateNode(rid, "tree__plate")]);
     append(sec, [goal, levels, rootRow]);
     return sec;
+  }
+
+  // ---- story tree layout
+  //
+  // A route may have six or seven cut branches, three of them at one choice point, with titles of eight
+  // Korean syllables or thirty English letters: more than the row of a choice point can hold. Once a
+  // tree is on the page, layoutTree places its branches from measured sizes:
+  // - the labels stand in two columns beside the trunk, from under the ending's title down to the ground
+  //   (beside the star too), each as close to its choice point as the others allow, never overlapping;
+  //   the labels of one choice point fan out (each later one a little higher, the sides alternating);
+  // - the knots then move toward their labels, so the boughs stay short and mostly rise;
+  // - each bough runs from its knot to its label with the scissors at its tip; an unseen branch stays a
+  //   short, faint stub at its knot;
+  // - on a TV nothing may scroll: labels that do not fit shrink a little (CSS keeps them at 2.2vh or
+  //   more); on a phone the tree grows taller instead (the page scrolls).
+  // It runs again on resize and when web fonts arrive. Without it the CSS rows still show every branch.
+  var TREE_ITER = 8;
+  // How strongly a knot keeps its even place against the pull of its labels.
+  var TREE_PULL = 0.5;
+  var TREE_FIT_MIN = 0.6;
+
+  function num(v) {
+    var x = parseFloat(v);
+    return isFinite(x) ? x : 0;
+  }
+
+  // Places items (in order, each { d: desired top, h: height }) between lo and hi with `gap` between
+  // neighbors, each as close to its desired top as the others allow: neighbors that would overlap form
+  // a block that sits at its members' mean. Returns the tops, in order.
+  function spread(items, lo, hi, gap) {
+    var blocks = [];
+    items.forEach(function (it, i) {
+      var b = { first: i, n: 1, h: it.h, sum: it.d, top: 0 };
+      for (;;) {
+        b.top = Math.max(lo, Math.min(b.sum / b.n, hi - b.h));
+        var p = blocks[blocks.length - 1];
+        if (!p || p.top + p.h + gap <= b.top + 0.01) break;
+        blocks.pop();
+        b = { first: p.first, n: p.n + b.n, h: p.h + gap + b.h, sum: p.sum + b.sum - b.n * (p.h + gap), top: 0 };
+      }
+      blocks.push(b);
+    });
+    var tops = [];
+    blocks.forEach(function (b) {
+      var y = b.top;
+      for (var k = 0; k < b.n; k++) {
+        tops.push(y);
+        y += items[b.first + k].h + gap;
+      }
+    });
+    return tops;
+  }
+
+  // A label's box hugs its longest line (text-wrap: balance shortens the lines, not the box). Only the
+  // text's own line boxes count (a range over the whole label would also return the English block).
+  function hugLabel(tag) {
+    var rg = doc.createRange();
+    var walk = doc.createTreeWalker(tag, 4, null);
+    var l = Infinity;
+    var r = -Infinity;
+    for (var node = walk.nextNode(); node; node = walk.nextNode()) {
+      rg.selectNodeContents(node);
+      var rs = rg.getClientRects();
+      for (var i = 0; i < rs.length; i++) {
+        if (rs[i].width < 0.5) continue;
+        l = Math.min(l, rs[i].left);
+        r = Math.max(r, rs[i].right);
+      }
+    }
+    if (!(r > l)) return;
+    var cs = window.getComputedStyle(tag);
+    var w = Math.ceil(r - l + num(cs.paddingLeft) + num(cs.paddingRight) + num(cs.borderLeftWidth) + num(cs.borderRightWidth) + 2);
+    if (w < tag.offsetWidth) tag.style.width = w + "px";
+  }
+
+  // Back to the even rows, the branches out of the rows (placed mode) but not yet placed. Every tree on
+  // the page is reset before any is measured: the three trees share one grid row, so a tree still in
+  // the CSS rows would stretch its neighbors.
+  function resetTree(sec) {
+    var levels = sec.querySelector(".tree__levels");
+    var rows = levels ? Array.prototype.slice.call(levels.children) : [];
+    var branches = sec.querySelectorAll(".branch");
+    var n = rows.length;
+    sec.style.removeProperty("--tag-fit");
+    sec.style.removeProperty("--tag-max");
+    rows.forEach(function (li, k) {
+      li.style.removeProperty("flex");
+      li.style.removeProperty("min-height");
+      li.style.removeProperty("--knot");
+      li.style.setProperty("--tb", (k / n).toFixed(3));
+      li.style.setProperty("--tt", ((k + 1) / n).toFixed(3));
+    });
+    Array.prototype.forEach.call(branches, function (b) {
+      Array.prototype.forEach.call(b.children, function (el) {
+        el.removeAttribute("style");
+      });
+    });
+    sec.classList.toggle("tree--placed", !!(n && branches.length));
+  }
+
+  function layoutTree(sec) {
+    if (!sec || !sec.isConnected || !sec.classList.contains("tree--placed") || !sec.offsetWidth) return;
+    var levels = sec.querySelector(".tree__levels");
+    var rows = Array.prototype.slice.call(levels.children);
+    var branches = Array.prototype.slice.call(sec.querySelectorAll(".branch"));
+    var n = rows.length;
+
+    var sr = sec.getBoundingClientRect();
+    var ox = sr.left + sec.clientLeft;
+    var oy = sr.top + sec.clientTop;
+    var box = function (el) {
+      var r = el.getBoundingClientRect();
+      return { left: r.left - ox, top: r.top - oy, right: r.right - ox, bottom: r.bottom - oy, width: r.width, height: r.height };
+    };
+    var cs = window.getComputedStyle(sec);
+    var innerL = num(cs.paddingLeft);
+    var innerR = sec.clientWidth - num(cs.paddingRight);
+    var lv = box(levels);
+    var trunk = box(rows[0].querySelector(".tree__trunk"));
+    var cx = trunk.left + trunk.width / 2;
+    var trunkW = trunk.width;
+    var star = box(sec.querySelector(".tree__star"));
+    var goalTitle = sec.querySelector(".tree__goaltitle");
+    var ground = box(sec.querySelector(".tree__ground"));
+    var wood0 = branches[0].querySelector(".branch__wood");
+    var stemW = wood0.offsetWidth;
+    var stemH = wood0.offsetHeight;
+    var snip0 = sec.querySelector(".branch__snip");
+    var snipW = snip0 ? snip0.getBoundingClientRect().width : 0;
+    var grow = num(cs.getPropertyValue("--tree-grow")) > 0;
+
+    // The label columns: from beside the bough's tip (clear of the star) to the card's inner edge.
+    var off = Math.max(trunkW / 2 + stemW + snipW * 0.6, star.width / 2 + stemH);
+    var colW = Math.max(40, Math.min(cx - off - innerL, innerR - cx - off));
+    sec.style.setProperty("--tag-max", Math.max(36, colW - 2).toFixed(1) + "px");
+
+    var tags = [];
+    branches.forEach(function (b) {
+      var tag = b.querySelector(".branch__tag");
+      if (tag) tags.push({ b: b, tag: tag, side: b.getAttribute("data-side") === "l" ? "l" : "r", at: num(b.getAttribute("data-at")), nth: num(b.getAttribute("data-nth")) });
+    });
+    var gap = 0;
+    var zoneTop = 0;
+    var zoneBot = 0;
+    var measure = function () {
+      tags.forEach(function (t) {
+        t.tag.style.removeProperty("width");
+      });
+      tags.forEach(function (t) {
+        hugLabel(t.tag);
+      });
+      tags.forEach(function (t) {
+        var r = t.tag.getBoundingClientRect();
+        t.bw = r.width;
+        t.bh = r.height;
+        t.w = t.tag.offsetWidth;
+        t.h = t.tag.offsetHeight;
+      });
+      gap = tags.length ? Math.max(4, num(window.getComputedStyle(tags[0].tag).fontSize) * 0.34) : 0;
+      zoneTop = (goalTitle ? box(goalTitle).bottom : num(cs.paddingTop)) + gap;
+      zoneBot = ground.top - gap * 0.5;
+      var need = 0;
+      ["l", "r"].forEach(function (s) {
+        var sum = 0;
+        var cnt = 0;
+        tags.forEach(function (t) {
+          if (t.side !== s) return;
+          sum += t.bh;
+          cnt++;
+        });
+        need = Math.max(need, sum + gap * Math.max(0, cnt - 1));
+      });
+      return need;
+    };
+    var need = measure();
+    // A TV shrinks the labels until they fit (down to the CSS floor); a phone grows the tree instead.
+    var fit = 1;
+    for (var pass = 0; pass < 5 && !grow && need > zoneBot - zoneTop; pass++) {
+      var f = Math.max(TREE_FIT_MIN, fit * Math.min(0.97, ((zoneBot - zoneTop) / need) * 0.99));
+      if (f >= fit - 0.004) break;
+      fit = f;
+      sec.style.setProperty("--tag-fit", fit.toFixed(3));
+      var before = need;
+      need = measure();
+      if (need > before - 0.5) break;
+    }
+    var extra = Math.max(0, need - (zoneBot - zoneTop));
+    if (window.__treeDebug) window.__treeDebug.push({ rid: sec.getAttribute("data-route"), fit: fit, need: Math.round(need), zone: Math.round(zoneBot - zoneTop), extra: Math.round(extra), colW: Math.round(colW) });
+    var Lt = lv.top;
+    var Lb = lv.bottom + extra;
+    zoneBot += extra;
+
+    // Knots and labels, a few rounds: labels spread around their knots, knots move toward their labels.
+    var sp = (Lb - Lt) / n;
+    var lift = sp * 0.3;
+    var stag = sp * 0.3;
+    var minSp = Math.min(sp, Math.max(sp * 0.42, stemH * 1.6));
+    var even = rows.map(function (li, k) {
+      return Lb - (k + 0.5) * sp;
+    });
+    var y = even.slice();
+    var placeLabels = function () {
+      ["l", "r"].forEach(function (s) {
+        var list = tags
+          .filter(function (t) {
+            return t.side === s;
+          })
+          .map(function (t) {
+            return { t: t, d: y[t.at] - lift - t.nth * stag - t.bh / 2, h: t.bh };
+          });
+        list.sort(function (a, b) {
+          return a.d - b.d || b.t.nth - a.t.nth;
+        });
+        var tops = spread(list, zoneTop, zoneBot, gap);
+        list.forEach(function (x, i) {
+          x.t.top = tops[i];
+          x.t.c = tops[i] + x.t.bh / 2;
+        });
+      });
+    };
+    for (var it = 0; it < TREE_ITER; it++) {
+      placeLabels();
+      var items = [];
+      for (var k = n - 1; k >= 0; k--) {
+        var sum = TREE_PULL * even[k];
+        var wsum = TREE_PULL;
+        tags.forEach(function (t) {
+          if (t.at !== k) return;
+          sum += t.c + lift + t.nth * stag;
+          wsum += 1;
+        });
+        items.push({ d: sum / wsum - minSp / 2, h: minSp });
+      }
+      var tops = spread(items, Lt, Lb, 0);
+      for (var i = 0; i < n; i++) y[n - 1 - i] = tops[i] + minSp / 2;
+    }
+    placeLabels();
+
+    // The rows follow the knots: borders halfway between neighboring knots; the trunk tapers with height.
+    var bnd = [Lb];
+    for (var j = 0; j < n - 1; j++) bnd.push((y[j] + y[j + 1]) / 2);
+    bnd.push(Lt);
+    var span = Lb - Lt;
+    rows.forEach(function (li, k) {
+      var bottom = bnd[k];
+      var top = bnd[k + 1];
+      var hh = Math.max(1, bottom - top);
+      li.style.flex = "0 0 " + hh.toFixed(2) + "px";
+      li.style.minHeight = "0px";
+      li.style.setProperty("--knot", ((y[k] - top) / hh).toFixed(4));
+      li.style.setProperty("--tb", ((Lb - bottom) / span).toFixed(4));
+      li.style.setProperty("--tt", ((Lb - top) / span).toFixed(4));
+    });
+    var halfAt = function (yy) {
+      return (trunkW * (1 - (0.6 * (Lb - yy)) / span)) / 2;
+    };
+
+    branches.forEach(function (b) {
+      var dir = b.getAttribute("data-side") === "l" ? -1 : 1;
+      var at = num(b.getAttribute("data-at"));
+      var nth = num(b.getAttribute("data-nth"));
+      var wood = b.querySelector(".branch__wood");
+      var sy = y[at] - nth * stemH * 0.5;
+      var sx = cx + dir * (halfAt(sy) - 1);
+      var t = null;
+      tags.forEach(function (x) {
+        if (x.b === b) t = x;
+      });
+      var ang;
+      var len;
+      if (t) {
+        var ax = cx + dir * off;
+        var dx = ax - sx;
+        var dy = t.c - sy;
+        var full = Math.sqrt(dx * dx + dy * dy);
+        ang = Math.atan2(dy, dx);
+        len = Math.max(stemH, full - snipW * 0.4);
+        // The scissors sit on the bough's tip, right before the label.
+        var snip = b.querySelector(".branch__snip");
+        if (snip) {
+          var sd = full - snipW * 0.55;
+          snip.style.left = (sx + Math.cos(ang) * sd - snipW / 2).toFixed(2) + "px";
+          snip.style.top = (sy + Math.sin(ang) * sd - snipW / 2).toFixed(2) + "px";
+          snip.style.transform = "rotate(" + ((ang * 180) / Math.PI).toFixed(2) + "deg)";
+        }
+        // A label's tilt makes it a few pixels wider than its column: it moves in over the bough's tip.
+        var bl = dir > 0 ? Math.min(ax, innerR - t.bw) : Math.max(ax - t.bw, innerL);
+        t.tag.style.left = (bl + (t.bw - t.w) / 2).toFixed(2) + "px";
+        t.tag.style.top = (t.top + (t.bh - t.h) / 2).toFixed(2) + "px";
+      } else {
+        // An unseen branch: a short stub that rises a little.
+        ang = dir > 0 ? (-14 * Math.PI) / 180 : Math.PI + (14 * Math.PI) / 180;
+        len = Math.max(stemW * 0.5, stemH * 1.5);
+      }
+      wood.style.left = sx.toFixed(2) + "px";
+      wood.style.top = (sy - stemH / 2).toFixed(2) + "px";
+      wood.style.width = len.toFixed(2) + "px";
+      wood.style.transform = "rotate(" + ((ang * 180) / Math.PI).toFixed(2) + "deg)" + (dir < 0 ? " scaleY(-1)" : "");
+    });
+  }
+
+  function layoutTrees() {
+    var all = doc.querySelectorAll("#screen section.tree");
+    Array.prototype.forEach.call(all, resetTree);
+    Array.prototype.forEach.call(all, layoutTree);
   }
 
   function pageButton(cls, t, testid, onClick, isDefault) {
@@ -1607,6 +1942,7 @@
       h("div", { class: "treepage-tree" }, treeNode(rid, seen, { current: true })),
       h("div", { class: "treepage-actions" }, [next, home])
     ]);
+    layoutTrees();
     focusDefault(next);
   }
 
@@ -1627,6 +1963,7 @@
       ),
       h("div", { class: "treespage-actions" }, [home])
     ]);
+    layoutTrees();
     focusDefault(home);
   }
 
@@ -1817,6 +2154,7 @@
         anchorCast();
         placeLight();
         fitMemory();
+        layoutTrees();
       }, 120);
     });
     try {
@@ -1824,10 +2162,16 @@
         doc.fonts.ready.then(function () {
           anchorCast();
           fitMemory();
+          layoutTrees();
         });
       }
-      // Web fonts that arrive later change the memory card's size too.
-      if (doc.fonts && doc.fonts.addEventListener) doc.fonts.addEventListener("loadingdone", fitMemory);
+      // Web fonts that arrive later change the memory card's and the tree labels' sizes too.
+      if (doc.fonts && doc.fonts.addEventListener) {
+        doc.fonts.addEventListener("loadingdone", function () {
+          fitMemory();
+          layoutTrees();
+        });
+      }
     } catch (err) {
       /* font loading API unavailable */
     }
@@ -1850,6 +2194,7 @@
     renderTree: renderTree,
     renderTrees: renderTrees,
     treeNode: treeNode,
+    layoutTrees: layoutTrees,
     renderHeader: renderHeader,
     openSettings: openSettings,
     closeSettings: closeSettings,

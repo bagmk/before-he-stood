@@ -2179,17 +2179,22 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   --bark-hi: #8f6b44;
   --bark-lo: #4f361f;
   --snip: #a3392b;
-  --trunk-w: 30px;
-  --stem-w: 34px;
+  --trunk-w: 28px;
+  --stem-w: 26px;
   --stem-h: 12px;
   --level-h: 62px;
   --tag-fs: 15px;
   --tag-fs-en: 12.5px;
+  /* layoutTree (js/ui.js): 1 = the tree may grow taller for its labels (the page scrolls); 0 = it must
+     fit, and the labels shrink by --tag-fit, never below --tag-min. */
+  --tree-grow: 1;
+  --tag-min: 0px;
+  --tag-fit: 1;
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 16px 12px 12px;
+  padding: 16px 10px 12px;
   border-radius: 10px;
   color: var(--ink);
   background-color: var(--papyrus);
@@ -2310,11 +2315,11 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   clip-path: polygon(calc(50% - var(--w-top) / 2) 0, calc(50% + var(--w-top) / 2) 0, 100% 100%, 0 100%);
 }
 
-/* A choice point: a knot in the bark. */
+/* A choice point: a knot in the bark (layoutTree may move it off the middle of its row). */
 .tree__knot {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(var(--knot, 0.5) * 100%);
   width: calc(var(--w-bottom) * 0.5);
   height: calc(var(--w-bottom) * 0.16);
   transform: translate(-50%, -50%);
@@ -2448,7 +2453,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   border: 1px solid rgba(42, 33, 25, 0.18);
   background: var(--vellum);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 5px rgba(42, 33, 25, 0.24);
-  font: 700 calc(var(--tag-fs) * var(--text-scale)) / 1.3 var(--serif);
+  font: 700 max(var(--tag-min), calc(var(--tag-fs) * var(--text-scale) * var(--tag-fit))) / 1.3 var(--serif);
   word-break: keep-all;
   overflow-wrap: anywhere;
   transform: rotate(-1.5deg);
@@ -2462,7 +2467,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 .branch__tag .en {
   margin-top: 1px;
   font-weight: 400;
-  font-size: calc(var(--tag-fs-en) * var(--text-scale));
+  font-size: max(var(--tag-min), calc(var(--tag-fs-en) * var(--text-scale) * var(--tag-fit)));
   color: var(--ink-soft);
 }
 
@@ -2479,6 +2484,47 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
 
 .branch--l[data-state="unseen"] .branch__stem {
   clip-path: polygon(0 14%, 100% 0, 100% 100%, 0 86%);
+}
+
+/* Placed layout (layoutTree in js/ui.js): the branches leave their rows; each bough, its scissors and
+   its label are positioned on the card from measured sizes (inline left, top, width and rotation). The
+   bough's element starts at its knot and is rotated toward its label; a left bough is flipped as well,
+   so its light edge stays on top. */
+.tree--placed .branch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+.tree--placed .branch__wood {
+  position: absolute;
+  margin: 0;
+  transform-origin: 0 50%;
+}
+
+.tree--placed .branch__stem,
+.tree--placed .branch--l .branch__stem {
+  transform: none;
+  clip-path: polygon(0 0, 100% 30%, 100% 70%, 0 100%);
+}
+
+.tree--placed .branch[data-state="unseen"] .branch__stem {
+  clip-path: polygon(0 0, 100% 14%, 100% 86%, 0 100%);
+}
+
+.tree--placed .branch__snip {
+  position: absolute;
+  margin: 0;
+  transform-origin: 50% 50%;
+}
+
+.tree--placed .branch__tag {
+  position: absolute;
+  top: 0;
+  width: max-content;
+  max-width: var(--tag-max, 12em);
 }
 
 /* ------------------------------------------------------------------ settings + modal */
@@ -3336,7 +3382,7 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     row-gap: 2vh;
     height: 100%;
     min-height: 0;
-    padding: calc(var(--safe-top) + 8.6vh) 4vw calc(var(--safe-bottom) + 3vh);
+    padding: calc(var(--safe-top) + 8.6vh) 2.4vw calc(var(--safe-bottom) + 2.6vh);
   }
 
   .treespage-head {
@@ -3370,10 +3416,11 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     min-height: 7vh;
   }
 
+  /* Wide cards: each tree's labels need about a third of the screen. */
   .treespage-list {
     grid-area: list;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2vw;
+    gap: 1.2vw;
     min-height: 0;
   }
 
@@ -3384,6 +3431,9 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     --level-h: 8vh;
     --tag-fs: 3vh;
     --tag-fs-en: 2.4vh;
+    /* Nothing scrolls on a TV: the labels shrink to fit, never below the smallest TV text. */
+    --tree-grow: 0;
+    --tag-min: 2.2vh;
     padding: 2.4vh 2vw 2vh;
     border-radius: 1.2vh;
   }
@@ -3391,13 +3441,13 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
   /* Three trees side by side must fit one screen with every branch seen: tighter wood, smaller tags
      (never below 2.2vh), short lines. */
   .tree--compact {
-    --trunk-w: 3.4vh;
-    --stem-w: 3vh;
-    --stem-h: 1.5vh;
+    --trunk-w: 3vh;
+    --stem-w: 2.4vh;
+    --stem-h: 1.4vh;
     --level-h: 5.6vh;
     --tag-fs: 2.4vh;
     --tag-fs-en: 2.2vh;
-    padding: 1.6vh 0.5vw 1.4vh;
+    padding: 1.6vh 0.6vw 1.4vh;
   }
 
   .tree--compact .tree__goaltitle {
