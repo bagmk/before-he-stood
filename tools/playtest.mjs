@@ -1033,7 +1033,6 @@ async function langSwitchCheck(page, run, s, input) {
   const idKo = await langButton(page, 'ko');
   const idBoth = await langButton(page, 'both');
   if (!idEn || !idKo || !idBoth) { run.fail('language cannot be switched during play: no visible lang-ko/en/both (or hdr-lang-*) buttons (SPEC 5.2)', true); return; }
-  if (idEn.startsWith('hdr-')) run.note(`header language buttons use data-testid "hdr-lang-*" instead of "lang-*"`);
   const texts = async () => (await snapOf(page, false)).choiceTexts;
   await tap(page, idEn, run, input);
   await sleep(120);
@@ -1143,9 +1142,12 @@ async function escMenuCheck(page, run, args) {
   await page.keyboard.press('Escape');
   await sleep(250);
   const a = await snapOf(page, true);
-  const opened = a.ids.includes('confirm-yes') || a.ids.includes('speed-instant') || (a.tv && a.tv.dialogOpen) || a.ids.some((x) => /menu/i.test(x) && !before.ids.includes(x));
-  if (!opened) { run.warn('keyboard: Esc did not open a menu or dialog (SPEC 5.6)', true); return; }
-  run.note(`Esc opened: ${a.ids.filter((x) => !before.ids.includes(x)).join(', ') || 'a dialog'}`);
+  // Agreed contract: Esc opens the home confirm dialog (confirm-yes / confirm-no).
+  if (!a.ids.includes('confirm-yes')) {
+    const other = a.ids.filter((x) => !before.ids.includes(x));
+    run.warn(`keyboard: Esc did not open the home confirm dialog${other.length ? ` (opened: ${other.join(', ')})` : ''} (SPEC 5.6)`, true);
+    if (!other.length) return;
+  }
   await page.keyboard.press('Escape');
   await sleep(250);
   let c = await snapOf(page, false);

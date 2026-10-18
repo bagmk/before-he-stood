@@ -1267,6 +1267,12 @@
 
   BHS.art = {
     ids: IDS.slice(),
+    // Canvas size of every scene (viewBox), rendered with preserveAspectRatio "xMidYMid slice".
+    viewBox: [W, H],
+    // Where the luminous space sits in each crowd scene, in canvas units, so the UI can
+    // anchor its presence light there. Map to the screen with the slice math:
+    // s = max(stageW / 1600, stageH / 1600); x = stageW / 2 + (cx - 800) * s; y = stageH / 2 + (cy - 800) * s.
+    lightAt: { crowd: [800, 650], crowd_lying: [1380, 720] },
     // Returns the bg id that render() will actually draw for this pov.
     resolve: resolve,
     // opts: { pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night", uid?: string }

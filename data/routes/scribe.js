@@ -99,10 +99,11 @@
           {
             id: "b",
             lens: 1,
-            text: { ko: "“그 선을 넘어 하나님의 이름을 모독하면 돌로 치라고 했다.” ({{r:LV_24_16A}})", en: "“Cross that line—blaspheme God's name—and the Law calls for stoning.” ({{r:LV_24_16A}})" },
+            text: { ko: "“그 선을 넘어 하나님의 이름을 모독하면 돌로 치라고 했다.”", en: "“Cross that line—blaspheme God's name—and the Law calls for stoning.”" },
             reaction: [
               { type: "line", text: { ko: "하난이 침을 삼킨다.", en: "Hanan swallows." } },
-              { type: "line", speaker: "thought", text: { ko: "무거운 율법이다. 그러니 더 조심해야 한다.", en: "A heavy law. All the more reason to be careful." } }
+              // Reference kept here, not on the option button (lead note: no bare refs in options).
+              { type: "line", speaker: "thought", text: { ko: "무거운 율법이다({{r:LV_24_16A}}). 그러니 더 조심해야 한다.", en: "A heavy law ({{r:LV_24_16A}}). All the more reason to be careful." } }
             ]
           },
           {
@@ -116,7 +117,7 @@
           {
             id: "d",
             lens: 3,
-            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
+            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기까지 어떻게 가지?”", en: "“Atonement happens at the temple. How does a man who can't walk get there?”" },
             reaction: [
               { type: "line", speaker: "hanan", text: { ko: "…그건 생각해 본 적이 없어요.", en: "…I've never thought about that." } }
             ]
@@ -143,7 +144,7 @@
           {
             id: "a",
             lens: 1,
-            text: { ko: "“이적만으로는 알 수 없다. 무엇을 가르치는지 봐야 한다.” ({{r:DT_13_1_3}})", en: "“Signs alone don't settle it. We have to see what he teaches.” ({{r:DT_13_1_3}})" },
+            text: { ko: "“이적만으로는 알 수 없다. 무엇을 가르치는지 봐야 한다.”", en: "“Signs alone don't settle it. We have to see what he teaches.”" },
             reaction: [
               { type: "line", speaker: "neighbor", text: { ko: "역시 서기관님이세요. 그래도 보러는 가실 거죠?", en: "Spoken like a scribe. But you're still going to go look, right?" } }
             ]
@@ -151,7 +152,7 @@
           {
             id: "b",
             lens: 2,
-            text: { ko: "“바람과 바다를 말로? 시편은 그 일을 하나님께 돌리는데.” ({{r:PS_107_29}})", en: "“Wind and sea, with a word? The psalm credits that to God.” ({{r:PS_107_29}})" },
+            text: { ko: "“바람과 바다를 말로? 시편은 그 일을 하나님께 돌리는데.”", en: "“Wind and sea, with a word? The psalm credits that to God.”" },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "{{v:PS_107_29}} 그 일을 사람이 했다고?", en: "{{v:PS_107_29}} And a man did that?" } }
             ]
@@ -208,7 +209,7 @@
           {
             id: "b",
             lens: 2,
-            text: { ko: "혹시 죄의 징계일까. 시편의 미련한 자들처럼. ({{r:PS_107_17}})", en: "Could it be discipline for sin, like the fools in the psalm? ({{r:PS_107_17}})" },
+            text: { ko: "혹시 죄의 징계일까. 시편의 미련한 자들처럼.", en: "Could it be discipline for sin, like the fools in the psalm?" },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "시편 한 구절이 떠오른다. {{v:PS_107_17}}", en: "A line from the psalms comes to mind. {{v:PS_107_17}}" } }
             ]

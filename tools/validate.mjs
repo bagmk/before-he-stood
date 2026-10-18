@@ -36,6 +36,7 @@ const BEAT_TYPES = ['scene', 'line', 'verse', 'choice', 'fx', 'press'];
 const PSEUDO_SPEAKERS = ['narrator', 'thought', 'sign'];
 const VERSE_SPEAKERS = ['jesus', 'scribes', 'narrator'];
 const POV_VALUES = ['normal', 'lying', 'standing'];
+const TIME_VALUES = ['day', 'evening', 'night'];
 const LIGHT_LEVELS = ['off', 'soft', 'bright'];
 
 // Fallbacks used when docs/SPEC.md cannot be parsed.
@@ -75,7 +76,7 @@ const FX_HOME = {
   pov: 'asher', actionReply: 'asher', actionsHide: 'asher', actionsShow: 'asher'
 };
 const BEAT_KEYS = {
-  scene: ['type', 'bg', 'caption', 'pov', 'when', 'id'],
+  scene: ['type', 'bg', 'caption', 'pov', 'time', 'when', 'id'],
   line: ['type', 'speaker', 'text', 'when', 'id'],
   verse: ['type', 'key', 'speaker', 'when', 'id'],
   choice: ['type', 'id', 'prompt', 'options', 'when'],
@@ -684,7 +685,8 @@ function checkCond(cond, cx, w) {
     else {
       for (const v of vals) {
         if (!isPrimitive(v)) rep.error('cond', w, `flag value must be a string, number or boolean, got ${JSON.stringify(v)}`);
-        else if (v === false) rep.info('cond', w, `compares flag "${f}" to false; this relies on "unset counts as false" (engine behavior, not stated in SPEC 4.5)`);
+        // An unset flag counts as false (confirmed by the lead), so {flag, is:false} needs no report.
+        else if (v === false) continue;
         else if (avail && !avail.has(v)) rep.warn('cond', w, `flag "${f}" is never set to ${JSON.stringify(v)} (set values: ${[...avail].map((x) => JSON.stringify(x)).join(', ')})`);
       }
     }
@@ -984,6 +986,7 @@ function checkBeat(b, cx, label) {
       else if (cx.setBg) cx.setBg(b.bg);
       if (b.caption !== undefined) checkT(b.caption, cx, `${w} › caption`, { story: cx.story });
       if (b.pov !== undefined && !POV_VALUES.includes(b.pov)) rep.error('schema', w, `pov must be one of ${POV_VALUES.join('|')}`);
+      if (b.time !== undefined && !TIME_VALUES.includes(b.time)) rep.error('schema', w, `time must be one of ${TIME_VALUES.join('|')} (SPEC 4.5), got ${JSON.stringify(b.time)}`);
       break;
     }
     case 'line': {
@@ -1322,8 +1325,13 @@ function checkScripture(rep, data, spec, root) {
         if (/^["“‘']/.test(e.en) || /["”’']$/.test(e.en)) rep.warn('scripture', W(key), 'speech key en text starts/ends with a quotation mark (the engine adds quotes)');
       }
       if (e.full !== undefined) {
-        if (!isObj(e.full) || typeof e.full.ko !== 'string' || typeof e.full.en !== 'string') rep.error('scripture', W(key), 'full must be {ko, en}');
-        else {
+        if (!isObj(e.full) || typeof e.full.ko !== 'string' || typeof e.full.en !== 'string' || !e.full.ko.trim() || !e.full.en.trim()) {
+          rep.error('scripture', W(key), 'full must be {ko: string, en: string} with non-empty text (SPEC 4.3)');
+        } else {
+          const fx = Object.keys(e.full).filter((k) => k !== 'ko' && k !== 'en');
+          if (fx.length) rep.warn('scripture', W(key), `unknown key(s) in full: ${fx.join(', ')}`);
+          if (!HANGUL_TEST.test(e.full.ko)) rep.error('scripture', W(key), 'full.ko has no Hangul');
+          if (HANGUL_TEST.test(e.full.en)) rep.error('scripture', W(key), 'full.en contains Hangul');
           if (typeof e.ko === 'string' && !e.full.ko.includes(e.ko)) rep.error('scripture', W(key), 'ko text is not an exact substring of full.ko');
           if (typeof e.en === 'string' && !e.full.en.includes(e.en)) rep.error('scripture', W(key), 'en text is not an exact substring of full.en');
         }
@@ -2319,10 +2327,25 @@ function selfTest() {
   t('unknown fx -> ERROR fx', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'fx', fx: 'shake' }); return run(d).has('ERROR', 'fx', /unknown fx/); });
   t('press with unknown action -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats.push({ type: 'press', action: 'jump' }); return run(d).has('ERROR', 'schema', /press action/); });
   t('asher without goout -> ERROR schema', () => { const d = clone(base); d.routes.asher.actions.pop(); return run(d).has('ERROR', 'schema', /goout/); });
-  t('flag compared to false -> INFO cond, and unset matches false', () => {
+  t('flag compared to false is accepted, and unset matches false', () => {
     const d = clone(base);
     d.routes.friend.beats.push({ type: 'line', when: { flag: 'far', is: false }, text: T('가 x', 'x') });
-    return run(d).has('INFO', 'cond', /false/) && evalCond({ flag: 'far', is: false }, { flags: {} }) && !evalCond({ flag: 'far', is: false }, { flags: { far: true } });
+    const rep = run(d);
+    return !rep.has(null, 'cond', /false/) && evalCond({ flag: 'far', is: false }, { flags: {} }) && !evalCond({ flag: 'far', is: false }, { flags: { far: true } });
+  });
+  t('scene time day/evening/night accepted, other values -> ERROR schema', () => {
+    const d = clone(base);
+    d.routes.asher.endings['1'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'evening' });
+    d.routes.asher.endings['2'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'night' });
+    const ok = !run(d).has(null, 'schema', /time/);
+    d.routes.asher.endings['3'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'dusk' });
+    return ok && run(d).has('ERROR', 'schema', /time must be one of/);
+  });
+  t('scripture full must be {ko, en} -> ERROR scripture', () => {
+    const d = clone(base);
+    d.scripture = clone(d.scripture);
+    d.scripture.MT_9_2B = Object.assign({}, d.scripture.MT_9_2B, { full: { ko: '' } });
+    return run(d).has('ERROR', 'scripture', /full must be/);
   });
   t('engine cross-check: correct engine passes', () => {
     const d = clone(base);
