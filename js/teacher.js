@@ -577,18 +577,27 @@
       }
     }
 
-    if (vHost) {
-      clear(vHost);
-      var plan = passagePlan(6);
-      var ko = plan ? verseFragment(plan, "ko") : null;
-      var en = plan ? verseFragment(plan, "en") : null;
-      if (ko || en) {
-        if (ko) vHost.appendChild(el("p", { class: "read-verse-ko" }, [ko, " ", el("span", { class: "ref" }, refText("MT_9_6A", "ko") || "마 9:6")]));
-        if (en) vHost.appendChild(el("p", { class: "read-verse-en", lang: "en" }, [en, " ", el("span", { class: "ref" }, refText("MT_9_6A", "en") || "Matt 9:6")]));
-      } else {
-        vHost.appendChild(placeholder("9:6 본문을 아직 불러오지 못했어요.", "data/scripture.js"));
-      }
+    renderReadVerse(vHost, 6);
+  }
+
+  // A whole verse of Matthew 9 in both languages, for reading aloud together.
+  function renderReadVerse(host, n) {
+    if (!host) return;
+    clear(host);
+    var plan = passagePlan(n);
+    var firstKey = plan ? plan.parts[0].key : null;
+    var ko = plan ? verseFragment(plan, "ko") : null;
+    var en = plan ? verseFragment(plan, "en") : null;
+    if (ko || en) {
+      if (ko) host.appendChild(el("p", { class: "read-verse-ko" }, [ko, " ", el("span", { class: "ref" }, refText(firstKey, "ko") || "마 9:" + n)]));
+      if (en) host.appendChild(el("p", { class: "read-verse-en", lang: "en" }, [en, " ", el("span", { class: "ref" }, refText(firstKey, "en") || "Matt 9:" + n)]));
+    } else {
+      host.appendChild(placeholder("9:" + n + " 본문을 아직 불러오지 못했어요.", "data/scripture.js"));
     }
+  }
+
+  function renderStep2() {
+    renderReadVerse(byId("step2-verse"), 3);
   }
 
   /* ---------- 5. Scripture side by side ---------- */
@@ -814,6 +823,7 @@
     safely("board", renderBoard);
     safely("lastLines", renderLastLines);
     safely("lastLinesToggle", setupLastLinesToggle);
+    safely("step2", renderStep2);
     safely("step3", renderStep3);
     safely("step4", renderStep4);
     safely("scripture", renderScripture);

@@ -724,7 +724,212 @@ main {
   margin-bottom: 0.1rem;
 }
 
-/* ---------- 2. Link and QR ---------- */
+.h3-note {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink-2);
+  vertical-align: 0.15em;
+}
+
+/* Keyboard keys. */
+kbd {
+  display: inline-block;
+  min-width: 1.9em;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Phone variant of the run sheet. */
+.variant {
+  max-width: var(--wide);
+  margin-top: 2rem;
+  padding: 1.1rem 1.15rem 1.15rem;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+}
+
+.section .variant h3 {
+  margin-top: 0;
+}
+
+.variant-lede {
+  max-width: var(--measure);
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+}
+
+.mini-runsheet {
+  list-style: none;
+  margin: 0.25rem 0 1.25rem;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.mini-runsheet li {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.mini-runsheet .time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mini-runsheet b {
+  font-weight: 600;
+}
+
+.variant .tips li {
+  font-size: 0.9375rem;
+}
+
+/* ---------- 2. TV ---------- */
+.tv-grid {
+  display: grid;
+  gap: 1rem;
+  max-width: var(--wide);
+  margin-top: 1.25rem;
+}
+
+@media (min-width: 760px) {
+  .tv-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+.tv-block {
+  padding: 1rem 1.15rem 1.1rem;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.section .tv-block h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+}
+
+.setup {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.setup li {
+  margin: 0.3rem 0;
+  line-height: 1.65;
+}
+
+.setup li::marker {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--amber);
+}
+
+.keys {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.keys > div {
+  display: grid;
+  grid-template-columns: 5.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.keys dt {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.keys dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.key-note {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
+.route-picks {
+  display: grid;
+  gap: 0.75rem;
+  max-width: var(--wide);
+}
+
+@media (min-width: 720px) {
+  .route-picks {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pick {
+  border-top: 3px solid var(--blue);
+}
+
+.pick .card-title span {
+  margin-left: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.pick-note {
+  max-width: var(--measure);
+  margin-top: 0.6rem;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+}
+
+/* Label above format-specific prompts inside a discussion step. */
+.variant-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.1rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+.variant-label::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--rule);
+}
+
+/* ---------- 3. Link and QR ---------- */
 .linkcard {
   display: grid;
   gap: 1.25rem;
@@ -2246,6 +2451,105 @@ main {
 
   .notice {
     margin-bottom: 6pt;
+  }
+
+  /* 1-2. Phone variant, TV setup and controls. */
+  .variant {
+    max-width: none;
+    margin-top: 8pt;
+    padding: 3mm 4mm;
+    border: 1pt dashed #666666;
+    break-inside: avoid;
+  }
+
+  .variant-lede {
+    max-width: none;
+    margin-bottom: 3pt;
+    font-size: 9pt;
+  }
+
+  .mini-runsheet {
+    margin: 2pt 0 5pt;
+  }
+
+  .mini-runsheet li {
+    grid-template-columns: 18mm minmax(0, 1fr);
+    gap: 3mm;
+    padding: 2pt 0;
+    font-size: 9pt;
+    line-height: 1.45;
+  }
+
+  .variant .tips li {
+    font-size: 8.5pt;
+  }
+
+  .tv-grid {
+    max-width: none;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 4mm;
+    margin-top: 4pt;
+  }
+
+  .tv-block {
+    padding: 3mm 4mm;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .setup li {
+    margin: 1pt 0;
+    font-size: 9pt;
+    line-height: 1.45;
+  }
+
+  .keys {
+    gap: 3pt;
+  }
+
+  .keys > div {
+    grid-template-columns: 20mm minmax(0, 1fr);
+    gap: 3mm;
+  }
+
+  .keys dt {
+    font-size: 9pt;
+  }
+
+  kbd {
+    border: 0.75pt solid #000000;
+    border-bottom-width: 1.25pt;
+    background: #ffffff;
+    font-size: 8pt;
+  }
+
+  .key-note {
+    font-size: 8pt;
+  }
+
+  .route-picks {
+    max-width: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm;
+  }
+
+  .pick {
+    border-top: 1.5pt solid #000000;
+    break-inside: avoid;
+  }
+
+  .pick-note {
+    font-size: 9pt;
+  }
+
+  .variant-label {
+    margin-top: 5pt;
+    font-size: 8pt;
+  }
+
+  .h3-note {
+    border-color: #666666;
+    font-size: 7.5pt;
   }
 
   /* Keep blocks whole. */

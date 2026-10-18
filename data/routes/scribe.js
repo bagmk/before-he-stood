@@ -362,7 +362,7 @@
           {
             id: "a",
             lens: 1,
-            text: { ko: "죄 사함은 증거 없이도 말할 수 있다.", en: "Forgiveness can be announced without any proof." },
+            text: { ko: "죄 사함은 증거 없이도 말할 수 있다.", en: "Forgiveness of sins can be announced without any proof." },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "확인할 길이 없으니까. 말하기는 그쪽이 쉽다.", en: "No one can check it. That one is easier to say." } }
             ]
