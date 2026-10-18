@@ -1794,7 +1794,6 @@
       if (need > before - 0.5) break;
     }
     var extra = Math.max(0, need - (zoneBot - zoneTop));
-    if (window.__treeDebug) window.__treeDebug.push({ rid: sec.getAttribute("data-route"), fit: fit, need: Math.round(need), zone: Math.round(zoneBot - zoneTop), extra: Math.round(extra), colW: Math.round(colW) });
     var Lt = lv.top;
     var Lb = lv.bottom + extra;
     zoneBot += extra;
