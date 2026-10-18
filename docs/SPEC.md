@@ -182,7 +182,7 @@ BHS.routes.scribe = {
 
 **Beat types.** Any beat may carry `when: Cond`; a beat whose condition is false is skipped. Any beat may carry an optional unique `id` (string) for debugging.
 
-1. `{ type: "scene", bg: BG_ID, caption?: T, pov?: "normal"|"lying"|"standing" }` — change background; optional place/time chip, e.g. `{ko:"새벽 · 므나헴의 방", en:"Dawn · Menahem's room"}`.
+1. `{ type: "scene", bg: BG_ID, caption?: T, pov?: "normal"|"lying"|"standing", time?: "day"|"evening"|"night" }` — change background; optional place/time chip, e.g. `{ko:"새벽 · 므나헴의 방", en:"Dawn · Menahem's room"}`. `time` (default "day") is passed to `BHS.art.render(bg, { pov, time })`; used for asher_home in the evening/night endings. A scene change keeps the current light level and pov unless the beat sets pov.
 2. `{ type: "line", speaker?: SPEAKER, text: T }` — one text box. SPEAKER = a character id (§6.1) | `"narrator"` (default) | `"thought"` (protagonist's inner voice; rendered italic, no name plate) | `"sign"` (centered caption such as 「― 두루마리 펴는 소리 ―」 or 「몇 시간 뒤 / Hours later」).
 3. `{ type: "verse", key: KEY, speaker?: "jesus"|"scribes"|"narrator" }` — scripture card (text + reference). Speaker defaults to the key's speaker. Jesus' words appear ONLY as verse beats or tokens.
 4. `{ type: "choice", id: "c1"…"c10", prompt: T, options: [Option ×4] }` — exactly ten per route, ids in order c1…c10. c10 counts double automatically.

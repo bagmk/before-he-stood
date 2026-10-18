@@ -213,6 +213,27 @@ test("resolveText: verse tokens get curly quotes in both languages", () => {
   assert.equal(E.resolveText(t, "en", {}), "You read. “who forgives all your iniquity, who heals all your diseases,”");
 });
 
+test("resolveText: inner double quotes become single curly quotes inside the token quotes", () => {
+  assert.equal(
+    E.resolveText({ ko: "{{v:MT_9_3}}", en: "{{v:MT_9_3}}" }, "en", {}),
+    "“And behold, some of the scribes said to themselves, ‘This man is blaspheming.’”"
+  );
+  assert.equal(
+    E.resolveText({ ko: "x", en: "{{v:PS_41_4}}" }, "en", {}),
+    "“As for me, I said, ‘O LORD, be gracious to me; heal me, for I have sinned against you!’”"
+  );
+  // Existing single quotes are kept (MT_9_5 nests correctly already).
+  assert.equal(
+    E.resolveText({ ko: "x", en: "{{v:MT_9_5}}" }, "en", {}),
+    "“For which is easier, to say, ‘Your sins are forgiven,’ or to say, ‘Rise and walk’?”"
+  );
+  // Straight quotes: open after start/space/dash, close otherwise.
+  assert.equal(E.quoteVerse('He said, "Go." Then "stay"'), "“He said, ‘Go.’ Then ‘stay’”");
+  assert.equal(E.quoteVerse('"Hi"—"there"'), "“‘Hi’—‘there’”");
+  // Korean text without quotes is untouched apart from the wrapper.
+  assert.equal(E.resolveText({ ko: "{{v:MT_9_3}}", en: "x" }, "ko", {}), "“어떤 서기관들이 속으로 이르되 이 사람이 신성을 모독하도다”");
+});
+
 test("resolveText: references and vars", () => {
   const t = { ko: "({{r:PS_103_3}}) 시도 {{var:getup_count}}번", en: "({{r:PS_103_3}}) tried {{var:getup_count}} times" };
   assert.equal(E.resolveText(t, "ko", { vars: { getup_count: 3 } }), "(시 103:3) 시도 3번");

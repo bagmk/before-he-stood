@@ -510,11 +510,14 @@
     if (!btn || !panel) return;
     var showLabel = "엔딩 마지막 문장 보기";
     var hideLabel = "엔딩 마지막 문장 숨기기";
+    var wrap = btn.closest ? btn.closest(".reveal") : null;
     btn.addEventListener("click", function () {
       var open = btn.getAttribute("aria-expanded") === "true";
       btn.setAttribute("aria-expanded", open ? "false" : "true");
       btn.textContent = open ? showLabel : hideLabel;
       panel.hidden = open;
+      // Print includes the last lines only while they are open on screen.
+      if (wrap) wrap.classList.toggle("is-open", !open);
     });
   }
 

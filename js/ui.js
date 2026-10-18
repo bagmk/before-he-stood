@@ -474,7 +474,8 @@
       var row = h("div", { class: "pin__item" });
       if (it.type === "verse") {
         ls.forEach(function (l, idx) {
-          row.appendChild(h("span", { class: idx > 0 ? "en" : "ko", lang: l }, "“" + verseOf(it.key, l) + "”"));
+          var vt = verseOf(it.key, l);
+          row.appendChild(h("span", { class: idx > 0 ? "en" : "ko", lang: l }, E() ? E().quoteVerse(vt) : "“" + vt + "”"));
         });
         var ref = refLine(it.key);
         if (ref) row.appendChild(h("span", { class: "pin__ref" }, ref));

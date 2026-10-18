@@ -1757,10 +1757,12 @@ main {
   }
 
   .lede {
-    max-width: none;
-    margin-top: 4pt;
-    font-size: 9pt;
-    opacity: 1;
+    display: none;
+  }
+
+  .masthead .title-en {
+    display: inline;
+    margin-left: 6pt;
   }
 
   .layout {
@@ -1824,7 +1826,7 @@ main {
   .runsheet li {
     grid-template-columns: 20mm minmax(0, 1fr);
     gap: 4mm;
-    padding: 4pt 0;
+    padding: 3pt 0;
   }
 
   .runsheet h3 {
@@ -1832,21 +1834,32 @@ main {
     font-size: 10pt;
   }
 
+  .runsheet p + p {
+    margin-top: 2pt;
+  }
+
+  .mini-frame-en {
+    display: inline;
+    margin-left: 5mm;
+    font-size: 9pt;
+  }
+
   .tips {
     max-width: none;
-    grid-template-columns: 1fr 1fr;
-    gap: 4pt 7mm;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4pt 5mm;
   }
 
   .tips li {
-    padding-left: 6pt;
+    padding-left: 5pt;
+    font-size: 8.75pt;
     line-height: 1.45;
   }
 
   /* 2. Link and QR. */
   .linkcard {
     max-width: none;
-    grid-template-columns: 30mm minmax(0, 1fr);
+    grid-template-columns: 27mm minmax(0, 1fr);
     gap: 7mm;
     margin-top: 4pt;
     padding: 3mm 4mm;
@@ -1855,7 +1868,7 @@ main {
   }
 
   .qr {
-    max-width: 30mm;
+    max-width: 27mm;
   }
 
   .qr figcaption {
@@ -2024,6 +2037,10 @@ main {
   .reveal {
     max-width: none;
     margin: 0;
+  }
+
+  .reveal:not(.is-open) {
+    display: none !important;
   }
 
   .lastlines {

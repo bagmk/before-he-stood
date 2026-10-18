@@ -22,9 +22,10 @@
   function verse(key) {
     return { type: "verse", key: key };
   }
-  function scene(bg, pov, ko, en) {
+  function scene(bg, pov, ko, en, time) {
     var b = { type: "scene", bg: bg, pov: pov };
     if (ko) b.caption = t(ko, en);
+    if (time) b.time = time;
     return b;
   }
   function fx(name, params) {
@@ -439,7 +440,7 @@
       // Lens 1: who is he?
       "1": {
         beats: [
-          scene("asher_home", "normal", "밤 · 아셀의 집", "Night · Asher's house"),
+          scene("asher_home", "normal", "밤 · 아셀의 집", "Night · Asher's house", "night"),
           thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who got me walking said what only God can say."),
           when(
             { choice: "c6", is: "d" },
@@ -456,7 +457,7 @@
       // Lens 2: why these words first?
       "2": {
         beats: [
-          scene("asher_home", "normal", "저녁 · 아셀의 집", "Evening · Asher's house"),
+          scene("asher_home", "normal", "저녁 · 아셀의 집", "Evening · Asher's house", "evening"),
           line("아셀은 ‘걸었다’로 이야기를 시작하지 않는다.", "Asher doesn't start the story with “I walked.”"),
           line("누워 있던 자기에게, 그분이 먼저 말을 거신 순간부터 시작한다.", "He starts from the moment Jesus spoke to him first, while he was still lying on his bed."),
           // The c3 memory returns; variant when he resolved this morning to speak first.
