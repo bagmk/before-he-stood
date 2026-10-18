@@ -6,7 +6,8 @@
    Each option does exactly one thing: continues (default), ends in a cut branch (bad: id), or is
    scolded away by Hanan (scold: { speaker, text }) and the same choice is asked again.
    Jesus speaks only through verse beats. Menahem says nothing aloud at the crowd on the true path.
-   Scribe POV: Jesus is "예수라는 사람" / "그 사람" / "저 사람" / "그" with no honorifics. */
+   Scribe POV: Jesus is "this Jesus" / "that man" / "he" in both languages, never with Korean
+   honorific verb endings (SPEC 3.4, 6.1). */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
   BHS.routes = BHS.routes || {};
@@ -33,7 +34,7 @@
             id: "a",
             // The flag drives the highlight of the Ps 103:3 echo at the first words.
             set: { dawn: "lord" },
-            text: { ko: "“고치시는 분은 주님이시다. 가서 보자.”", en: "“Healing is the Lord's work. Let's go see.”" }
+            text: { ko: "“병은 주님이 고치신다. 직접 가서 보자.”", en: "“Healing is the Lord's work. Let's go and see.”" }
           },
           {
             id: "b",
@@ -70,7 +71,7 @@
             text: { ko: "“그러게. 다 이유가 있겠지.”", en: "“Right. There's always a reason.”" },
             scold: {
               speaker: "hanan",
-              text: { ko: "선생님, 그건 좀… 욥의 친구들도 그렇게 말했다가 혼났잖아요.", en: "Teacher, that's a bit… Job's friends said the same thing, and God told them off." }
+              text: { ko: "선생님, 그건 좀… 욥의 친구들도 그렇게 말했다가 혼났잖아요.", en: "Teacher, um… Job's friends said the same thing, and God told them off." }
             }
           },
           {
@@ -86,7 +87,7 @@
       { id: "crowd", type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가", en: "Around noon · By the shore" } },
       { type: "fx", fx: "light", level: "soft" },
       // One screen either way: a small callback to c2.
-      { when: { choice: "c2", is: "a" }, type: "line", text: { ko: "므나헴은 맨 앞, 서기관 몇 사람 틈에 선다. 골목에서 기도해 준 그 사람이 침상째 들어온다.", en: "Menahem stands at the very front with a few other scribes. The man he prayed for in the lane is carried in on his bed." } },
+      { when: { choice: "c2", is: "a" }, type: "line", text: { ko: "므나헴은 맨 앞, 서기관 몇 사람 틈에 선다. 골목에서 기도해 준 그 사람이 침상째 실려 들어온다.", en: "Menahem stands at the very front with a few other scribes. The man he prayed for in the lane is carried in on his bed." } },
       { when: { not: { choice: "c2", is: "a" } }, type: "line", text: { ko: "서두른 보람이 있다. 므나헴은 맨 앞줄, 서기관 몇 사람 틈에 선다. 곧 골목의 그 침상이 들어온다.", en: "Hurrying paid off. Menahem gets the front row, with a few other scribes. Soon the bed from the lane comes through." } },
       { type: "verse", key: "MT_9_2A" },
 
@@ -114,21 +115,21 @@
           {
             id: "a",
             bad: "guardhouse",
-            text: { ko: "“신성모독이다!” 외치며 앞으로 나간다.", en: "Shout “Blasphemy!” and push to the front." }
+            text: { ko: "“신성모독이다!” 외치며 앞으로 나간다.", en: "Shout “Blasphemy!” and push forward." }
           },
           {
             id: "b",
-            text: { ko: "기록장에 ‘신성모독’이라고 크게 쓴다.", en: "Write ‘BLASPHEMY’ in his notes in huge letters." },
+            text: { ko: "기록장에 ‘신성모독’이라고 크게 쓴다.", en: "Write ‘BLASPHEMY’ in his notes, in huge letters." },
             scold: {
               speaker: "hanan",
-              text: { ko: "선생님, 그건 좀… 그렇게 크게 쓰시면 소리치시는 거랑 똑같아요.", en: "Teacher, that's a bit… Writing it that big is basically shouting." }
+              text: { ko: "선생님, 그건 좀… 그렇게 크게 쓰시면 소리치시는 거랑 똑같아요.", en: "Teacher, um… writing it that big is basically shouting." }
             }
           },
           {
             id: "c",
             // A sincere reason, not a quit button: staying would feel like taking part in blasphemy.
             bad: "leftEarly",
-            text: { ko: "신성모독은 못 듣는다. 자리를 뜬다.", en: "I won't listen to blasphemy. Walk out." }
+            text: { ko: "신성모독은 못 들어 준다. 자리를 뜬다.", en: "I won't stand for blasphemy. Walk out." }
           },
           {
             id: "d",
@@ -200,7 +201,7 @@
             text: { ko: "못 본 걸로 한다.", en: "Pretend it never happened." },
             scold: {
               speaker: "hanan",
-              text: { ko: "선생님, 그건 좀… 저 사람 지금 침상 들고 바로 앞을 지나가는데요.", en: "Teacher, that's a bit… He's walking right past us. With his bed." }
+              text: { ko: "선생님, 그건 좀… 저 사람 지금 침상 들고 바로 앞을 지나가는데요.", en: "Teacher, um… he's walking right past us. With his bed." }
             }
           }
         ]
@@ -216,11 +217,11 @@
           // The light leaves with the moment, after the memory verse card.
           { type: "fx", fx: "light", level: "off" },
           // One screen, varied by where his eyes went at c5. "He" here is always Jesus.
-          { when: { choice: "c5", is: "a" }, type: "line", speaker: "thought", text: { ko: "그는 그 권한으로 아무도 벌하지 않았다. 한 사람을 집으로 보냈다.", en: "He didn't use that authority to punish anyone. He sent a man home." } },
+          { when: { choice: "c5", is: "a" }, type: "line", speaker: "thought", text: { ko: "그 권한으로 아무도 벌하지 않았다. 그저 한 사람을 집으로 돌려보냈다.", en: "He didn't use that authority to punish anyone. He just sent a man home." } },
           { when: { choice: "c5", is: "b" }, type: "line", speaker: "thought", text: { ko: "죄를 사하는 건 하나님의 일이다. 그런데 그 일을 저 사람이 했다.", en: "Forgiving sins is God's work. And that man just did it." } },
           { when: { choice: "c5", is: "c" }, type: "line", text: { ko: "무리 속에서 므나헴의 입술도 소리 없이 움직인다. 하나님께 영광을.", en: "In the crowd, Menahem's lips move too, without a sound. Glory to God." } }
         ],
-        last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 하나다. 저 사람은 누구인가.", en: "You were right about God. One question is left: who is this man?" }
+        last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 하나다. 저 사람은 누구인가.", en: "You were right about God. That leaves one question: who is this man?" }
       },
 
       // Cut branches: the story stops here (snip card, Try again). The event itself never changes.
@@ -233,7 +234,7 @@
             { type: "line", text: { ko: "해가 높이 떴다. 바닷가 쪽에서 큰 함성이 들린다. 므나헴은 고개도 들지 않는다.", en: "The sun is high now. A huge shout rises from the shore. Menahem doesn't even look up." } },
             { type: "line", speaker: "hanan", text: { ko: "선생님! 걷지 못하던 사람이 자기 침상을 들고 걸어서 집에 갔대요!", en: "Teacher! They say a man who couldn't walk just carried his own bed home!" } }
           ],
-          last: { ko: "그날 므나헴은 ‘고치시며’라는 글자를 백 번은 확인했다. 정작 그 일은 바닷가에서 일어났다.", en: "That day, Menahem checked the word ‘heals’ a hundred times. The actual healing happened down at the shore." }
+          last: { ko: "그날 므나헴은 ‘고치시며’라는 단어를 백 번은 확인했다. 정작 병이 나은 건 바닷가에서였다.", en: "That day, Menahem checked the word ‘heals’ a hundred times. The healing happened down at the shore." }
         },
 
         // c3 a: he shouts; a Roman soldier keeps the peace (the centurion of Matt 8:5-13 lives here).
@@ -245,10 +246,10 @@
             { type: "fx", fx: "light", level: "off" },
             { type: "scene", bg: "black", caption: { ko: "밤 · 로마 경비대", en: "Night · The Roman guardhouse" } },
             { type: "line", text: { ko: "므나헴은 밤새 레위기를 처음부터 설명한다. 군인은 하품을 참다가, 결국 포기한다.", en: "All night, Menahem explains Leviticus from the very beginning. The soldier fights a yawn, then gives up." } },
-            { type: "line", text: { ko: "새벽녘, 군인이 하품하며 말한다. “아까 그 침상 사람, 걸어서 집에 갔대요. 우리 백부장님은 놀라지도 않으시던데요.”", en: "Near dawn, the soldier yawns and says, “That man on the bed? Walked home, I heard. My centurion wasn't even surprised.”" } }
+            { type: "line", text: { ko: "새벽녘, 군인이 하품하며 말한다. “어제 그 침상 사람, 걸어서 집에 갔대요. 우리 백부장님은 놀라지도 않으시던데요.”", en: "Near dawn, the soldier yawns and says, “The man on the bed yesterday? Walked home, I heard. My centurion wasn't even surprised.”" } }
           ],
-          // Matt 8:8: the centurion trusted that one word from Jesus was enough.
-          last: { ko: "그 백부장은 진작부터 알고 있었다. 그 사람은 말 한마디면 된다는 걸.", en: "That centurion had known it for a while: one word from that man is enough." }
+          // Matt 8:5-13: the centurion trusted that one word from Jesus was enough to heal his servant.
+          last: { ko: "그 백부장은 자기 하인 일로 벌써 알고 있었다. 예수라는 그 사람은 말 한마디면 된다는 걸.", en: "That centurion already knew, from his own servant: one word from this Jesus is enough." }
         },
 
         // c3 c: he leaves after the first words and sees only the result.
@@ -274,7 +275,7 @@
             { type: "line", text: { ko: "므나헴은 밤새 반박문을 쓴다. 열 장, 스무 장, 마흔 장.", en: "Menahem writes all night. Ten pages. Twenty. Forty." } },
             { type: "line", speaker: "hanan", text: { ko: "선생님, 침상에 누워 있던 그 사람이요, 일어나서 침상 들고 집에 갔어요!", en: "Teacher, the man on the bed—he got up, picked up his bed, and walked home!" } }
           ],
-          last: { ko: "반박문은 마흔 장이었다. 침상의 그 사람이 어떻게 일어났는지는 한 줄도 없었다.", en: "The rebuttal ran forty pages. Not one line on how the man on the bed got up." }
+          last: { ko: "반박문은 마흔 장이나 됐다. 그 사람이 어떻게 일어났는지는 한 줄도 없었다.", en: "The rebuttal ran forty pages. Not one line on how the man on the bed got up." }
         }
       }
     }

@@ -1,4 +1,4 @@
-/* Shared narrative: prologue, route select, mismatch line. Owner: lead. */
+/* Shared narrative: prologue, route select. Owner: lead. */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
 
@@ -36,12 +36,6 @@
       prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" },
       // The scribe's unspoken thought (route 1) is answered in routes 2 and 3; Asher standing up comes last.
       hint: { ko: "추천 순서: 서기관 → 친구 → 아셀", en: "Suggested order: scribe → friend → Asher" }
-    },
-
-    // Shown before the ending when the ending lens differs from the lens of the last (double-weight) pick.
-    mismatchLine: {
-      ko: "끝에서는 한쪽으로 기울었다. 그런데 오늘 내내 네 눈이 머문 곳은 따로 있었다.",
-      en: "At the end, you leaned one way. But all day, your eyes kept going somewhere else."
     }
   };
 })();

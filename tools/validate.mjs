@@ -1,14 +1,20 @@
 #!/usr/bin/env node
 /*
- * tools/validate.mjs - data validator for "Before He Stood" (SPEC version 3: short routes).
+ * tools/validate.mjs - data validator for "Before He Stood" (SPEC version 4: story mode).
  * Owner: engine + tools agent. Node 22+, no npm dependencies.
  *
- * Route rules checked (SPEC 4.5, 5.1, 8): exactly 4 choices c1-c4, the last counts double; lens balance;
- * cut options (scribe and friend: exactly one, in c2 or c3, lens null, endings.cut required; asher: none);
- * all 4^4 = 256 paths enumerated for the ending shares (cut <= 25%, each lens 20-50% of the non-cut paths),
- * the screen budget (<= 32 screens on every path), the crowd order (every non-cut path), the passerby
- * line, ending lengths and reading time; the engine (js/engine.js) is cross-checked against the
- * reference scoring and, step by step, against the reference simulation on every path.
+ * Route rules checked (SPEC 4.5, 4.6, 8): choices c1..cN in order with 2-4 options each (ids a-d in
+ * order); exactly one outcome per option (continue, `bad: "<id>"` or `scold: { speaker?, text }`);
+ * every choice keeps a continue option, so the scolds never leave a dead end; bad ids exist and every
+ * cut branch is reachable; one true ending (endings.good: title, memory verse, beats, last) and the
+ * cut branches (endings.bad); the counts the story shape asks for (5-6 choices, 3-4 cut branches,
+ * 2-3 scolds, at least one 2-option and two 4-option choices; WARN outside). Every true path (each
+ * combination of continue options, `when` variants included) and every cut path (each cutting option
+ * after every continue prefix) is simulated: screens (true path WARN > 28, ERROR > 30; cut path ERROR
+ * > 20), the crowd order of SPEC 6.4 on every true path, the passerby line (SPEC 6.3), reading time per
+ * route and per cut branch. Story strings carry no ASCII digits (no numbers on screen). The engine
+ * (js/engine.js) is cross-checked step by step on every path, with and without the scolds, including
+ * "Try again" (retry) after every cut branch.
  *
  * Usage:
  *   node tools/validate.mjs [--route scribe|friend|asher] [--json] [--partial]
@@ -37,23 +43,21 @@ export const DEFAULT_ROOT = path.resolve(HERE, '..');
 
 export const ROUTE_IDS = ['scribe', 'friend', 'asher'];
 export const OPTION_IDS = ['a', 'b', 'c', 'd'];
-// SPEC 4.5 (version 3): exactly four choices, c1-c4; the last one (c4) counts double.
-export const CHOICE_COUNT = 4;
-export const CHOICE_IDS = Array.from({ length: CHOICE_COUNT }, (_, i) => 'c' + (i + 1));
-export const LAST_CHOICE = CHOICE_IDS[CHOICE_COUNT - 1];
-export const PATH_COUNT = 4 ** CHOICE_COUNT;
-const LENSES = [1, 2, 3];
-// Cut endings (SPEC 4.5): these routes have exactly one cut option, in one of CUT_CHOICES; the others none.
-export const CUT_ROUTES = ['scribe', 'friend'];
-const CUT_CHOICES = ['c2', 'c3'];
-// Budgets (SPEC 3.3 / 8). Screens: ERROR above 32 on any path; WARN when a path exceeds 31 (31 is
-// expected on a path that shows the mismatch line) or when the median non-cut path exceeds 30.
-// Ending shares over the 256 paths: cut <= 25%; each lens 20-50% of the non-cut paths (WARN outside),
-// 15-55% (ERROR outside).
-const SCREENS = { max: 32, warn: 31, medianMax: 30, target: [24, 30] };
-const SHARE = { cutMax: 0.25, warn: [0.20, 0.50], error: [0.15, 0.55] };
-// Ending lengths in screens (SPEC 4.5): lens endings 1-3 beats, cut endings 2-4 beats, each plus the last line.
-const ENDING_BEATS = { lens: [1, 3], cut: [2, 4] };
+// Story shape (SPEC 4.5 / 8, version 4). Outside these counts: WARN (writer guidance), except options.
+const SHAPE = { choices: [5, 6], options: [2, 4], bad: [3, 4], scolds: [2, 3], twoOption: 1, fourOption: 2 };
+// Screens = line + verse + choice + press + the memory-verse card (the true ending's title card and
+// the snip card are not screens). True path: WARN above 28, ERROR above 30; cut path: ERROR above 20.
+const SCREENS = { trueWarn: 28, trueMax: 30, trueTarget: [24, 28], cutMax: 20 };
+// Ending lengths in screens before the last line: the true ending 1-3 beats, a cut branch 2-3.
+const ENDING_BEATS = { good: [1, 3], bad: [2, 3] };
+// The memory verse of each route (SPEC 4.6).
+const MEMORY_VERSE = { scribe: 'MT_9_6A', friend: 'MT_9_2A', asher: 'MT_9_2B' };
+// A cut branch's title labels its branch in the story tree: short and funny (2-8 Korean characters).
+const BAD_TITLE_KO = [2, 8];
+// Option voice (SPEC 4.5): aim at 24 Korean / 48 English characters (INFO above; SPEC 3.3 limits apply).
+const OPTION_AIM = { ko: 24, en: 48 };
+// Paths simulated per route at most (the story shape keeps it far below).
+const PATH_LIMIT = 4000;
 const BEAT_TYPES = ['scene', 'line', 'verse', 'choice', 'fx', 'press'];
 const PSEUDO_SPEAKERS = ['narrator', 'thought', 'sign'];
 const VERSE_SPEAKERS = ['jesus', 'scribes', 'narrator'];
@@ -105,7 +109,7 @@ const BEAT_KEYS = {
   fx: ['type', 'fx', 'when', 'id'],
   press: ['type', 'action', 'label', 'hint', 'when', 'id']
 };
-const OPTION_KEYS = ['id', 'text', 'lens', 'set', 'reaction', 'cut'];
+const OPTION_KEYS = ['id', 'text', 'set', 'reaction', 'bad', 'scold'];
 const ROUTE_KEYS = ['id', 'actions', 'beats', 'endingPreface', 'endings', 'endingCoda'];
 
 // The fixed crowd sequence (SPEC 6.4). Each key maps to an event group; sub-order is checked separately.
@@ -156,6 +160,12 @@ const OTHER_PEOPLE = /아셀|요나|므나헴|하난|어머니|동생|\bAsher\b|
 const MARK_LABEL = /MK_\d|마가|\bMark\b/;
 const QUOTE_BEFORE = /["“'‘「『]$/;
 const QUOTE_AFTER = /^["”'’」』]/;
+// How the protagonist's voice names Jesus (SPEC 6.1). Scribe POV: "yesu-raneun saram", "geu saram",
+// "geu" (no honorific "geubun" or "yesunim"). Friend and Asher POV: "geubun" (never "yesu-raneun saram").
+const HONOR_KO = /그분|예수님/;
+const PLAIN_KO = /예수라는\s?사람/;
+// ASCII digits in our own story strings (no numbers on screen, SPEC 4.5); tokens are stripped first.
+const DIGITS = /[0-9]/;
 
 // ---------------------------------------------------------------------------------------------
 // Small helpers
@@ -531,7 +541,7 @@ export function loadProject(root, rep, opts = {}) {
   const engSrc = readRel(engRel);
   if (engSrc == null) {
     status.push({ rel: engRel, status: 'MISSING' });
-    rep.info('engine', engRel, 'not present yet; computeLens cross-check skipped');
+    rep.info('engine', engRel, 'not present yet; engine cross-check skipped');
   } else {
     const err = run(engRel, engSrc);
     status.push({ rel: engRel, status: err ? 'LOAD ERROR' : 'OK', bytes: Buffer.byteLength(engSrc) });
@@ -552,140 +562,126 @@ export function loadProject(root, rep, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Lens scoring (SPEC 5.1) - the reference implementation shared with tools/playtest.mjs
+// Story structure (SPEC 4.5, version 4) - the reference shared with tools/playtest.mjs
 
-function choiceNum(id) {
-  const m = /^c(\d+)$/.exec(String(id));
-  return m ? Number(m[1]) : -1;
+// The outcome of an option: "continue" (default), "bad" (cuts the story) or "scold" (removed, asked again).
+export function optionOutcome(o) {
+  if (!isObj(o)) return 'continue';
+  if (typeof o.bad === 'string' && o.bad) return 'bad';
+  if (isObj(o.scold)) return 'scold';
+  return 'continue';
 }
 
-// The double-weight choice: the highest cN among the route's choice beats.
-export function lastChoiceOf(route) {
-  let best = null;
-  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
-    if (!isObj(b) || b.type !== 'choice') continue;
-    if (best === null || choiceNum(b.id) > choiceNum(best)) best = b.id;
-  }
-  return best;
-}
-
-export function isCutOption(o) { return isObj(o) && o.cut === true; }
-
-export function lensTable(route) {
-  // Returns { table, cuts, ok }: table[i][j] = lens of option j at choice c(i+1) (null if none),
-  // cuts[i][j] = true when that option ends the route early (cut: true).
-  const byId = {};
-  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
-    if (isObj(b) && b.type === 'choice' && typeof b.id === 'string' && !byId[b.id]) byId[b.id] = b;
-  }
-  let ok = true;
-  const cuts = [];
-  const table = CHOICE_IDS.map((cid) => {
-    const b = byId[cid];
-    const row = [];
-    const cutRow = [];
-    if (!b || !Array.isArray(b.options)) { ok = false; cuts.push([false, false, false, false]); return [null, null, null, null]; }
-    for (const oid of OPTION_IDS) {
-      const o = b.options.find((x) => isObj(x) && x.id === oid);
-      if (!o) ok = false;
-      row.push(o && LENSES.includes(o.lens) ? o.lens : null);
-      cutRow.push(isCutOption(o));
-    }
-    cuts.push(cutRow);
-    return row;
-  });
-  if (Object.keys(byId).length !== CHOICE_COUNT) ok = false;
-  return { table, cuts, ok };
-}
-
-// Reference for BHS.engine.computeLens: each pick adds its weight (1; 2 for the last choice) to its
-// lens; highest score wins; a tie goes to the last choice's lens if it is tied, else the smallest lens.
-// A picked cut option gives the cut outcome: no lens, no mismatch.
-export function computeLensFor(route, choices) {
-  const scores = { 1: 0, 2: 0, 3: 0 };
-  const lastId = lastChoiceOf(route);
-  let lastLens = null;
-  let cut = false;
+// The route's choice beats in beat order (the first of a duplicated id only).
+export function choicesOf(route) {
+  const out = [];
   const seen = new Set();
   for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
     if (!isObj(b) || b.type !== 'choice' || seen.has(b.id)) continue;
     seen.add(b.id);
-    const pick = choices ? choices[b.id] : undefined;
-    const o = Array.isArray(b.options) ? b.options.find((x) => isObj(x) && x.id === pick) : null;
-    if (!o) continue;
-    if (isCutOption(o)) cut = true;
-    const lens = LENSES.includes(o.lens) ? o.lens : null;
-    if (b.id === lastId) lastLens = lens;
-    if (lens) scores[lens] += b.id === lastId ? 2 : 1;
+    out.push(b);
   }
-  if (cut) return { lens: null, scores, lastLens: null, c10Lens: null, mismatch: false, cut: true };
-  const max = Math.max(scores[1], scores[2], scores[3]);
-  const tied = LENSES.filter((l) => scores[l] === max);
-  const lens = lastLens && tied.includes(lastLens) ? lastLens : tied[0];
-  return { lens, scores, lastLens, c10Lens: lastLens, mismatch: lastLens !== null && lens !== lastLens, cut: false };
+  return out;
 }
 
-function lensFromTable(table, cuts, picks) {
-  const L = table.length - 1;
-  let cut = false;
-  let s1 = 0;
-  let s2 = 0;
-  let s3 = 0;
-  for (let c = 0; c <= L; c++) {
-    if (cuts && cuts[c][picks[c]]) cut = true;
-    const l = table[c][picks[c]];
-    const w = c === L ? 2 : 1;
-    if (l === 1) s1 += w; else if (l === 2) s2 += w; else if (l === 3) s3 += w;
-  }
-  if (cut) return { lens: null, last: null, tie: false, cut: true };
-  const last = table[L][picks[L]];
-  const max = Math.max(s1, s2, s3);
-  const tied = [];
-  if (s1 === max) tied.push(1);
-  if (s2 === max) tied.push(2);
-  if (s3 === max) tied.push(3);
-  const lens = last && tied.includes(last) ? last : tied[0];
-  return { lens, last, tie: tied.length > 1, cut: false };
+function optionsOf(b) { return (b && Array.isArray(b.options) ? b.options : []).filter(isObj); }
+function continueIds(b) { return optionsOf(b).filter((o) => optionOutcome(o) === 'continue').map((o) => o.id); }
+
+export function goodEnding(route) {
+  const e = route && isObj(route.endings) ? route.endings.good : null;
+  return isObj(e) ? e : null;
 }
 
-// Every combination of picks (4^4 = 256). A path that picks a cut option counts as a cut path even if
-// later picks exist in the combination (they are never asked in play).
-export function* allPicks(n = CHOICE_COUNT) {
-  const picks = new Array(n).fill(0);
-  const N = 4 ** n;
-  for (let k = 0; k < N; k++) {
-    let m = k;
-    for (let c = 0; c < n; c++) { picks[c] = m & 3; m >>= 2; }
-    yield picks;
-  }
+export function badEnding(route, id) {
+  const bad = route && isObj(route.endings) && isObj(route.endings.bad) ? route.endings.bad : null;
+  return bad && Object.prototype.hasOwnProperty.call(bad, id) && isObj(bad[id]) ? bad[id] : null;
 }
 
-export function picksToChoices(picks) {
-  return Object.fromEntries(CHOICE_IDS.map((c, i) => [c, OPTION_IDS[picks[i]]]));
+// A path label: the option picked at each choice in order, "-" where the choice is never asked.
+export function pathLabel(route, picks) {
+  return choicesOf(route).map((b) => (picks && picks[b.id]) || '-').join('');
 }
 
-export function enumerateEndings(table, cuts) {
-  const res = { total: 0, counts: { 1: 0, 2: 0, 3: 0 }, cut: 0, mismatch: 0, ties: 0, byLast: [0, 1, 2, 3].map(() => ({ 1: 0, 2: 0, 3: 0, cut: 0, n: 0 })) };
-  const L = table.length - 1;
-  for (const picks of allPicks(table.length)) {
-    const r = lensFromTable(table, cuts, picks);
-    res.total++;
-    const bl = res.byLast[picks[L]];
-    bl.n++;
-    if (r.cut) { res.cut++; bl.cut++; continue; }
-    res.counts[r.lens]++;
-    bl[r.lens]++;
-    if (r.last && r.lens !== r.last) res.mismatch++;
-    if (r.tie) res.ties++;
+// Every true path: each combination of continue options (a choice without one leaves no true path).
+export function truePaths(route, limit = PATH_LIMIT) {
+  const ch = choicesOf(route);
+  const cont = ch.map(continueIds);
+  const out = [];
+  const walk = (k, acc) => {
+    if (out.length >= limit) return;
+    if (k === ch.length) { out.push(Object.assign({}, acc)); return; }
+    for (const id of cont[k]) {
+      acc[ch[k].id] = id;
+      walk(k + 1, acc);
+    }
+    delete acc[ch[k].id];
+  };
+  walk(0, {});
+  return out;
+}
+
+// Every cut path: each option with `bad` at choice k, after every combination of continue options before k.
+export function cutPaths(route, limit = PATH_LIMIT) {
+  const ch = choicesOf(route);
+  const cont = ch.map(continueIds);
+  const out = [];
+  ch.forEach((b, k) => {
+    const bads = optionsOf(b).filter((o) => optionOutcome(o) === 'bad');
+    if (!bads.length) return;
+    const prefixes = [];
+    const walk = (j, acc) => {
+      if (prefixes.length >= limit) return;
+      if (j === k) { prefixes.push(Object.assign({}, acc)); return; }
+      for (const id of cont[j]) {
+        acc[ch[j].id] = id;
+        walk(j + 1, acc);
+      }
+      delete acc[ch[j].id];
+    };
+    walk(0, {});
+    for (const p of prefixes) {
+      for (const o of bads) {
+        if (out.length >= limit) return;
+        out.push({ picks: Object.assign({}, p, { [b.id]: o.id }), choice: b.id, option: o.id, bad: o.bad });
+      }
+    }
+  });
+  return out;
+}
+
+// The option a plan picks at a presented choice (the reference simulation and the engine driver share
+// it): with `scoldFirst`, every scold option still shown, in order; then the planned option when it
+// is shown; otherwise the first shown continue option (or the first shown option).
+export function nextPick(b, shown, plan) {
+  const opts = optionsOf(b).filter((o) => shown.includes(o.id));
+  if (plan && plan.scoldFirst) {
+    const s = opts.find((o) => optionOutcome(o) === 'scold');
+    if (s) return s.id;
   }
-  return res;
+  const want = plan && plan.picks ? plan.picks[b.id] : undefined;
+  if (want && shown.includes(want)) return want;
+  const c = opts.find((o) => optionOutcome(o) === 'continue');
+  return c ? c.id : opts.length ? opts[0].id : null;
+}
+
+export function scoldLine(b, o) {
+  return { type: 'line', speaker: (o.scold && o.scold.speaker) || 'narrator', text: o.scold ? o.scold.text : null, id: `scold-${b.id}-${o.id}` };
+}
+
+// The cut branches of the story tree: each bad id at the first choice that leads to it.
+export function treeLevels(route) {
+  const placed = new Set();
+  return choicesOf(route).map((b) => ({
+    id: b.id,
+    branches: optionsOf(b).filter((o) => optionOutcome(o) === 'bad' && !placed.has(o.bad) && placed.add(o.bad)).map((o) => o.bad)
+  }));
 }
 
 // ---------------------------------------------------------------------------------------------
 // Conditions
 
 // An unset value (undefined/null) matches `false`, so {flag:"far", is:false} is true before "far" is set.
-// This mirrors js/engine.js (looseEq); SPEC 4.5 is silent on it.
+// This mirrors js/engine.js (looseEq).
 function condEq(v, x) {
   if (v === undefined) v = null;
   if (x === false && v === null) return true;
@@ -693,10 +689,16 @@ function condEq(v, x) {
   return v === x;
 }
 export function evalCond(c, st) {
+  if (Array.isArray(c)) return c.every((x) => evalCond(x, st));
   if (!isObj(c)) return false;
+  if ('all' in c) return Array.isArray(c.all) && c.all.every((x) => evalCond(x, st));
+  if ('any' in c) return Array.isArray(c.any) && c.any.some((x) => evalCond(x, st));
+  if ('not' in c) return !evalCond(c.not, st);
   if ('choice' in c || 'flag' in c) {
     const v = 'choice' in c ? (st.choices ? st.choices[c.choice] : undefined) : (st.flags ? st.flags[c.flag] : undefined);
-    return 'in' in c ? Array.isArray(c.in) && c.in.some((x) => condEq(v, x)) : condEq(v, c.is);
+    if ('is' in c) return condEq(v, c.is);
+    if ('in' in c) return Array.isArray(c.in) && c.in.some((x) => condEq(v, x));
+    return v !== undefined && v !== null && v !== false;
   }
   if ('var' in c) {
     const n = Number((st.vars || {})[c.var] || 0);
@@ -707,11 +709,6 @@ export function evalCond(c, st) {
     if ('lt' in c) return n < Number(c.lt);
     return n !== 0;
   }
-  if ('lastLens' in c) return (st.lastLens != null ? st.lastLens : st.c10Lens != null ? st.c10Lens : null) === c.lastLens;
-  if ('c10lens' in c) return (st.lastLens != null ? st.lastLens : st.c10Lens != null ? st.c10Lens : null) === c.c10lens;
-  if ('all' in c) return Array.isArray(c.all) && c.all.every((x) => evalCond(x, st));
-  if ('any' in c) return Array.isArray(c.any) && c.any.some((x) => evalCond(x, st));
-  if ('not' in c) return !evalCond(c.not, st);
   return false;
 }
 
@@ -725,9 +722,10 @@ function checkCond(cond, cx, w) {
   if ('choice' in cond) {
     const ex = extra(['choice', 'is', 'in']);
     if (ex.length) rep.error('cond', w, `unknown key(s) in choice condition: ${ex.join(', ')}`);
-    if (!CHOICE_IDS.includes(cond.choice)) rep.error('cond', w, `unknown choice id "${cond.choice}" (choices are ${CHOICE_IDS.join(', ')})`);
+    const known = cx.choiceIds || new Set();
+    if (!known.has(cond.choice)) rep.error('cond', w, `unknown choice id "${cond.choice}" (choices are ${[...known].join(', ') || 'none'})`);
     else if (!cx.seen.has(cond.choice)) {
-      if (cx.inCutEnding) rep.error('cond', w, `references ${cond.choice}, which is never asked on a cut path (endings.cut follows the cut at ${cx.cutChoice})`);
+      if (cx.inBadEnding) rep.error('cond', w, `references ${cond.choice}, which is never asked before this cut branch (it starts at ${cx.badFrom})`);
       else rep.error('cond', w, `references ${cond.choice}, which does not appear earlier in the beat order`);
     }
     if ('is' in cond && 'in' in cond) rep.error('cond', w, 'use either "is" or "in", not both');
@@ -756,7 +754,7 @@ function checkCond(cond, cx, w) {
     else {
       for (const v of vals) {
         if (!isPrimitive(v)) rep.error('cond', w, `flag value must be a string, number or boolean, got ${JSON.stringify(v)}`);
-        // An unset flag counts as false (confirmed by the lead), so {flag, is:false} needs no report.
+        // An unset flag counts as false, so {flag, is:false} needs no report.
         else if (v === false) continue;
         else if (avail && !avail.has(v)) rep.warn('cond', w, `flag "${f}" is never set to ${JSON.stringify(v)} (set values: ${[...avail].map((x) => JSON.stringify(x)).join(', ')})`);
       }
@@ -771,14 +769,7 @@ function checkCond(cond, cx, w) {
     return;
   }
   for (const k of ['lastLens', 'c10lens']) {
-    if (!(k in cond)) continue;
-    const ex = extra([k]);
-    if (ex.length) rep.error('cond', w, `unknown key(s) in ${k} condition: ${ex.join(', ')}`);
-    if (!LENSES.includes(cond[k])) rep.error('cond', w, `${k} must be 1, 2 or 3, got ${JSON.stringify(cond[k])}`);
-    if (!cx.allowLast) rep.error('cond', w, `${k} may only be used inside endings, endingPreface or endingCoda`);
-    else if (cx.inCutEnding) rep.warn('cond', w, `${k} is never true inside endings.cut (a cut path has no last choice)`);
-    if (k === 'c10lens') rep.info('cond', w, 'c10lens is the old name of lastLens (the lens of the last, double-weight choice)');
-    return;
+    if (k in cond) { rep.error('cond', w, `${k} is a lens condition of the earlier releases; version 4 has no lenses (SPEC 4.5)`); return; }
   }
   for (const k of ['all', 'any']) {
     if (k in cond) {
@@ -917,7 +908,7 @@ function checkT(t, cx, w, o = {}) {
       if (re.test(t[lang])) rep.error('names', w, `forbidden name variant "${re.source.replace(/\\b/g, '')}" in ${lang}: "${snip(t[lang])}"`);
     }
   }
-  if (o.story) storyChecks(t, cx, w);
+  if (o.story) storyChecks(t, cx, w, o);
   cx.allTexts.push({ t, w, story: !!o.story, speaker: o.speaker || null, egg: !!cx.egg, bg: cx.bgNow ? cx.bgNow() : null });
   return true;
 }
@@ -955,7 +946,7 @@ function checkTokens(s, lang, cx, w) {
   }
 }
 
-function storyChecks(t, cx, w) {
+function storyChecks(t, cx, w, o = {}) {
   const rep = cx.rep;
   if (MECH_KO.test(stripTokens(t.ko))) rep.warn('guard', w, `game-mechanics word in story text (ko): "${snip(t.ko)}" (SPEC 3.4/7.3)`);
   if (MECH_EN.test(stripTokens(t.en))) rep.warn('guard', w, `game-mechanics word in story text (en): "${snip(t.en)}" (SPEC 3.4/7.3)`);
@@ -984,6 +975,20 @@ function storyChecks(t, cx, w) {
     else rep.info('quote', w, `shares scripture wording with ${hit.key} (${lang}: "${hit.gram}"); fine as an unquoted paraphrase, otherwise use {{v:KEY}} (SPEC 3.2)`);
   }
   if (cx.rid === 'asher' && /\bMother\b/.test(t.en)) rep.warn('voice', w, `Asher route uses "Mother" (SPEC 3.4: Asher says "Mom"): "${snip(t.en)}"`);
+  // No numbers on screen (SPEC 4.5): our own strings carry no ASCII digits (tokens are stripped first).
+  for (const lang of ['ko', 'en']) {
+    if (DIGITS.test(stripTokens(t[lang]))) rep.error('digits', w, `ASCII digits in story text (${lang}; SPEC 4.5: no numbers on screen): "${snip(t[lang], 50)}"`);
+  }
+  if (/\{\{var:/.test(t.ko + t.en)) rep.warn('digits', w, '{{var:}} shows a number on screen (SPEC 4.5: no numbers)');
+  // How the protagonist's voice names Jesus (SPEC 6.1).
+  const sp = o.speaker || 'narrator';
+  const ko = stripTokens(t.ko);
+  if (cx.rid === 'scribe' && (((sp === 'thought' || sp === 'menahem') && HONOR_KO.test(ko)) || ((sp === 'narrator' || sp === 'sign') && /그분/.test(ko)))) {
+    rep.warn('voice', w, `scribe POV names Jesus with an honorific (SPEC 6.1: 예수라는 사람, 그 사람, 그): "${snip(t.ko)}"`);
+  }
+  if ((cx.rid === 'friend' || cx.rid === 'asher') && ['narrator', 'thought', 'sign', 'yonah', 'asher'].includes(sp) && PLAIN_KO.test(ko)) {
+    rep.warn('voice', w, `${cx.rid} POV says 예수라는 사람 (SPEC 6.1: 그분 with honorific verbs): "${snip(t.ko)}"`);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1065,8 +1070,8 @@ function checkBeat(b, cx, label) {
     case 'scene': {
       if (!cx.canon.bgIds.includes(b.bg)) rep.error('schema', w, `unknown bg ${JSON.stringify(b.bg)} (SPEC 6.6: ${cx.canon.bgIds.join(', ')})`);
       else if (cx.setBg) cx.setBg(b.bg);
-      if (cx.rid && (b.time === 'evening' || b.time === 'night' || ['lamp_night', 'road_home', 'doorway_evening'].includes(b.bg))) {
-        rep.info('scene', w, `evening/epilogue setting (${b.bg}${b.time ? ', ' + b.time : ''}); SPEC 6.2: short routes end at the crowd or one step away`);
+      if (cx.rid && cx.phase === 'main' && !cx.inReaction && (b.time === 'evening' || b.time === 'night' || ['lamp_night', 'road_home', 'doorway_evening'].includes(b.bg))) {
+        rep.info('scene', w, `evening/epilogue setting (${b.bg}${b.time ? ', ' + b.time : ''}); SPEC 6.2: the story runs from dawn to the crowd`);
       }
       if (b.caption !== undefined) checkT(b.caption, cx, `${w} › caption`, { story: cx.story });
       if (b.pov !== undefined && !POV_VALUES.includes(b.pov)) rep.error('schema', w, `pov must be one of ${POV_VALUES.join('|')}`);
@@ -1176,7 +1181,7 @@ function checkFx(b, cx, w) {
           if (isObj(scr) && !e) rep.error('fx', w, `pinThought: unknown scripture key ${m[2]}`);
           else if (e && e.refOnly) rep.error('fx', w, `pinThought uses reference-only key ${m[2]}`);
           if (cx.usage) cx.usage.add(m[2]);
-        } else if (!CHOICE_IDS.includes(m[2])) rep.error('fx', w, `pinThought: unknown choice ${m[2]}`);
+        } else if (!(cx.choiceIds || new Set()).has(m[2])) rep.error('fx', w, `pinThought: unknown choice ${m[2]}`);
         else if (!cx.seen.has(m[2])) rep.error('fx', w, `pinThought references ${m[2]}, which does not appear earlier`);
       }
       break;
@@ -1195,30 +1200,53 @@ function checkFx(b, cx, w) {
 
 function checkChoice(b, cx, w) {
   const rep = cx.rep;
-  if (!CHOICE_IDS.includes(b.id)) rep.error('schema', w, `choice id must be ${CHOICE_IDS[0]}..${LAST_CHOICE}, got ${JSON.stringify(b.id)}`);
-  if (b.when !== undefined) rep.warn('schema', w, `choice beat has a "when" condition; all ${CHOICE_COUNT} choices must be reached on every path that is not cut`);
+  if (typeof b.id !== 'string' || !/^c[1-9][0-9]*$/.test(b.id)) rep.error('schema', w, `choice id must be c1, c2, ... in order, got ${JSON.stringify(b.id)}`);
+  if (b.when !== undefined) rep.warn('schema', w, 'choice beat has a "when" condition; every choice should be asked on every true path');
   checkT(b.prompt, cx, `${w} › prompt`, { kind: 'prompt', story: cx.story });
-  if (!Array.isArray(b.options)) { rep.error('schema', w, 'options must be an array of 4 options'); return; }
-  if (b.options.length !== 4) rep.error('schema', w, `expected 4 options, found ${b.options.length}`);
+  if (!Array.isArray(b.options)) { rep.error('schema', w, 'options must be an array of 2-4 options'); return; }
+  const n = b.options.length;
+  if (n < SHAPE.options[0] || n > SHAPE.options[1]) rep.error('schema', w, `a choice has ${SHAPE.options[0]}-${SHAPE.options[1]} options (SPEC 4.5), found ${n}`);
   const newFlags = new Map();
+  let nContinue = 0;
   b.options.forEach((o, i) => {
     const ow = `${w} › ${b.id}/${isObj(o) && o.id ? o.id : '#' + i}`;
     if (!isObj(o)) { rep.error('schema', ow, 'option must be an object'); return; }
     if (o.id !== OPTION_IDS[i]) rep.error('schema', ow, `option ids must be a, b, c, d in order; position ${i + 1} has ${JSON.stringify(o.id)}`);
     const unknown = Object.keys(o).filter((k) => !OPTION_KEYS.includes(k));
-    if (unknown.length) rep.warn('schema', ow, `unknown key(s) on option: ${unknown.join(', ')}`);
-    if (!('lens' in o)) rep.error('schema', ow, 'option has no lens (use null for no lens)');
-    else if (!(o.lens === null || LENSES.includes(o.lens))) rep.error('schema', ow, `lens must be 1, 2, 3 or null, got ${JSON.stringify(o.lens)}`);
-    if ('cut' in o) {
-      if (o.cut !== true) rep.error('cut', ow, `"cut" must be the boolean true (or left out), got ${JSON.stringify(o.cut)}`);
+    if ('cut' in o) rep.error('outcome', ow, '"cut" is the cut option of the earlier releases; in version 4 use bad: "<id>" with endings.bad[<id>] (SPEC 4.5)');
+    if ('lens' in o) rep.warn('obsolete', ow, '"lens" is ignored in version 4 (no lenses); remove it');
+    const rest = unknown.filter((k) => k !== 'cut' && k !== 'lens');
+    if (rest.length) rep.warn('schema', ow, `unknown key(s) on option: ${rest.join(', ')}`);
+    const hasBad = 'bad' in o;
+    const hasScold = 'scold' in o;
+    if (hasBad && hasScold) rep.error('outcome', ow, 'an option has exactly one outcome: "bad" or "scold" (or neither, to continue), not both');
+    if (hasBad) {
+      if (typeof o.bad !== 'string' || !/^[a-z][A-Za-z0-9]*$/.test(o.bad)) rep.error('outcome', ow, `bad must be a short ascii id such as "typo" or "bigCatch", got ${JSON.stringify(o.bad)}`);
+      else cx.badRefs.push({ choice: b.id, option: o.id, bad: o.bad, w: ow });
+    }
+    if (hasScold) {
+      const sc = o.scold;
+      if (!isObj(sc)) rep.error('outcome', ow, 'scold must be { speaker?, text }');
       else {
-        if (cx.cutOptions) cx.cutOptions.push({ choice: b.id, option: o.id, w: ow });
-        if (o.lens !== null) rep.error('cut', ow, `a cut option must have lens null (SPEC 4.5), got ${JSON.stringify(o.lens)}`);
+        const ex = Object.keys(sc).filter((k) => k !== 'speaker' && k !== 'text');
+        if (ex.length) rep.warn('schema', ow, `unknown key(s) in scold: ${ex.join(', ')}`);
+        const sp = sc.speaker === undefined ? 'narrator' : sc.speaker;
+        if (sp === 'jesus') rep.error('guard', ow, 'a scold spoken by Jesus (Jesus speaks only through verse beats, SPEC 7.1)');
+        else if (sp === 'sign') rep.warn('outcome', ow, 'a scold shown as a centered sign; use a speaker, "thought" or narration');
+        else if (!PSEUDO_SPEAKERS.includes(sp) && !(isObj(cx.data.characters) && cx.data.characters[sp])) rep.error('schema', ow, `unknown scold speaker ${JSON.stringify(sp)}`);
+        if (sc.text === undefined) rep.error('outcome', ow, 'scold needs a text');
+        else checkT(sc.text, cx, `${ow} › scold`, { kind: 'line', story: cx.story, speaker: sp });
+        cx.scolds.push({ choice: b.id, option: o.id, w: ow });
       }
     }
-    const egg = (cx.rid === 'friend' && b.id === 'c7' && o.id === 'd') || MARK_LABEL.test(JSON.stringify([o.text, o.reaction || []]));
+    if (!hasBad && !hasScold) nContinue++;
+    const egg = MARK_LABEL.test(JSON.stringify([o.text, o.reaction || []]));
     const ocx = Object.assign({}, cx, { egg });
     checkT(o.text, ocx, `${ow} › text`, { kind: 'option', story: cx.story });
+    if (isT(o.text)) {
+      const long = ['ko', 'en'].filter((l) => cpLen(renderText(o.text[l], l, cx.data.scripture)) > OPTION_AIM[l]);
+      if (long.length) cx.longOptions.push(`${b.id}/${o.id}`);
+    }
     const optFlags = new Map([...cx.flags].map(([k, v]) => [k, new Set(v)]));
     if (o.set !== undefined) {
       if (!isObj(o.set) || !Object.keys(o.set).length) rep.error('schema', ow, '"set" must be a non-empty object {flag: value}');
@@ -1237,19 +1265,17 @@ function checkChoice(b, cx, w) {
       if (!Array.isArray(o.reaction)) rep.error('schema', ow, 'reaction must be an array of beats');
       else {
         const seen = new Set(cx.seen);
-        if (CHOICE_IDS.includes(b.id)) seen.add(b.id);
+        seen.add(b.id);
         const rcx = Object.assign({}, cx, { seen, flags: optFlags, inReaction: true, egg, path: `${ow} › reaction` });
         o.reaction.forEach((rb, ri) => checkBeat(rb, rcx, `[${ri}]`));
         const plain = o.reaction.filter((rb) => isObj(rb) && (rb.type === 'line' || rb.type === 'verse' || rb.type === 'press') && rb.when === undefined).length;
-        const most = isCutOption(o) ? 2 : 1;
-        if (plain > most) {
-          rep.warn('schema', ow, `reaction has ${plain} unconditional beats (SPEC 4.5: ${isCutOption(o) ? 'a cut option keeps at most two' : 'at most one short reaction beat; two only when a "when" variant needs it'})`);
-        }
+        if (plain > 1) rep.warn('schema', ow, `reaction has ${plain} unconditional beats (SPEC 4.5: 0-1 beat; two only when a "when" variant needs it)`);
       }
     }
   });
+  if (!nContinue) rep.error('outcome', w, `${b.id} has no continue option: after its scolds only cut branches remain (a dead end, SPEC 4.5)`);
   // After the choice: it becomes "earlier" for later beats, and its flags become available.
-  if (CHOICE_IDS.includes(b.id)) cx.seen.add(b.id);
+  cx.seen.add(b.id);
   for (const [f, vals] of newFlags) {
     if (!cx.flags.has(f)) cx.flags.set(f, new Set());
     for (const v of vals) cx.flags.get(f).add(v);
@@ -1259,13 +1285,18 @@ function checkChoice(b, cx, w) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Path simulation (SPEC 4.5 ending order); used for screens, crowd order and passerby coverage.
-// A cut option plays its reaction, then the route's remaining beats are skipped and the cut ending runs:
-// card -> endings.cut beats -> last -> endingCoda (no mismatch line, no endingPreface; light off).
+// Path simulation (SPEC 4.5); used for screens, crowd order, passerby coverage and the engine check.
+// plan = { picks: { cN: optionId }, scoldFirst?: true }. A choice is presented, the plan picks (see
+// nextPick); a scold plays its reaction and its line and the choice is presented again without it; a
+// cut option plays its reaction, then the route's remaining beats are skipped and the cut branch runs:
+// endings.bad[id].beats -> last -> snip card (light off). Otherwise the true ending runs:
+// endingPreface -> title card -> memory verse -> endings.good.beats -> last -> endingCoda.
 
-export function simulate(route, data, choices) {
-  const st = { choices: {}, flags: {}, vars: {}, lastLens: null, c10Lens: null, lens: null };
+export function simulate(route, data, plan = {}) {
+  const st = { choices: {}, flags: {}, vars: {} };
   const out = [];
+  const presentations = {};
+  const removed = {};
   let bg = null;
   let light = 'off';
   let cutAt = null;
@@ -1277,48 +1308,56 @@ export function simulate(route, data, choices) {
       if (b.when !== undefined && !evalCond(b.when, st)) continue;
       if (b.type === 'scene') bg = b.bg;
       if (b.type === 'fx' && b.fx === 'light') light = b.level;
-      if (b.type === 'choice') {
-        const opts = Array.isArray(b.options) ? b.options : [];
-        const pick = choices ? choices[b.id] : undefined;
-        const o = opts.find((x) => isObj(x) && x.id === pick) || opts[0] || null;
-        st.choices[b.id] = o ? o.id : undefined;
-        if (o && isObj(o.set)) Object.assign(st.flags, o.set);
-        out.push({ kind: 'choice', beat: b, opt: o, phase, bg, light });
-        if (o) runList(o.reaction, phase + '/reaction');
-        if (isCutOption(o)) cutAt = { choice: b.id, option: o.id };
-      } else {
-        out.push({ kind: b.type, beat: b, phase, bg, light });
+      if (b.type === 'choice') runChoice(b, phase);
+      else out.push({ kind: b.type, beat: b, phase, bg, light });
+    }
+  };
+  const runChoice = (b, phase) => {
+    const opts = optionsOf(b);
+    const rm = removed[b.id] || (removed[b.id] = []);
+    for (let guard = 0; guard < 8; guard++) {
+      const shown = opts.filter((o) => !rm.includes(o.id)).map((o) => o.id);
+      if (!shown.length) return;
+      (presentations[b.id] = presentations[b.id] || []).push(shown);
+      delete st.choices[b.id];
+      out.push({ kind: 'choice', beat: b, shown, phase, bg, light });
+      const id = nextPick(b, shown, plan);
+      const o = opts.find((x) => x.id === id);
+      st.choices[b.id] = o.id;
+      if (isObj(o.set)) Object.assign(st.flags, o.set);
+      runList(o.reaction, phase + '/reaction');
+      const kind = optionOutcome(o);
+      if (kind === 'scold') {
+        rm.push(o.id);
+        out.push({ kind: 'line', beat: scoldLine(b, o), phase: phase + '/scold', bg, light });
+        continue;
       }
+      if (kind === 'bad') cutAt = { choice: b.id, option: o.id, bad: o.bad };
+      return;
     }
   };
   runList(route && route.beats, 'main');
-  const lr = computeLensFor(route, st.choices);
   if (cutAt) {
     light = 'off';
-    out.push({ kind: 'card', lens: null, cut: true, phase: 'card', bg, light });
-    const end = route && isObj(route.endings) ? route.endings.cut : null;
-    if (isObj(end)) {
-      runList(end.beats, 'ending');
-      if (isT(end.last)) out.push({ kind: 'line', beat: { type: 'line', text: end.last }, phase: 'last', bg, light });
+    const e = badEnding(route, cutAt.bad);
+    if (e) {
+      runList(e.beats, 'ending');
+      if (isT(e.last)) out.push({ kind: 'line', beat: { type: 'line', text: e.last }, phase: 'last', bg, light });
     }
-    runList(route && route.endingCoda, 'coda');
-    return { out, lens: lr, state: st, cut: cutAt };
+    out.push({ kind: 'snip', bad: cutAt.bad, phase: 'snip', bg, light });
+    return { out, state: st, cut: cutAt, presentations, removed };
   }
-  st.lastLens = lr.lastLens;
-  st.c10Lens = lr.lastLens;
-  st.lens = lr.lens;
-  if (lr.mismatch && data && data.common && isT(data.common.mismatchLine)) {
-    out.push({ kind: 'line', beat: { type: 'line', text: data.common.mismatchLine }, phase: 'mismatch', bg, light });
+  const good = goodEnding(route);
+  if (good) {
+    runList(route.endingPreface, 'preface');
+    out.push({ kind: 'card', phase: 'card', bg, light });
+    const e = good.verse && data && isObj(data.scripture) ? data.scripture[good.verse] : null;
+    if (isObj(e) && !e.refOnly && typeof e.ko === 'string' && e.ko) out.push({ kind: 'memory', key: good.verse, beat: { type: 'verse', key: good.verse }, phase: 'memory', bg, light });
+    runList(good.beats, 'ending');
+    if (isT(good.last)) out.push({ kind: 'line', beat: { type: 'line', text: good.last }, phase: 'last', bg, light });
+    runList(route.endingCoda, 'coda');
   }
-  runList(route && route.endingPreface, 'preface');
-  out.push({ kind: 'card', lens: lr.lens, cut: false, phase: 'card', bg, light });
-  const end = route && isObj(route.endings) ? route.endings[String(lr.lens)] : null;
-  if (end) {
-    runList(end.beats, 'ending');
-    if (isT(end.last)) out.push({ kind: 'line', beat: { type: 'line', text: end.last }, phase: 'last', bg, light });
-  }
-  runList(route && route.endingCoda, 'coda');
-  return { out, lens: lr, state: st, cut: null };
+  return { out, state: st, cut: null, presentations, removed };
 }
 
 function textsOfItem(it, lang, data) {
@@ -1328,23 +1367,17 @@ function textsOfItem(it, lang, data) {
   const r = (t) => (isT(t) ? renderText(t[lang], lang, scr) : '');
   switch (it.kind) {
     case 'line': return [r(b.text)];
-    case 'verse': {
+    case 'verse':
+    case 'memory': {
       const e = isObj(scr) ? scr[b.key] : null;
       return e ? [verseDisplayText(e[lang] || '', lang), e.ref ? e.ref[lang] || '' : ''] : [];
     }
-    case 'choice': return [r(b.prompt)].concat((b.options || []).map((o) => r(o && o.text)));
+    case 'choice': return [r(b.prompt)].concat(optionsOf(b).filter((o) => !it.shown || it.shown.includes(o.id)).map((o) => r(o.text)));
     case 'press': return [r(b.label), r(b.hint)];
     case 'scene': return [r(b.caption)];
     case 'fx': {
       if (b.fx === 'echoVerse' && isObj(scr) && scr[b.key]) return [verseDisplayText(scr[b.key][lang] || '', lang)];
-      if (b.fx === 'actionReply') return [];
       return [];
-    }
-    case 'card': {
-      const m = data.meta;
-      if (it.cut) return [m && isObj(m.cut) ? r(m.cut.label) : ''];
-      const lab = m && m.lenses && m.lenses[it.lens] ? r(m.lenses[it.lens].label) : '';
-      return [lab];
     }
     default: return [];
   }
@@ -1360,7 +1393,7 @@ function keysShown(it) {
   };
   if (it.kind === 'verse') keys.push(b.key);
   if (it.kind === 'line') tok(b.text);
-  if (it.kind === 'choice') { tok(b.prompt); (b.options || []).forEach((o) => o && tok(o.text)); }
+  if (it.kind === 'choice') { tok(b.prompt); optionsOf(b).filter((o) => !it.shown || it.shown.includes(o.id)).forEach((o) => tok(o.text)); }
   if (it.kind === 'fx' && b.fx === 'echoVerse') keys.push(b.key);
   if (it.kind === 'fx' && b.fx === 'pinThought' && Array.isArray(b.items)) {
     b.items.forEach((x) => { const m = String(x).match(/^verse:(.+)$/); if (m) keys.push(m[1]); });
@@ -1368,7 +1401,7 @@ function keysShown(it) {
   return [...new Set(keys)];
 }
 
-const SCREEN_KINDS = new Set(['line', 'verse', 'choice', 'press']);
+const SCREEN_KINDS = new Set(['line', 'verse', 'choice', 'press', 'memory']);
 
 function readingStats(items, data) {
   let screens = 0;
@@ -1385,8 +1418,8 @@ function readingStats(items, data) {
 }
 
 // Reading time. Silent: ko 450 chars/min, en 200 words/min, +4 s per choice. Read aloud on a TV with
-// the class (SPEC 3.3, about 5 minutes per route): ko 260 chars/min, en 150 words/min, +10 s per choice
-// (the class decides) and +1 s per screen (the tap and the scene change).
+// the class (about 5 minutes per route on the true path): ko 260 chars/min, en 150 words/min, +10 s per
+// choice (the class decides) and +1 s per screen (the tap and the scene change).
 function minutes(st) {
   return {
     ko: (st.koChars / 450 * 60 + st.choices * 4) / 60,
@@ -1403,8 +1436,9 @@ function makeCx(rep, data, spec, canon, files, extra) {
   return Object.assign({
     rep, data, spec, canon, files,
     rid: null, file: null, path: '', story: false, phase: 'global', inReaction: false, egg: false,
-    seen: new Set(), flags: new Map(), allFlags: new Map(), allowLast: false, counters: new Set(), actions: new Set(),
+    seen: new Set(), flags: new Map(), allFlags: new Map(), counters: new Set(), actions: new Set(), choiceIds: new Set(),
     ids: new Set(), choiceList: [], lastChoice: null, allTexts: [], usage: null, cursor: { pos: 0 },
+    badRefs: [], scolds: [], longOptions: [],
     forbiddenRes: canon.forbidden.map((n) => (/^[A-Za-z]+$/.test(n) ? new RegExp('\\b' + n + '\\b') : new RegExp(n))),
     scrIndex: buildScriptureIndex(data.scripture)
   }, extra || {});
@@ -1533,32 +1567,35 @@ function checkMeta(rep, data, cx) {
   const W = (p) => `meta › ${p}`;
   ['title', 'subtitle', 'disclaimer'].forEach((k) => checkT(m[k], cx, W(k), {}));
   checkT(m.bibleNotice, cx, W('bibleNotice'), { allowMixed: true });
-  for (const l of LENSES) {
-    const L = m.lenses && m.lenses[l];
-    if (!isObj(L)) { rep.error('meta', W(`lenses.${l}`), 'missing'); continue; }
-    checkT(L.label, cx, W(`lenses.${l}.label`), {});
-    checkT(L.desc, cx, W(`lenses.${l}.desc`), {});
-  }
   if (!Array.isArray(m.routeOrder) || ROUTE_IDS.some((r) => !m.routeOrder.includes(r))) rep.error('meta', W('routeOrder'), `must list ${ROUTE_IDS.join(', ')}`);
   for (const rid of ROUTE_IDS) {
     const r = m.routes && m.routes[rid];
     if (!isObj(r)) { rep.error('meta', W(`routes.${rid}`), 'missing'); continue; }
     if (!isObj(data.characters) || !data.characters[r.protagonist]) rep.error('meta', W(`routes.${rid}.protagonist`), `unknown character ${JSON.stringify(r.protagonist)}`);
     ['name', 'title', 'tagline', 'firstLine'].forEach((k) => checkT(r[k], cx, W(`routes.${rid}.${k}`), {}));
-    for (const l of LENSES) checkT(r.lensDesc && r.lensDesc[l], cx, W(`routes.${rid}.lensDesc.${l}`), {});
-    for (const l of LENSES) checkT(m.endings && m.endings[rid] && m.endings[rid][l], cx, W(`endings.${rid}.${l}`), {});
-    const er = (m.endings && m.endings[rid]) || {};
-    if (CUT_ROUTES.includes(rid)) {
-      if (er.cut === undefined) rep.error('meta', W(`endings.${rid}.cut`), 'missing (the title of the cut ending, SPEC 4.1)');
-      else checkT(er.cut, cx, W(`endings.${rid}.cut`), {});
-    } else if (er.cutNote === undefined) rep.warn('meta', W(`endings.${rid}.cutNote`), 'missing (the note shown in the gallery\'s cut column, SPEC 4.1)');
-    else checkT(er.cutNote, cx, W(`endings.${rid}.cutNote`), {});
+    if (r.lensDesc !== undefined) rep.warn('obsolete', W(`routes.${rid}.lensDesc`), 'lens descriptions of the earlier releases; nothing reads them in version 4');
   }
-  if (!isObj(m.cut)) rep.error('meta', W('cut'), 'missing { label, desc } for the cut column and the cut ending card (SPEC 4.1)');
-  else {
-    checkT(m.cut.label, cx, W('cut.label'), {});
-    checkT(m.cut.desc, cx, W('cut.desc'), {});
+  for (const k of ['lenses', 'cut', 'endings']) {
+    if (m[k] !== undefined) rep.warn('obsolete', W(k), `meta.${k} belongs to the earlier releases (lenses, cut endings, ending titles); version 4 keeps titles in the route files and nothing reads it`);
   }
+}
+
+function checkCommon(rep, data, cx) {
+  const c = data.common;
+  if (!isObj(c)) { rep.error('common', 'data/common.js', 'BHS.common missing'); return; }
+  const pcx = Object.assign({}, cx, { path: 'common › prologue', story: true, phase: 'prologue', file: 'data/common.js', cursor: { pos: 0 } });
+  let bgNow = null;
+  pcx.setBg = (bg) => { bgNow = bg; };
+  pcx.bgNow = () => bgNow;
+  if (!Array.isArray(c.prologue) || !c.prologue.length) rep.error('common', 'common › prologue', 'prologue must be a non-empty beat list');
+  else checkBeats(c.prologue, pcx, 'beats');
+  const rs = c.routeSelect || {};
+  checkT(rs.prompt, cx, 'common › routeSelect.prompt', { kind: 'prompt' });
+  if (rs.hint !== undefined) checkT(rs.hint, cx, 'common › routeSelect.hint', {});
+  for (const [k, t] of [['prompt', rs.prompt], ['hint', rs.hint]]) {
+    if (isT(t) && (DIGITS.test(stripTokens(t.ko)) || DIGITS.test(stripTokens(t.en)))) rep.error('digits', `common › routeSelect.${k}`, `ASCII digits on screen (SPEC 4.5: no numbers): "${snip(t.ko)}" / "${snip(t.en)}"`);
+  }
+  if (c.mismatchLine !== undefined) rep.warn('obsolete', 'common › mismatchLine', 'the mismatch line belongs to the lens releases; nothing reads it in version 4');
 }
 
 function checkCharacters(rep, data, cx) {
@@ -1576,18 +1613,8 @@ function checkCharacters(rep, data, cx) {
   for (const id of needed) if (!c[id]) rep.error('characters', `characters › ${id}`, 'SPEC 6.1 character missing');
 }
 
-function checkCommon(rep, data, cx) {
-  const c = data.common;
-  if (!isObj(c)) { rep.error('common', 'data/common.js', 'BHS.common missing'); return; }
-  const pcx = Object.assign({}, cx, { path: 'common › prologue', story: true, phase: 'prologue', file: 'data/common.js', cursor: { pos: 0 } });
-  let bgNow = null;
-  pcx.setBg = (bg) => { bgNow = bg; };
-  pcx.bgNow = () => bgNow;
-  if (!Array.isArray(c.prologue) || !c.prologue.length) rep.error('common', 'common › prologue', 'prologue must be a non-empty beat list');
-  else checkBeats(c.prologue, pcx, 'beats');
-  checkT(c.routeSelect && c.routeSelect.prompt, cx, 'common › routeSelect.prompt', { kind: 'prompt' });
-  checkT(c.mismatchLine, Object.assign({}, cx, { story: true }), 'common › mismatchLine', { kind: 'line', story: true });
-}
+// ---------------------------------------------------------------------------------------------
+// Route checks
 
 function checkUi(rep, data, cx) {
   const ui = data.ui;
@@ -1631,22 +1658,24 @@ function checkRoute(rep, data, rid, gcx, opts) {
   if (!isObj(route)) { rep.error('schema', rid, 'route must be an object'); return null; }
   const usage = new Set();
   const allFlags = prescanFlags(route);
+  const choiceList = choicesOf(route);
+  const choiceIds = new Set(choiceList.map((b) => b.id));
   let bgNow = null;
   const cx = Object.assign({}, gcx, {
-    rid, file, path: rid, story: true, phase: 'main', seen: new Set(), flags: new Map(), allFlags,
+    rid, file, path: rid, story: true, phase: 'main', seen: new Set(), flags: new Map(), allFlags, choiceIds,
     counters: new Set(), actions: new Set(), ids: new Set(), choiceList: [], lastChoice: null, usage, cursor: { pos: 0 },
-    allTexts: [], cutOptions: []
+    allTexts: [], badRefs: [], scolds: [], longOptions: []
   });
   cx.setBg = (bg) => { bgNow = bg; };
   cx.bgNow = () => bgNow;
   if (route.id !== rid) rep.error('schema', rid, `route id is ${JSON.stringify(route.id)}, expected "${rid}"`);
   const unknown = Object.keys(route).filter((k) => !ROUTE_KEYS.includes(k));
-  if (unknown.length) rep.warn('schema', rid, `unknown top-level key(s): ${unknown.join(', ')} (route titles live in meta.js)`);
-  // Actions (Asher).
+  if (unknown.length) rep.warn('schema', rid, `unknown top-level key(s): ${unknown.join(', ')}`);
+  // Persistent actions (optional; the engine keeps them, the UI shows them only when a route has some).
   if (route.actions !== undefined) {
     if (!Array.isArray(route.actions)) rep.error('schema', `${rid} › actions`, 'must be an array');
     else {
-      if (rid !== 'asher' && route.actions.length) rep.warn('schema', `${rid} › actions`, 'persistent actions are an Asher-route device (SPEC 4.5)');
+      if (route.actions.length) rep.info('schema', `${rid} › actions`, 'persistent action buttons are shown under the text box (version 4 routes usually make them ordinary options)');
       route.actions.forEach((a, i) => {
         const w = `${rid} › actions[${i}]`;
         if (!isObj(a)) { rep.error('schema', w, 'action must be an object'); return; }
@@ -1664,78 +1693,87 @@ function checkRoute(rep, data, rid, gcx, opts) {
       });
     }
   }
-  if (rid === 'asher') {
-    for (const id of ['getup', 'goout']) if (!cx.actions.has(id)) rep.error('schema', `${rid} › actions`, `missing persistent action "${id}" (SPEC 4.5)`);
-  }
   // Main beats.
   if (!Array.isArray(route.beats) || !route.beats.length) rep.error('schema', `${rid} › beats`, 'beats must be a non-empty array');
   else checkBeats(route.beats, cx, 'beats');
-  // Choice order (SPEC 4.5: exactly four choices c1..c4 in order; the last counts double).
+  // Choices c1..cN in order (SPEC 4.5), and the story shape (SPEC 8, WARN).
   const ids = cx.choiceList.map((b) => b.id);
-  if (ids.length !== CHOICE_COUNT || ids.some((id, i) => id !== CHOICE_IDS[i])) {
-    rep.error('schema', `${rid} › beats`, `expected exactly ${CHOICE_COUNT} choices ${CHOICE_IDS.join(', ')} in order, found [${ids.join(', ')}]`);
-  }
-  // Cut options (SPEC 4.5): scribe and friend exactly one, in c2 or c3; asher none (he cannot walk away).
-  const cuts = cx.cutOptions;
-  const cutRoute = CUT_ROUTES.includes(rid);
-  if (cutRoute) {
-    if (!cuts.length) rep.error('cut', `${rid} › beats`, `no cut option; the ${rid} route needs exactly one option with cut: true, in ${CUT_CHOICES.join(' or ')} (SPEC 4.5)`);
-    else if (cuts.length > 1) rep.error('cut', `${rid} › beats`, `${cuts.length} cut options (${cuts.map((c) => c.choice + '/' + c.option).join(', ')}); exactly one is allowed (SPEC 4.5)`);
-    for (const c of cuts) if (!CUT_CHOICES.includes(c.choice)) rep.error('cut', c.w, `the cut option sits in ${c.choice}; it must be in ${CUT_CHOICES.join(' or ')} (SPEC 4.5)`);
-  } else if (cuts.length) {
-    rep.error('cut', `${rid} › beats`, `the ${rid} route must not have a cut option (SPEC 4.5${rid === 'asher' ? ': Asher cannot walk away' : ''}); found ${cuts.map((c) => c.choice + '/' + c.option).join(', ')}`);
-  }
-  const cutChoice = cuts.length ? cuts[0].choice : null;
-  // Endings.
-  const ecx = Object.assign({}, cx, { phase: 'ending', allowLast: true, seen: new Set(CHOICE_IDS), flags: new Map([...allFlags].map(([k, v]) => [k, new Set(v)])), lastChoice: null });
+  if (ids.some((id, i) => id !== 'c' + (i + 1))) rep.error('schema', `${rid} › beats`, `choice ids must be c1, c2, ... in beat order, once each; found [${ids.join(', ')}]`);
+  if (ids.length < SHAPE.choices[0] || ids.length > SHAPE.choices[1]) rep.warn('shape', `${rid} › beats`, `${ids.length} choices (SPEC 8: ${SHAPE.choices[0]}-${SHAPE.choices[1]})`);
+  const sizes = cx.choiceList.map((b) => (Array.isArray(b.options) ? b.options.length : 0));
+  if (sizes.filter((x) => x === 2).length < SHAPE.twoOption) rep.warn('shape', `${rid} › beats`, `no choice with two options (SPEC 8: at least ${SHAPE.twoOption})`);
+  if (sizes.filter((x) => x === 4).length < SHAPE.fourOption) rep.warn('shape', `${rid} › beats`, `${sizes.filter((x) => x === 4).length} choice(s) with four options (SPEC 8: at least ${SHAPE.fourOption})`);
+  if (cx.scolds.length < SHAPE.scolds[0] || cx.scolds.length > SHAPE.scolds[1]) rep.warn('shape', `${rid} › beats`, `${cx.scolds.length} scold option(s) (SPEC 8: ${SHAPE.scolds[0]}-${SHAPE.scolds[1]})`);
+  const weird = cx.choiceList.filter((b) => (b.options || []).some((o) => optionOutcome(o) !== 'continue')).length;
+  if (cx.choiceList.length && weird * 2 < cx.choiceList.length) rep.info('shape', `${rid} › beats`, `${weird} of ${cx.choiceList.length} choices have a weird option (bad or scold); SPEC 8 asks for most`);
+  if (cx.longOptions.length) rep.info('voice', rid, `${cx.longOptions.length} option(s) longer than the ${OPTION_AIM.ko}/${OPTION_AIM.en}-character aim (SPEC 4.5): ${cx.longOptions.join(', ')}`);
+  // Endings (SPEC 4.6).
+  const ecx = Object.assign({}, cx, { phase: 'ending', seen: new Set(choiceIds), flags: new Map([...allFlags].map(([k, v]) => [k, new Set(v)])), lastChoice: null });
   if (route.endingPreface !== undefined) checkBeats(route.endingPreface, Object.assign({}, ecx, { path: `${rid} › endingPreface` }), 'beats');
-  if (!isObj(route.endings)) rep.error('schema', `${rid} › endings`, `endings must be an object with keys "1", "2", "3"${cutRoute ? ' and "cut"' : ''}`);
+  const defined = new Set();
+  if (!isObj(route.endings)) rep.error('schema', `${rid} › endings`, 'endings must be an object { good, bad }');
   else {
-    const ek = Object.keys(route.endings);
-    for (const l of ['1', '2', '3']) {
-      const e = route.endings[l];
-      const w = `${rid} › endings.${l}`;
-      if (!isObj(e)) { rep.error('schema', w, 'missing ending'); continue; }
-      const ex = Object.keys(e).filter((k) => k !== 'beats' && k !== 'last');
-      if (ex.length) rep.warn('schema', w, `unknown key(s): ${ex.join(', ')} (ending titles live in meta.js)`);
-      if (!Array.isArray(e.beats)) rep.error('schema', w, 'beats must be an array');
-      else checkBeats(e.beats, Object.assign({}, ecx, { path: w }), 'beats');
-      checkT(e.last, Object.assign({}, ecx, { path: w }), `${w} › last`, { kind: 'line', story: true });
-    }
-    const ce = route.endings.cut;
-    const cw = `${rid} › endings.cut`;
-    if (cutRoute && !isObj(ce)) rep.error('cut', cw, 'missing; a route with a cut option needs endings.cut = { beats, last } (SPEC 4.5)');
-    else if (!cutRoute && ce !== undefined) rep.error('cut', cw, `the ${rid} route has no cut ending by design; remove endings.cut (meta.endings.${rid}.cutNote fills the gallery cell)`);
-    else if (isObj(ce)) {
-      // Only choices up to the cut are asked on a cut path, and only their flags can be set.
-      const upto = cutChoice ? CHOICE_IDS.slice(0, CHOICE_IDS.indexOf(cutChoice) + 1) : CHOICE_IDS;
-      const cutFlags = new Map();
-      for (const cb of cx.choiceList) {
-        if (!upto.includes(cb.id)) continue;
-        for (const o of cb.options || []) {
-          if (!isObj(o) || !isObj(o.set)) continue;
-          for (const [f, v] of Object.entries(o.set)) { if (!cutFlags.has(f)) cutFlags.set(f, new Set()); cutFlags.get(f).add(v); }
-        }
-      }
-      const ccx = Object.assign({}, ecx, { path: cw, inCutEnding: true, cutChoice, seen: new Set(upto), flags: cutFlags });
-      const ex = Object.keys(ce).filter((k) => k !== 'beats' && k !== 'last');
-      if (ex.length) rep.warn('schema', cw, `unknown key(s): ${ex.join(', ')} (ending titles live in meta.js)`);
-      if (!Array.isArray(ce.beats)) rep.error('schema', cw, 'beats must be an array');
-      else checkBeats(ce.beats, ccx, 'beats');
-      checkT(ce.last, ccx, `${cw} › last`, { kind: 'line', story: true });
-    }
-    const extraE = ek.filter((k) => !['1', '2', '3', 'cut'].includes(k));
+    const old = Object.keys(route.endings).filter((k) => ['1', '2', '3', 'cut'].includes(k));
+    if (old.length) rep.error('obsolete', `${rid} › endings`, `lens or cut endings of the earlier releases (${old.join(', ')}); version 4 has endings.good and endings.bad (SPEC 4.6)`);
+    const extraE = Object.keys(route.endings).filter((k) => !['good', 'bad', '1', '2', '3', 'cut'].includes(k));
     if (extraE.length) rep.warn('schema', `${rid} › endings`, `unexpected ending key(s): ${extraE.join(', ')}`);
-  }
-  if (route.endingCoda !== undefined) checkBeats(route.endingCoda, Object.assign({}, ecx, { path: `${rid} › endingCoda` }), 'beats');
-  // Asher press on getup.
-  if (rid === 'asher') {
-    const flat = JSON.stringify(route.beats || []);
-    if (!/"type":"press","action":"getup"|"action":"getup"[^}]*"type":"press"/.test(flat)) {
-      const hasPress = (route.beats || []).some((b) => isObj(b) && b.type === 'press' && b.action === 'getup');
-      if (!hasPress) rep.error('schema', `${rid} › beats`, 'no press beat with action "getup" (SPEC 4.5/scenario c9)');
+    const good = route.endings.good;
+    const gw = `${rid} › endings.good`;
+    if (!isObj(good)) rep.error('schema', gw, 'missing: the true ending { title, verse, beats, last } (SPEC 4.6)');
+    else {
+      const ex = Object.keys(good).filter((k) => !['title', 'verse', 'beats', 'last'].includes(k));
+      if (ex.length) rep.warn('schema', gw, `unknown key(s): ${ex.join(', ')}`);
+      checkT(good.title, Object.assign({}, ecx, { path: gw }), `${gw} › title`, { story: true });
+      const scr = data.scripture;
+      if (typeof good.verse !== 'string' || !good.verse) rep.error('schema', gw, 'verse (the memory verse key) is missing');
+      else if (isObj(scr) && !isObj(scr[good.verse])) rep.error('token', gw, `unknown memory verse key ${good.verse}`);
+      else if (isObj(scr) && scr[good.verse].refOnly) rep.error('token', gw, `the memory verse ${good.verse} is a reference-only key`);
+      else {
+        if (MEMORY_VERSE[rid] && good.verse !== MEMORY_VERSE[rid]) rep.warn('canon', gw, `memory verse is ${good.verse}; SPEC 4.6 gives ${MEMORY_VERSE[rid]} for the ${rid} route`);
+        usage.add(good.verse);
+      }
+      if (!Array.isArray(good.beats)) rep.error('schema', gw, 'beats must be an array');
+      else checkBeats(good.beats, Object.assign({}, ecx, { path: gw }), 'beats');
+      checkT(good.last, Object.assign({}, ecx, { path: gw }), `${gw} › last`, { kind: 'line', story: true });
+    }
+    const bad = route.endings.bad;
+    if (bad !== undefined && !isObj(bad)) rep.error('schema', `${rid} › endings.bad`, 'endings.bad must be an object of cut branches');
+    else if (isObj(bad)) {
+      for (const [id, e] of Object.entries(bad)) {
+        defined.add(id);
+        const bw = `${rid} › endings.bad.${id}`;
+        if (!/^[a-z][A-Za-z0-9]*$/.test(id)) rep.warn('schema', bw, 'cut branch ids are short ascii words such as "typo" or "bigCatch"');
+        if (!isObj(e)) { rep.error('schema', bw, 'must be { title, beats, last }'); continue; }
+        const ex = Object.keys(e).filter((k) => !['title', 'beats', 'last'].includes(k));
+        if (ex.length) rep.warn('schema', bw, `unknown key(s): ${ex.join(', ')}`);
+        // Conditions may use only the choices asked before the first option that leads here.
+        const refs = cx.badRefs.filter((r) => r.bad === id);
+        const firstIdx = refs.length ? Math.min(...refs.map((r) => ids.indexOf(r.choice))) : ids.length - 1;
+        const upto = ids.slice(0, firstIdx + 1);
+        const bflags = new Map();
+        for (const cb of cx.choiceList.filter((b) => upto.includes(b.id))) {
+          for (const o of cb.options || []) {
+            if (!isObj(o) || !isObj(o.set)) continue;
+            for (const [f, v] of Object.entries(o.set)) { if (!bflags.has(f)) bflags.set(f, new Set()); bflags.get(f).add(v); }
+          }
+        }
+        const bcx = Object.assign({}, ecx, { path: bw, inBadEnding: true, badFrom: upto[upto.length - 1] || '-', seen: new Set(upto), flags: bflags });
+        checkT(e.title, bcx, `${bw} › title`, { story: true });
+        if (isT(e.title)) {
+          const n = cpLen(e.title.ko.replace(/\s+/g, ''));
+          if (n < BAD_TITLE_KO[0] || n > BAD_TITLE_KO[1]) rep.warn('ending', bw, `title has ${n} Korean characters; a branch label in the story tree is short (SPEC 4.6: ${BAD_TITLE_KO[0]}-${BAD_TITLE_KO[1]}): "${e.title.ko}"`);
+        }
+        if (!Array.isArray(e.beats)) rep.error('schema', bw, 'beats must be an array');
+        else checkBeats(e.beats, bcx, 'beats');
+        checkT(e.last, bcx, `${bw} › last`, { kind: 'line', story: true });
+      }
     }
   }
+  for (const r of cx.badRefs) if (!defined.has(r.bad)) rep.error('outcome', r.w, `bad: "${r.bad}" has no endings.bad.${r.bad}`);
+  for (const id of defined) if (!cx.badRefs.some((r) => r.bad === id)) rep.error('outcome', `${rid} › endings.bad.${id}`, 'no option leads to this cut branch (unreachable)');
+  const nBad = defined.size;
+  if (nBad < SHAPE.bad[0] || nBad > SHAPE.bad[1]) rep.warn('shape', `${rid} › endings.bad`, `${nBad} cut branch(es) (SPEC 8: ${SHAPE.bad[0]}-${SHAPE.bad[1]})`);
+  if (route.endingCoda !== undefined) checkBeats(route.endingCoda, Object.assign({}, ecx, { path: `${rid} › endingCoda` }), 'beats');
   // Unused flags.
   const usedFlags = new Set();
   const collectFlags = (c) => {
@@ -1753,260 +1791,181 @@ function checkRoute(rep, data, rid, gcx, opts) {
   return { cx, usage };
 }
 
+// Crowd order (SPEC 6.4) over the main beats of one simulated path. Returns the problems found.
+function crowdProblems(sim, rid, isTrue) {
+  const first = {};
+  const lightProblems = [];
+  sim.out.forEach((it, idx) => {
+    if (!/^main/.test(it.phase)) return;
+    for (const k of keysShown(it)) {
+      if (!(k in EVENT_GROUP)) continue;
+      if (first[k] === undefined) first[k] = idx;
+      if ((k === 'MT_9_2B' || k === 'MT_9_2B2' || k === 'MT_9_6B') && it.light !== 'bright' && it.kind === 'verse') lightProblems.push(k);
+    }
+  });
+  const probs = [];
+  const has = (k) => first[k] !== undefined;
+  // Each event group spans from its first shown key to its last required key; groups must not overlap
+  // out of order. Later recalls (callbacks) of a key do not count, only first appearances.
+  const reqSet = (g) => {
+    if (g === 3) return has('MT_9_2B1') && has('MT_9_2B2') ? ['MT_9_2B1', 'MT_9_2B2'] : ['MT_9_2B'];
+    if (g === 4) return has('MT_9_3Q') ? ['MT_9_3Q'] : ['MT_9_3'];
+    if (g === 5) return has('MT_9_4N') && has('MT_9_4Q') ? ['MT_9_4N', 'MT_9_4Q'] : ['MT_9_4'];
+    if (g === 7) return ['MT_9_6A', 'MT_9_6N', 'MT_9_6B'];
+    return Object.keys(EVENT_GROUP).filter((k) => EVENT_GROUP[k] === g);
+  };
+  const groups = [];
+  for (let g = 1; g <= 9; g++) {
+    const keys = Object.keys(EVENT_GROUP).filter((k) => EVENT_GROUP[k] === g && has(k));
+    if (!keys.length) continue;
+    const start = Math.min(...keys.map((k) => first[k]));
+    const req = reqSet(g).filter(has);
+    const endKey = req.length ? req.reduce((x, y) => (first[x] >= first[y] ? x : y)) : keys[0];
+    groups.push({ g, start, end: first[endKey], endKey, startKey: keys.find((k) => first[k] === start) });
+  }
+  for (let i = 1; i < groups.length; i++) {
+    const ga = groups[i - 1];
+    const gb = groups[i];
+    if (ga.end > gb.start) probs.push(`${gb.startKey} (${EVENT_LABEL[gb.g]}) is shown before ${ga.endKey} (${EVENT_LABEL[ga.g]})`);
+  }
+  for (const [x, y] of SUB_ORDER) if (has(x) && has(y) && first[x] > first[y]) probs.push(`${y} is shown before ${x}`);
+  if (isTrue) {
+    if (!has('MT_9_2A')) probs.push('MT_9_2A (9:2a) not shown');
+    if (!(has('MT_9_2B') || (has('MT_9_2B1') && has('MT_9_2B2')))) probs.push('first words (MT_9_2B or MT_9_2B1+2B2) not shown');
+    if (!(has('MT_9_4') || (has('MT_9_4N') && has('MT_9_4Q')))) probs.push('9:4 (MT_9_4N + MT_9_4Q) not shown');
+    for (const k of ['MT_9_5', 'MT_9_6A', 'MT_9_6N', 'MT_9_6B', 'MT_9_7', 'MT_9_8']) if (!has(k)) probs.push(`${k} not shown`);
+    if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown; optional (INFO only)');
+    if (rid === 'scribe' && !has('MT_9_3Q') && !has('MT_9_3')) probs.push('MT_9_3Q (scribes\' thought) not shown in the scribe route (WARN only)');
+  }
+  return { probs, lightProblems };
+}
+
 function routeStats(rep, data, rid, rcx, canon, engine) {
   const route = data.routes[rid];
-  const { table, cuts, ok } = lensTable(route);
-  const L = CHOICE_COUNT - 1;
-  const fmtRow = (i) => table[i].map((l, j) => (cuts[i][j] ? 'x' : l === null ? '-' : l)).join('');
-  // ---- Balance (SPEC 8): c1-c3 cover lenses 1-3 (the fourth option any lens or null; a cut option is
-  // the null one); the last choice has four lensed options covering 1-3.
-  const balanceLines = [];
-  if (ok) {
-    const counts = { 1: 0, 2: 0, 3: 0, null: 0 };
-    const covers = (arr) => LENSES.every((l) => arr.includes(l));
-    for (let c = 0; c < CHOICE_COUNT; c++) {
-      const cid = CHOICE_IDS[c];
-      const lz = table[c];
-      const w = `${rid} › ${cid}`;
-      if (c < L) {
-        lz.forEach((l) => { counts[l === null ? 'null' : l]++; });
-        if (!covers(lz)) rep.error('balance', w, `options must include lenses 1, 2 and 3 (SPEC 8), got [${fmtRow(c)}]`);
-      } else if (lz.some((l) => l === null) || !covers(lz)) {
-        rep.error('balance', w, `${cid} (the last choice) needs four options with a lens, covering 1, 2 and 3 (SPEC 8), got [${fmtRow(c)}]`);
-      }
-    }
-    balanceLines.push(`${pad(rid, 7)} c1-c3: L1 ${counts[1]}  L2 ${counts[2]}  L3 ${counts[3]}  null ${counts.null}   ${LAST_CHOICE} [${table[L].join(',')}]`);
-    balanceLines.push('        ' + CHOICE_IDS.map((cid, i) => `${cid}:${fmtRow(i)}`).join(' '));
-  } else {
-    balanceLines.push(`${pad(rid, 7)} (choices incomplete; balance and enumeration skipped)`);
-  }
-  // ---- Enumeration of all 4^4 paths (SPEC 5.1, 8).
-  const distLines = [];
-  let dist = null;
-  if (ok) {
-    dist = enumerateEndings(table, cuts);
-    const nonCut = dist.total - dist.cut;
-    const cutShare = dist.cut / dist.total;
-    if (cutShare > SHARE.cutMax + 1e-9) rep.error('dist', rid, `cut paths are ${pct(cutShare)} of all ${dist.total} paths (SPEC 8: at most ${pct(SHARE.cutMax)})`);
-    const share = (l) => (nonCut ? dist.counts[l] / nonCut : 0);
-    for (const l of LENSES) {
-      const sh = share(l);
-      if (sh < SHARE.error[0] || sh > SHARE.error[1]) rep.error('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (allowed 15-55%; SPEC 8: 20-50%)`);
-      else if (sh < SHARE.warn[0] - 1e-9 || sh > SHARE.warn[1] + 1e-9) rep.warn('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (SPEC 8: 20-50%)`);
-    }
-    distLines.push(`${pad(rid, 7)} non-cut ${padL(nonCut, 3)}/${dist.total}: ① ${padL(pct(share(1)), 6)}  ② ${padL(pct(share(2)), 6)}  ③ ${padL(pct(share(3)), 6)}   ` +
-      `cut ${padL(pct(cutShare), 6)}   mismatch ${padL(pct(nonCut ? dist.mismatch / nonCut : 0), 6)}   tie-break ${padL(pct(nonCut ? dist.ties / nonCut : 0), 6)}`);
-    distLines.push(`        by ${LAST_CHOICE} pick (ending ①/②/③ % of its non-cut paths): ` + OPTION_IDS.map((oid, i) => {
-      const bl = dist.byLast[i];
-      const n = bl.n - bl.cut;
-      return `${oid}(L${table[L][i]})→ ${LENSES.map((l) => (n ? Math.round(bl[l] / n * 100) : 0)).join('/')}`;
-    }).join('  '));
-  }
-  // ---- Engine cross-check on every path.
-  const engineLines = [];
-  if (engine && ok) {
-    if (typeof engine.computeLens !== 'function') rep.error('engine', 'js/engine.js', 'BHS.engine.computeLens is not a function (SPEC 5.1)');
-    else {
-      let bad = 0;
-      let first = null;
-      let threw = null;
-      let nCut = 0;
-      const num = (v) => (v == null ? null : Number(v));
-      for (const picks of allPicks()) {
-        const ch = picksToChoices(picks);
-        const mine = computeLensFor(route, ch);
-        if (mine.cut) nCut++;
-        let theirs;
-        try { theirs = engine.computeLens(rid, Object.assign({}, ch)); } catch (e) { threw = e; break; }
-        const sc = theirs && theirs.scores ? theirs.scores : {};
-        const same = theirs && num(theirs.lens) === mine.lens && !!theirs.mismatch === mine.mismatch && !!theirs.cut === mine.cut &&
-          num(theirs.lastLens) === mine.lastLens && num(theirs.c10Lens) === mine.lastLens &&
-          LENSES.every((l) => Number(sc[l] != null ? sc[l] : sc[String(l)]) === mine.scores[l]);
-        if (!same) { bad++; if (!first) first = { ch, mine, theirs }; }
-      }
-      if (threw) rep.error('engine', `${rid}`, `BHS.engine.computeLens threw: ${threw.message}`);
-      else if (bad) {
-        rep.error('engine', `${rid}`, `BHS.engine.computeLens disagrees with SPEC 5.1 on ${bad}/${PATH_COUNT} paths; e.g. choices ${CHOICE_IDS.map((c) => first.ch[c]).join('')} → engine ${snip(JSON.stringify(first.theirs), 140)}, expected ${JSON.stringify(first.mine)}`);
-      } else engineLines.push(`${pad(rid, 7)} computeLens agrees on ${PATH_COUNT}/${PATH_COUNT} paths (${nCut} of them cut)`);
-    }
-    if (typeof engine.createGame === 'function') {
-      const r = enginePathCheck(rep, data, rid, engine);
-      if (r) engineLines.push(`${pad(rid, 7)} ${r}`);
-    }
-    if (typeof engine.evalCond !== 'function') rep.warn('engine', 'js/engine.js', 'BHS.engine.evalCond is not exposed (SPEC 5.1)');
-    if (typeof engine.resolveText !== 'function') rep.warn('engine', 'js/engine.js', 'BHS.engine.resolveText is not exposed (SPEC 5.1)');
-  }
-  // ---- Every path: screens, reading time, crowd order, passerby, light, ending lengths.
+  const tps = truePaths(route);
+  const cps = cutPaths(route);
+  const lines = { shape: [], screens: [], cuts: [], engine: [], tree: [] };
+  if (!choicesOf(route).length) return { lines, summary: null };
+  if (!tps.length) rep.error('outcome', rid, 'no true path: some choice has no continue option');
   const prologueItems = [];
   if (data.common && Array.isArray(data.common.prologue)) {
     for (const b of data.common.prologue) if (isObj(b)) prologueItems.push({ kind: b.type, beat: b });
   }
   const pro = readingStats(prologueItems, data);
-  const res = [];
   const orderProblems = new Map();
-  const passerbyMissing = [];
   const lightProblems = new Map();
-  const endingLen = {};
-  const overMax = [];
-  const overWarn = [];
+  const passerbyMissing = [];
+  const endLen = { good: { min: Infinity, max: -Infinity, eg: '' } };
+  const trueRes = [];
   let simFailed = false;
-  for (const picks of allPicks()) {
-    const label = picks.map((p) => OPTION_IDS[p]).join('');
-    const ch = picksToChoices(picks);
+  for (const picks of tps) {
+    const label = pathLabel(route, picks);
     let sim;
-    try { sim = simulate(route, data, ch); } catch (e) { rep.error('internal', rid, `simulation failed on ${label}: ${e.message}`); simFailed = true; break; }
+    try { sim = simulate(route, data, { picks }); } catch (e) { rep.error('internal', rid, `simulation failed on ${label}: ${e.message}`); simFailed = true; break; }
+    if (sim.cut) { rep.error('internal', rid, `true path ${label} was cut by ${sim.cut.bad}`); continue; }
     const st = readingStats(sim.out, data);
-    const total = { screens: st.screens + pro.screens, choices: st.choices, koChars: st.koChars + pro.koChars, enWords: st.enWords + pro.enWords };
-    const endKey = sim.cut ? 'cut' : String(sim.lens.lens);
-    res.push({ label, cut: !!sim.cut, st, mins: minutes(st), totalMins: minutes(total), lens: sim.lens.lens, endKey });
-    if (st.screens > SCREENS.max) overMax.push({ label, n: st.screens });
-    else if (st.screens > SCREENS.warn) overWarn.push({ label, n: st.screens });
-    // Ending length: screens of the ending beats (the last line not counted).
-    const eb = sim.out.filter((it) => /^ending/.test(it.phase) && SCREEN_KINDS.has(it.kind)).length;
-    const el = endingLen[endKey] || (endingLen[endKey] = { min: Infinity, max: -Infinity, eg: label });
-    if (eb < el.min) el.min = eb;
-    if (eb > el.max) { el.max = eb; el.eg = label; }
-    // Crowd order on the main beats (with reactions). A cut path may stop early: on it only the order
-    // of what was shown is checked, not what is missing.
-    const first = {};
-    sim.out.forEach((it, idx) => {
-      if (!/^main/.test(it.phase)) return;
-      for (const k of keysShown(it)) {
-        if (!(k in EVENT_GROUP)) continue;
-        if (first[k] === undefined) first[k] = idx;
-        if ((k === 'MT_9_2B' || k === 'MT_9_2B2' || k === 'MT_9_6B') && it.light !== 'bright' && it.kind === 'verse') {
-          lightProblems.set(k, (lightProblems.get(k) || 0) + 1);
-        }
-      }
-    });
-    const probs = [];
-    const has = (k) => first[k] !== undefined;
-    // Each event group spans from its first shown key to its last required key; groups must not overlap
-    // out of order. Later recalls (callbacks) of a key do not count, only first appearances.
-    const reqSet = (g) => {
-      if (g === 3) return has('MT_9_2B1') && has('MT_9_2B2') ? ['MT_9_2B1', 'MT_9_2B2'] : ['MT_9_2B'];
-      if (g === 4) return has('MT_9_3Q') ? ['MT_9_3Q'] : ['MT_9_3'];
-      if (g === 5) return has('MT_9_4N') && has('MT_9_4Q') ? ['MT_9_4N', 'MT_9_4Q'] : ['MT_9_4'];
-      if (g === 7) return ['MT_9_6A', 'MT_9_6N', 'MT_9_6B'];
-      return Object.keys(EVENT_GROUP).filter((k) => EVENT_GROUP[k] === g);
-    };
-    const groups = [];
-    for (let g = 1; g <= 9; g++) {
-      const keys = Object.keys(EVENT_GROUP).filter((k) => EVENT_GROUP[k] === g && has(k));
-      if (!keys.length) continue;
-      const start = Math.min(...keys.map((k) => first[k]));
-      const req = reqSet(g).filter(has);
-      const endKey2 = req.length ? req.reduce((x, y) => (first[x] >= first[y] ? x : y)) : keys[0];
-      groups.push({ g, start, end: first[endKey2], endKey: endKey2, startKey: keys.find((k) => first[k] === start) });
-    }
-    for (let i = 1; i < groups.length; i++) {
-      const ga = groups[i - 1];
-      const gb = groups[i];
-      if (ga.end > gb.start) probs.push(`${gb.startKey} (${EVENT_LABEL[gb.g]}) is shown before ${ga.endKey} (${EVENT_LABEL[ga.g]})`);
-    }
-    for (const [x, y] of SUB_ORDER) if (has(x) && has(y) && first[x] > first[y]) probs.push(`${y} is shown before ${x}`);
-    if (!sim.cut) {
-      if (!has('MT_9_2A')) probs.push('MT_9_2A (9:2a) not shown');
-      if (!(has('MT_9_2B') || (has('MT_9_2B1') && has('MT_9_2B2')))) probs.push('first words (MT_9_2B or MT_9_2B1+2B2) not shown');
-      if (!(has('MT_9_4') || (has('MT_9_4N') && has('MT_9_4Q')))) probs.push('9:4 (MT_9_4N + MT_9_4Q) not shown');
-      for (const k of ['MT_9_5', 'MT_9_6A', 'MT_9_6N', 'MT_9_6B', 'MT_9_7', 'MT_9_8']) if (!has(k)) probs.push(`${k} not shown`);
-      if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown; optional in the short routes (INFO only)');
-      if (rid === 'scribe' && !has('MT_9_3Q') && !has('MT_9_3')) probs.push('MT_9_3Q (scribes\' thought) not shown in the scribe route (WARN only)');
-    }
-    for (const pr of probs) {
-      if (!orderProblems.has(pr)) orderProblems.set(pr, []);
-      orderProblems.get(pr).push(label);
-    }
-    // Passerby line coverage (friend and asher must show it on every path).
-    const shownKo = sim.out.filter((it) => it.kind === 'line').map((it) => (isT(it.beat.text) ? it.beat.text.ko : '')).join(' ');
-    const shownEn = sim.out.filter((it) => it.kind === 'line').map((it) => (isT(it.beat.text) ? it.beat.text.en : '')).join(' ');
+    trueRes.push({ label, st, mins: minutes(st) });
+    const eb = sim.out.filter((it) => it.phase === 'ending' && SCREEN_KINDS.has(it.kind)).length;
+    if (eb < endLen.good.min) endLen.good.min = eb;
+    if (eb > endLen.good.max) { endLen.good.max = eb; endLen.good.eg = label; }
+    const cp = crowdProblems(sim, rid, true);
+    for (const pr of cp.probs) { if (!orderProblems.has(pr)) orderProblems.set(pr, []); orderProblems.get(pr).push(label); }
+    for (const k of cp.lightProblems) lightProblems.set(k, (lightProblems.get(k) || 0) + 1);
+    const shown = sim.out.filter((it) => it.kind === 'line');
+    const shownKo = shown.map((it) => (isT(it.beat.text) ? it.beat.text.ko : '')).join(' ');
+    const shownEn = shown.map((it) => (isT(it.beat.text) ? it.beat.text.en : '')).join(' ');
     if (rid !== 'scribe' && (!shownKo.includes(canon.passerby.ko) || !shownEn.includes(canon.passerby.en))) passerbyMissing.push(label);
   }
-  const nPaths = res.length;
-  const nonCutPaths = res.filter((r) => !r.cut).length;
   for (const [pr, labels] of orderProblems) {
     const level = /INFO only/.test(pr) ? 'INFO' : /WARN only/.test(pr) ? 'WARN' : 'ERROR';
-    const scope = /not shown/.test(pr) ? `${labels.length}/${nonCutPaths} non-cut paths` : `${labels.length}/${nPaths} paths`;
-    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(/ \((WARN|INFO) only\)/, '')} on ${scope} (e.g. ${labels[0]})`);
+    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(/ \((WARN|INFO) only\)/, '').replace(/; optional$/, ' (optional)')} on ${labels.length}/${tps.length} true paths (e.g. ${labels[0]})`);
   }
-  for (const [k, n] of lightProblems) rep.warn('fx', rid, `${k} is shown without fx light "bright" on ${n}/${nPaths} paths (SPEC 4.5)`);
-  if (rid !== 'scribe' && passerbyMissing.length) {
-    rep.error('canon', rid, `the SPEC 6.3 passerby line (verbatim, ko and en) is not shown on ${passerbyMissing.length}/${nPaths} paths (e.g. ${passerbyMissing[0]})`);
+  for (const [k, n] of lightProblems) rep.warn('fx', rid, `${k} is shown without fx light "bright" on ${n}/${tps.length} true paths (SPEC 4.5)`);
+  if (rid !== 'scribe' && passerbyMissing.length) rep.error('canon', rid, `the SPEC 6.3 passerby line (verbatim, ko and en) is not shown on ${passerbyMissing.length}/${tps.length} true paths (e.g. ${passerbyMissing[0]})`);
+  // Screen budget on the true paths (SPEC 4.5): WARN above 28, ERROR above 30.
+  const over = trueRes.filter((r) => r.st.screens > SCREENS.trueMax);
+  const warnRes = trueRes.filter((r) => r.st.screens > SCREENS.trueWarn && r.st.screens <= SCREENS.trueMax);
+  if (over.length) rep.error('screens', rid, `${over.length}/${trueRes.length} true paths exceed ${SCREENS.trueMax} screens (SPEC 4.5); worst ${Math.max(...over.map((r) => r.st.screens))} on ${over[0].label}`);
+  if (warnRes.length) rep.warn('screens', rid, `${warnRes.length}/${trueRes.length} true paths have ${SCREENS.trueWarn + 1}-${SCREENS.trueMax} screens (SPEC 4.5 target ${SCREENS.trueTarget[0]}-${SCREENS.trueTarget[1]}); worst ${Math.max(...warnRes.map((r) => r.st.screens))} on ${warnRes[0].label}`);
+  if (trueRes.length && Math.max(...trueRes.map((r) => r.st.screens)) < SCREENS.trueTarget[0]) rep.info('screens', rid, `true paths have at most ${Math.max(...trueRes.map((r) => r.st.screens))} screens (SPEC 4.5 target ${SCREENS.trueTarget[0]}-${SCREENS.trueTarget[1]})`);
+  const g = endLen.good;
+  if (trueRes.length && (g.max > ENDING_BEATS.good[1] || g.min < ENDING_BEATS.good[0])) {
+    rep.warn('ending', `${rid} › endings.good`, `shows ${g.min === g.max ? g.min : g.min + '-' + g.max} beat screen(s) before the last line (SPEC 4.6: ${ENDING_BEATS.good[0]}-${ENDING_BEATS.good[1]}); e.g. ${g.eg}`);
   }
-  // Screen budget (SPEC 3.3): at most 32 screens on any path; warn above 30.
-  if (overMax.length) {
-    const worst = overMax.reduce((x, y) => (y.n > x.n ? y : x));
-    rep.error('screens', rid, `${overMax.length}/${nPaths} paths exceed ${SCREENS.max} screens (SPEC 3.3); worst ${worst.n} on ${worst.label}`);
+  // Scolds: the class may pick every scold on the way (INFO: the longest true path then).
+  if (!simFailed && tps.length) {
+    let worst = 0;
+    for (const picks of tps.slice(0, 200)) worst = Math.max(worst, readingStats(simulate(route, data, { picks, scoldFirst: true }).out, data).screens);
+    if (rcx.scolds.length) rep.info('screens', rid, `with every scold picked on the way, a true path shows up to ${worst} screens`);
   }
-  if (overWarn.length) {
-    const worst = overWarn.reduce((x, y) => (y.n > x.n ? y : x));
-    const band = SCREENS.warn + 1 === SCREENS.max ? `${SCREENS.max}` : `${SCREENS.warn + 1}-${SCREENS.max}`;
-    rep.warn('screens', rid, `${overWarn.length}/${nPaths} paths have ${band} screens (SPEC 3.3: up to ${SCREENS.warn} expected, ${SCREENS.max} at most); worst ${worst.n} on ${worst.label}`);
+  // Cut paths: each reaches its branch; at most 20 screens (SPEC 4.5); branch length 2-3 beats.
+  const reached = new Set();
+  const byBad = new Map();
+  for (const c of cps) {
+    const label = pathLabel(route, c.picks);
+    let sim;
+    try { sim = simulate(route, data, { picks: c.picks }); } catch (e) { rep.error('internal', rid, `simulation failed on cut path ${label}: ${e.message}`); break; }
+    if (!sim.cut || sim.cut.bad !== c.bad) { rep.error('outcome', rid, `cut path ${label} (${c.choice}/${c.option}) did not reach endings.bad.${c.bad}`); continue; }
+    reached.add(c.bad);
+    const st = readingStats(sim.out, data);
+    const pickIdx = sim.out.findIndex((it, i) => it.kind === 'choice' && it.beat.id === c.choice && !sim.out.slice(i + 1).some((x) => x.kind === 'choice' && x.beat.id === c.choice));
+    const branch = readingStats(sim.out.slice(pickIdx + 1), data);
+    const eb = sim.out.filter((it) => it.phase === 'ending' && SCREEN_KINDS.has(it.kind)).length;
+    const r = byBad.get(c.bad) || { paths: 0, maxScreens: 0, worst: '', branchScreens: branch.screens, branchMins: minutes(branch), ebMin: Infinity, ebMax: -Infinity, at: new Set() };
+    r.paths++;
+    r.at.add(`${c.choice}/${c.option}`);
+    if (st.screens > r.maxScreens) { r.maxScreens = st.screens; r.worst = label; }
+    r.ebMin = Math.min(r.ebMin, eb);
+    r.ebMax = Math.max(r.ebMax, eb);
+    byBad.set(c.bad, r);
+    const cp = crowdProblems(sim, rid, false);
+    for (const pr of cp.probs) { if (!orderProblems.has('cut:' + pr)) { orderProblems.set('cut:' + pr, [label]); rep.error('canon', rid, `crowd sequence (SPEC 6.4) on cut path ${label}: ${pr}`); } }
   }
-  // Ending lengths (SPEC 4.5): lens endings 1-3 beats, endings.cut 2-4 beats (plus the last line).
-  for (const [k, el] of Object.entries(endingLen)) {
-    const [lo, hi] = k === 'cut' ? ENDING_BEATS.cut : ENDING_BEATS.lens;
-    if (el.max > hi || el.min < lo) {
-      rep.warn('ending', `${rid} › endings.${k}`, `shows ${el.min === el.max ? el.min : el.min + '-' + el.max} beat screen(s) before the last line (SPEC 4.5: ${lo}-${hi}); e.g. ${el.eg}`);
-    }
+  for (const [bad, r] of byBad) {
+    if (r.maxScreens > SCREENS.cutMax) rep.error('screens', `${rid} › endings.bad.${bad}`, `a cut path shows ${r.maxScreens} screens (SPEC 4.5: at most ${SCREENS.cutMax}); e.g. ${r.worst}`);
+    if (r.ebMax > ENDING_BEATS.bad[1] || r.ebMin < ENDING_BEATS.bad[0]) rep.warn('ending', `${rid} › endings.bad.${bad}`, `shows ${r.ebMin === r.ebMax ? r.ebMin : r.ebMin + '-' + r.ebMax} beat screen(s) before the last line (SPEC 4.6: ${ENDING_BEATS.bad[0]}-${ENDING_BEATS.bad[1]})`);
   }
-  // Lane and crowd backgrounds at the shared moments.
-  const simA = !simFailed ? simulate(route, data, picksToChoices([0, 0, 0, 0])) : null;
-  if (simA) {
-    for (const it of simA.out) {
-      if (it.kind === 'line' && it.beat.speaker === 'passerby' && !['lane', 'sky_carried'].includes(it.bg)) {
-        rep.warn('canon', rid, `the passerby (SPEC 6.3, the lane) speaks on bg "${it.bg}" (expected lane${rid === 'asher' ? ' or sky_carried' : ''})`);
-      }
-    }
-    const v = simA.out.find((x) => x.kind === 'verse' && x.beat.key === 'MT_9_2A');
-    if (v && !['crowd', 'crowd_lying'].includes(v.bg)) rep.warn('canon', rid, `MT_9_2A is shown on bg "${v.bg}" (expected crowd or crowd_lying)`);
-    const lastLight = simA.out.filter((x) => x.kind === 'fx' && x.beat.fx === 'light').pop();
-    if (!simA.cut && lastLight && lastLight.beat.level !== 'off') rep.info('fx', rid, `the light is still "${lastLight.beat.level}" at the end of the aaaa path (SPEC 4.5: off when leaving)`);
+  if (isObj(route.endings) && isObj(route.endings.bad)) {
+    for (const id of Object.keys(route.endings.bad)) if (rcx.badRefs.some((x) => x.bad === id) && !reached.has(id)) rep.error('outcome', `${rid} › endings.bad.${id}`, 'no simulated path reaches this cut branch');
   }
-  // Screens and time summary.
-  const timeLines = [];
+  // Engine cross-check.
+  if (engine && typeof engine.createGame === 'function' && !simFailed) {
+    const r = enginePathCheck(rep, data, rid, engine);
+    if (r) lines.engine.push(`${pad(rid, 7)} ${r}`);
+  }
+  // Summary lines.
+  const ch = choicesOf(route);
+  lines.shape.push(`${pad(rid, 7)} ${ch.length} choices (${ch.map((b) => `${b.id}:${optionsOf(b).map((o) => ({ continue: 'o', bad: 'x', scold: '~' })[optionOutcome(o)]).join('')}`).join(' ')})   cut branches ${byBad.size}   scolds ${rcx.scolds.length}   true paths ${tps.length}   cut paths ${cps.length}`);
+  lines.tree.push(`${pad(rid, 7)} ${treeLevels(route).map((l) => `${l.id}[${l.branches.join(',')}]`).join(' ')}  -> ★`);
+  const stat = (arr, f, d = 1) => (arr.length ? `${Math.min(...arr.map(f)).toFixed(d)} / ${median(arr.map(f)).toFixed(d)} / ${Math.max(...arr.map(f)).toFixed(d)}` : '-');
   let summary = null;
-  if (res.length) {
-    const byLabel = (label) => res.find((r) => r.label === label);
-    const row = (label, r) => `${pad(rid, 7)} ${pad(label, 13)} screens ${padL(r.st.screens, 3)}  choices ${r.st.choices}  ` +
-      `silent ko ${r.mins.ko.toFixed(1)} / en ${r.mins.en.toFixed(1)} min   aloud ko ${r.mins.koAloud.toFixed(1)} / en ${r.mins.enAloud.toFixed(1)} min   ending ${r.endKey}`;
-    timeLines.push(row('aaaa', byLabel('aaaa')));
-    timeLines.push(row('dddd', byLabel('dddd')));
-    const nc = res.filter((r) => !r.cut);
-    const cutRes = res.filter((r) => r.cut);
-    const stat = (arr, f, d = 1) => (arr.length ? `${Math.min(...arr.map(f)).toFixed(d)} / ${median(arr.map(f)).toFixed(d)} / ${Math.max(...arr.map(f)).toFixed(d)}` : '-');
-    if (nc.length) {
-      timeLines.push(`${pad(rid, 7)} ${pad(`non-cut ${nc.length}`, 13)} screens min/median/max ${stat(nc, (r) => r.st.screens, 0)}   aloud ko ${stat(nc, (r) => r.mins.koAloud)} min   en ${stat(nc, (r) => r.mins.enAloud)} min   silent ko ${stat(nc, (r) => r.mins.ko)}`);
-    }
-    if (cutRes.length) {
-      timeLines.push(`${pad(rid, 7)} ${pad(`cut ${cutRes.length}`, 13)} screens min/median/max ${stat(cutRes, (r) => r.st.screens, 0)}   aloud ko ${stat(cutRes, (r) => r.mins.koAloud)} min   en ${stat(cutRes, (r) => r.mins.enAloud)} min`);
-    }
-    const medScreens = nc.length ? median(nc.map((r) => r.st.screens)) : 0;
-    if (nc.length && medScreens > SCREENS.medianMax) {
-      rep.warn('screens', rid, `the typical (median) non-cut path has ${medScreens} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
-    } else if (nc.length && medScreens < SCREENS.target[0]) {
-      rep.info('screens', rid, `the typical (median) non-cut path has ${medScreens} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
-    }
+  if (trueRes.length) {
+    lines.screens.push(`${pad(rid, 7)} true paths ${pad(trueRes.length, 4)} screens min/median/max ${stat(trueRes, (r) => r.st.screens, 0)}   aloud ko ${stat(trueRes, (r) => r.mins.koAloud)} min   en ${stat(trueRes, (r) => r.mins.enAloud)} min   silent ko ${stat(trueRes, (r) => r.mins.ko)} min`);
     summary = {
-      medianScreens: medScreens,
-      maxScreens: Math.max(...res.map((r) => r.st.screens)),
-      aloudKo: nc.length ? median(nc.map((r) => r.mins.koAloud)) : 0,
-      aloudEn: nc.length ? median(nc.map((r) => r.mins.enAloud)) : 0,
-      silentKo: nc.length ? median(nc.map((r) => r.mins.ko)) : 0
+      medianScreens: median(trueRes.map((r) => r.st.screens)),
+      maxScreens: Math.max(...trueRes.map((r) => r.st.screens)),
+      aloudKo: median(trueRes.map((r) => r.mins.koAloud)),
+      aloudEn: median(trueRes.map((r) => r.mins.enAloud)),
+      silentKo: median(trueRes.map((r) => r.mins.ko))
     };
   }
-  return { balanceLines, distLines, engineLines, timeLines, dist, prologue: pro, summary };
+  for (const [bad, r] of byBad) {
+    lines.cuts.push(`${pad(rid, 7)} ${pad(bad, 14)} from ${pad([...r.at].join(' '), 12)} the branch: ${r.branchScreens} screens, aloud ko ~${Math.round(r.branchMins.koAloud * 60)} s / en ~${Math.round(r.branchMins.enAloud * 60)} s   whole cut path: up to ${r.maxScreens} screens`);
+  }
+  return { lines, summary, prologue: pro };
 }
 
 // Signature of one shown step, comparable between the reference simulation and the engine.
-function sigOfItem(it, data) {
+function sigOfItem(it) {
   const b = it.beat || {};
   const ko = (t) => (isT(t) ? t.ko : '');
   if (it.kind === 'line') return it.phase === 'last' ? `last|${ko(b.text)}` : `line|${b.speaker || 'narrator'}|${ko(b.text)}`;
   if (it.kind === 'verse') return `verse|${b.key}`;
-  if (it.kind === 'choice') return `choice|${b.id}`;
+  if (it.kind === 'memory') return `memory|${it.key}`;
+  if (it.kind === 'choice') return `choice|${b.id}|${it.shown.join('')}`;
   if (it.kind === 'press') return `press|${b.action || ''}|${ko(b.label)}`;
-  if (it.kind === 'card') return `title|${it.cut ? 'cut' : it.lens}`;
+  if (it.kind === 'card') return 'title|good';
+  if (it.kind === 'snip') return `snip|${it.bad}`;
   return null;
 }
 function sigOfStep(st) {
@@ -2014,67 +1973,106 @@ function sigOfStep(st) {
   switch (st.kind) {
     case 'line': return `line|${st.speaker || 'narrator'}|${ko(st.text)}`;
     case 'verse': return `verse|${st.key}`;
-    case 'choice': return `choice|${st.id}`;
+    case 'memory': return `memory|${st.key}`;
+    case 'choice': return `choice|${st.id}|${(st.options || []).map((o) => o.id).join('')}`;
     case 'press': return `press|${st.action || ''}|${ko(st.label)}`;
-    case 'endingTitle': return `title|${st.cut ? 'cut' : st.lens}`;
+    case 'endingTitle': return 'title|good';
     case 'last': return `last|${ko(st.text)}`;
+    case 'snip': return `snip|${st.badId}`;
     default: return `${st.kind}|`;
   }
 }
 
-// Drives BHS.engine.createGame() along every choice path (4^4) and compares every shown step with
-// simulate(), cut paths included, plus the ending id ("<route>-<lens>" or "<route>-cut").
+// The state as Try again must restore it: everything but the retry snapshot itself and the removal
+// animation hint of a re-asked choice.
+function retryView(state) {
+  const s = JSON.parse(JSON.stringify(state));
+  delete s.retry;
+  if (s.step) s.step.justRemoved = null;
+  return JSON.stringify(s);
+}
+
+// Drives BHS.engine.createGame() along every true path and every cut path, each once as planned and
+// once with every scold picked on the way, and compares every shown step with simulate(). On a cut path
+// it also presses Try again (retry) on the snip card and checks the game is back at that choice, with
+// the same options and the same state as when the choice was shown.
 function enginePathCheck(rep, data, rid, engine) {
   const route = data.routes[rid];
   const warnBefore = Array.isArray(engine.warnings) ? engine.warnings.length : 0;
+  const plans = [];
+  for (const picks of truePaths(route)) {
+    plans.push({ picks, kind: 'true' });
+    plans.push({ picks, kind: 'true', scoldFirst: true });
+  }
+  for (const c of cutPaths(route)) {
+    plans.push({ picks: c.picks, kind: 'cut', cut: c });
+    plans.push({ picks: c.picks, kind: 'cut', cut: c, scoldFirst: true });
+  }
   let diffs = 0;
+  let retries = 0;
   let firstDiff = null;
-  let n = 0;
+  let nTrue = 0;
   let nCut = 0;
-  for (const picks of allPicks()) {
-    const label = picks.map((p) => OPTION_IDS[p]).join('');
-    const ch = picksToChoices(picks);
-    const sim = simulate(route, data, ch);
-    const mine = sim.out.map((it) => sigOfItem(it, data)).filter(Boolean);
+  const fail = (plan, detail) => {
+    diffs++;
+    if (!firstDiff) firstDiff = `${pathLabel(route, plan.picks)}${plan.scoldFirst ? ' (with scolds)' : ''}: ${detail}`;
+  };
+  for (const plan of plans) {
+    const sim = simulate(route, data, plan);
+    const mine = sim.out.map(sigOfItem).filter(Boolean);
     const theirs = [];
     let game;
     try { game = engine.createGame(rid); } catch (e) { rep.error('engine', rid, `createGame("${rid}") threw: ${e.message}`); return null; }
-    let endId = null;
+    let snapAt = null;
+    let broke = false;
     for (let guard = 0; guard < 4000; guard++) {
       const st = game.step;
-      if (!st || st.kind === 'end') {
-        const v = st && typeof game.view === 'function' ? game.view() : null;
-        if (v && v.ending) endId = v.ending.id;
-        break;
-      }
+      if (!st || st.kind === 'end') break;
       theirs.push(sigOfStep(st));
+      if (st.kind === 'snip') break;
       try {
-        if (st.kind === 'choice') { if (!game.choose(ch[st.id])) { theirs.push('choose-failed|' + st.id); break; } } else if (st.kind === 'press') game.press();
-        else game.next();
-      } catch (e) { theirs.push('threw|' + e.message); break; }
+        if (st.kind === 'choice') {
+          const cb = choicesOf(route).find((b) => b.id === st.id);
+          if (plan.cut && st.id === plan.cut.choice) snapAt = retryView(game.serialize());
+          const id = nextPick(cb, (st.options || []).map((o) => o.id), plan);
+          if (!game.choose(id)) { theirs.push('choose-failed|' + st.id + '/' + id); broke = true; break; }
+        } else if (st.kind === 'press') game.press();
+        else if (!game.next()) { theirs.push('next-refused|' + st.kind); broke = true; break; }
+      } catch (e) { theirs.push('threw|' + e.message); broke = true; break; }
     }
-    n++;
-    if (sim.cut) nCut++;
+    if (plan.kind === 'true') nTrue++;
+    else nCut++;
     const len = Math.max(mine.length, theirs.length);
     let at = -1;
     for (let i = 0; i < len; i++) if (mine[i] !== theirs[i]) { at = i; break; }
-    const expId = rid + '-' + (sim.cut ? 'cut' : sim.lens.lens);
-    if (at >= 0 || endId !== expId) {
-      diffs++;
-      if (!firstDiff) firstDiff = { label, at, mine: mine[at], theirs: theirs[at], endId, expId };
+    if (at >= 0) { fail(plan, `step ${at + 1}: reference "${snip(mine[at] || '(end)', 60)}" vs engine "${snip(theirs[at] || '(end)', 60)}"`); continue; }
+    if (broke) { fail(plan, theirs[theirs.length - 1]); continue; }
+    const ending = game.state && game.state.ending;
+    if (plan.kind === 'true') {
+      if (!game.step || game.step.kind !== 'end' || !ending || ending.id !== rid + '-good') fail(plan, `ended with ${ending ? ending.id : 'no ending'}, expected ${rid}-good`);
+      continue;
     }
+    const want = `${rid}-bad-${plan.cut.bad}`;
+    if (!game.step || game.step.kind !== 'snip' || game.step.id !== want) { fail(plan, `stopped at ${game.step ? game.step.kind + ' ' + (game.step.id || '') : 'nothing'}, expected the snip card of ${want}`); continue; }
+    // Try again.
+    let ok = false;
+    try { ok = typeof game.retry === 'function' && game.retry(); } catch (e) { ok = false; }
+    const pres = sim.presentations[plan.cut.choice] || [];
+    const wantStep = `choice|${plan.cut.choice}|${(pres[pres.length - 1] || []).join('')}`;
+    if (!ok) { fail(plan, 'retry() on the snip card failed'); continue; }
+    if (sigOfStep(game.step) !== wantStep) { fail(plan, `Try again shows "${sigOfStep(game.step)}", expected "${wantStep}"`); continue; }
+    if (snapAt && retryView(game.serialize()) !== snapAt) { fail(plan, 'Try again did not restore the state as it was when the choice was shown'); continue; }
+    retries++;
   }
   if (Array.isArray(engine.warnings) && engine.warnings.length > warnBefore) {
     const uniq = [...new Set(engine.warnings.slice(warnBefore))].slice(0, 5);
     rep.warn('engine', rid, `engine warnings during simulated play: ${uniq.map((x) => snip(x, 80)).join(' | ')}`);
   }
   if (diffs) {
-    const f = firstDiff;
-    const detail = f.at >= 0 ? `step ${f.at + 1}: reference "${snip(f.mine || '(end)', 60)}" vs engine "${snip(f.theirs || '(end)', 60)}"` : `ending ${f.endId} vs reference ${f.expId}`;
-    rep.error('engine', rid, `engine play differs from the SPEC reference simulation on ${diffs}/${n} paths; first on ${f.label} at ${detail}`);
+    rep.error('engine', rid, `engine play differs from the SPEC reference simulation on ${diffs}/${plans.length} runs; first: ${firstDiff}`);
     return null;
   }
-  return `engine play (createGame) matches the reference step by step on ${n}/${n} paths (${nCut} cut), ending ids included`;
+  return `engine play (createGame) matches the reference step by step: ${nTrue} true-path runs and ${nCut} cut-path runs (each planned and with every scold), Try again back at the right choice ${retries}/${nCut}`;
 }
 
 function checkPasserbyText(rep, rid, texts, canon) {
@@ -2119,7 +2117,7 @@ export function validateData(data, opts = {}) {
   safe('meta', () => checkMeta(rep, data, Object.assign({}, gcx, { file: 'data/meta.js' })));
   safe('common', () => checkCommon(rep, data, Object.assign({}, gcx, { file: 'data/common.js' })));
   safe('ui', () => checkUi(rep, data, Object.assign({}, gcx, { file: 'data/ui-strings.js' })));
-  const out = { balance: [], dist: [], engine: [], time: [], routes: {} };
+  const out = { shape: [], tree: [], screens: [], cuts: [], engine: [], routes: {} };
   for (const rid of routes) {
     if (data.routes[rid] === undefined) continue;
     const r = safe(rid, () => checkRoute(rep, data, rid, gcx, opts));
@@ -2127,29 +2125,27 @@ export function validateData(data, opts = {}) {
     safe(rid + ' passerby', () => checkPasserbyText(rep, rid, r.cx.allTexts, canon));
     const s = safe(rid + ' stats', () => routeStats(rep, data, rid, r.cx, canon, data.engine));
     if (s) {
-      out.balance.push(...s.balanceLines);
-      out.dist.push(...s.distLines);
-      out.engine.push(...s.engineLines);
-      out.time.push(...s.timeLines);
-      out.routes[rid] = { dist: s.dist ? { total: s.dist.total, counts: s.dist.counts, cut: s.dist.cut, mismatch: s.dist.mismatch, ties: s.dist.ties } : null, summary: s.summary };
+      for (const k of ['shape', 'tree', 'screens', 'cuts', 'engine']) out[k].push(...s.lines[k]);
+      out.routes[rid] = { summary: s.summary };
       out.prologue = s.prologue;
     }
   }
   if (data.engine) safe('engine', () => checkEngineExtras(rep, data, routes));
-  if (out.balance.length) rep.section(`Balance - lens per option a,b,c,d (SPEC 8; x = cut option, - = no lens; ${LAST_CHOICE} counts double)`, out.balance);
-  if (out.dist.length) rep.section(`Ending distribution - all 4^${CHOICE_COUNT} = ${PATH_COUNT} choice combinations per route (SPEC 5.1, 8; lens shares are of the non-cut paths)`, out.dist);
+  if (out.shape.length) rep.section('Story shape - options per choice (o = continue, x = cuts the story, ~ = scolded away; SPEC 4.5, 8)', out.shape);
+  if (out.tree.length) rep.section('Story trees - cut branches at their first choice point (SPEC 5.8)', out.tree);
   if (out.engine.length) rep.section('Engine cross-check', out.engine);
-  if (out.time.length) {
+  if (out.screens.length) {
     const sums = Object.values(out.routes).map((r) => r.summary).filter(Boolean);
     const lesson = [];
     if (out.prologue) lesson.push(`prologue: ${out.prologue.screens} screens (played once per lesson; not in the route numbers)`);
     if (sums.length) {
       const add = (k) => sums.reduce((x, y) => x + y[k], 0);
-      lesson.push(`all ${sums.length} routes in one lesson (median non-cut path each): ${add('medianScreens')} screens, read aloud ~${add('aloudKo').toFixed(1)} min (ko) / ~${add('aloudEn').toFixed(1)} min (en), silent ~${add('silentKo').toFixed(1)} min (ko)`);
+      lesson.push(`all ${sums.length} routes in one lesson (median true path each): ${add('medianScreens')} screens, read aloud ~${add('aloudKo').toFixed(1)} min (ko) / ~${add('aloudEn').toFixed(1)} min (en), silent ~${add('silentKo').toFixed(1)} min (ko)`);
     }
-    rep.section(`Screens and reading time over all ${PATH_COUNT} paths (screens = line+verse+choice+press, budget <= ${SCREENS.max}; silent ko 450 chars/min, en 200 words/min, +4 s per choice; aloud ko 260 chars/min, en 150 words/min, +10 s per choice, +1 s per screen)`,
-      out.time.concat(lesson));
+    rep.section(`True paths - screens and reading time (screens = line+verse+choice+press+memory verse; WARN > ${SCREENS.trueWarn}, ERROR > ${SCREENS.trueMax}; silent ko 450 chars/min, en 200 words/min, +4 s per choice; aloud ko 260 chars/min, en 150 words/min, +10 s per choice, +1 s per screen)`,
+      out.screens.concat(lesson));
   }
+  if (out.cuts.length) rep.section(`Cut branches - reading time from the cutting pick (reaction, beats, last line) and the longest whole cut path (ERROR > ${SCREENS.cutMax} screens)`, out.cuts);
   return { report: rep, stats: out };
 }
 
@@ -2166,17 +2162,17 @@ function checkEngineExtras(rep, data, routes) {
       const conds = [];
       JSON.stringify(route, (k, v) => { if (k === 'when' && isObj(v)) conds.push(v); return v; });
       const flagVals = prescanFlags(route);
+      const ch = choicesOf(route);
       for (const c of conds) {
         for (let t = 0; t < 12; t++) {
           const choices = {};
-          CHOICE_IDS.forEach((cid) => { choices[cid] = OPTION_IDS[Math.floor(rng() * 4)]; });
+          ch.forEach((b) => { const o = optionsOf(b); if (o.length && rng() < 0.85) choices[b.id] = o[Math.floor(rng() * o.length)].id; });
           const flags = {};
           for (const [f, vals] of flagVals) {
             const arr = [...vals];
             if (rng() < 0.75) flags[f] = arr[Math.floor(rng() * arr.length)];
           }
-          const lastLens = 1 + Math.floor(rng() * 3);
-          const st = { routeId: rid, choices, flags, vars: {}, lastLens, c10Lens: lastLens, lens: lastLens };
+          const st = { routeId: rid, choices, flags, vars: {} };
           let theirs;
           try { theirs = !!eng.evalCond(c, st); } catch (e) { theirs = 'threw ' + e.message; }
           n++;
@@ -2184,14 +2180,14 @@ function checkEngineExtras(rep, data, routes) {
         }
       }
     }
-    if (bad) rep.warn('engine', 'js/engine.js', `evalCond disagrees with the reference on ${bad}/${n} samples (assumed state {choices, flags, vars, lastLens}); e.g. ${snip(JSON.stringify(first.c), 80)} -> ${first.theirs}`);
+    if (bad) rep.warn('engine', 'js/engine.js', `evalCond disagrees with the reference on ${bad}/${n} samples; e.g. ${snip(JSON.stringify(first.c), 80)} -> ${first.theirs}`);
     else if (n) rep.info('engine', 'js/engine.js', `evalCond agrees with the reference on ${n} samples`);
   }
   if (typeof eng.resolveText === 'function') {
     let bad = 0;
     let first = null;
     let n = 0;
-    const st = { choices: {}, flags: {}, vars: {}, lastLens: 1 };
+    const st = { choices: {}, flags: {}, vars: {} };
     const visit = (t) => {
       if (!isT(t)) return;
       for (const lang of ['ko', 'en']) {
@@ -2234,6 +2230,19 @@ function checkEngineExtras(rep, data, routes) {
   } else if (typeof eng.verseText === 'function') {
     rep.warn('engine', 'js/engine.js', 'BHS.engine.verseDisplay is not exposed (SPEC 4.3 display rule for excerpts)');
   }
+  // The story tree (SPEC 5.8): the engine's tree must match the reference placement.
+  if (typeof eng.treeOf === 'function') {
+    for (const rid of routes) {
+      const route = data.routes[rid];
+      if (!isObj(route)) continue;
+      let t;
+      try { t = eng.treeOf(rid); } catch (e) { t = null; }
+      const theirs = t && Array.isArray(t.levels) ? t.levels.map((l) => `${l.id}[${(l.branches || []).map((b) => b.badId).join(',')}]`).join(' ') : 'none';
+      const mine = treeLevels(route).map((l) => `${l.id}[${l.branches.join(',')}]`).join(' ');
+      if (theirs !== mine) rep.error('engine', rid, `BHS.engine.treeOf gives "${theirs}", the reference tree is "${mine}"`);
+      else if (!t.good || t.good.id !== rid + '-good') rep.error('engine', rid, `BHS.engine.treeOf: the true ending id is ${t.good && t.good.id}, expected ${rid}-good`);
+    }
+  } else rep.warn('engine', 'js/engine.js', 'BHS.engine.treeOf is not exposed (the story tree, SPEC 5.8)');
 }
 
 export function formatText(res, meta) {
@@ -2364,59 +2373,70 @@ async function main() {
 
 function T(ko, en) { return { ko, en }; }
 
+const FIX_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+
 export function fixtureData(root, opts = {}) {
-  // Uses the real meta/characters/scripture/common when available, plus generated short routes (SPEC v3):
-  // four choices, scribe cut at c3 (after the scribes' thought), friend cut at c2 (in the lane), asher none.
+  // Uses the real meta/characters/scripture/common when available, plus generated story-mode routes
+  // (SPEC version 4): five choices with 2-4 options, three scolds, three cut branches (one reachable
+  // from two choices; the latest cut path sits at the 20-screen cap), the crowd sequence, the
+  // passerby, and the true ending with the memory verse. No story string carries an ASCII digit.
   const rep = new Report();
   const loaded = loadProject(root, rep, { routeFilter: '__none__', partial: true });
   const d = loaded.data;
   const H = '가나다';
   const ko = (s) => H + ' ' + s;
   const line = (s, sp) => ({ type: 'line', speaker: sp, text: T(ko(s), 'Line ' + s + '.') });
-  const choice = (n, lenses, extra) => ({
-    type: 'choice', id: 'c' + n, prompt: T(ko('prompt ' + n), 'Prompt ' + n + '?'),
-    options: OPTION_IDS.map((oid, i) => Object.assign({ id: oid, text: T(ko('opt ' + n + oid), 'Option ' + n + oid + '.'), lens: lenses[i] }, (extra && extra[oid]) || {}))
-  });
+  const opt = (id, s, extra) => Object.assign({ id, text: T(ko('보기 ' + s), 'Option ' + s + '.') }, extra || {});
+  const choice = (n, options) => ({ type: 'choice', id: 'c' + n, prompt: T(ko('질문 ' + FIX_WORDS[n]), 'Prompt ' + FIX_WORDS[n] + '?'), options });
   const canon = canonFromSpec(parseSpec(root));
   const pass = { type: 'line', speaker: 'passerby', text: T(canon.passerby.ko, canon.passerby.en) };
-  const me = { scribe: 'menahem', friend: 'yonah', asher: 'asher' };
-  const cutOpt = { cut: true, reaction: [line('leaving', 'narrator')] };
+  const scolder = { scribe: 'hanan', friend: 'partners', asher: 'yonah' };
+  const badEnd = (title, en, s) => ({ title: T(title, en), beats: [line(s + 'one'), line(s + 'two')], last: T(ko(s + ' 끝'), 'So ' + s + '.') });
   const mk = (rid) => {
-    const beats = [{ type: 'scene', bg: rid === 'asher' ? 'asher_ceiling' : 'shore_dawn', caption: T(ko('cap'), 'Dawn') }, { type: 'verse', key: 'MT_9_1' }, line('a1')];
-    beats.push(choice(1, [1, 2, 3, 1]), line('after 1', me[rid]));
-    // The lane.
-    beats.push({ type: 'scene', bg: rid === 'asher' ? 'sky_carried' : 'lane' });
-    if (rid !== 'scribe') beats.push(pass);
-    beats.push(line('lane'));
-    if (rid === 'friend') beats.push(choice(2, [1, 2, 3, null], { a: { set: { near: true } }, d: cutOpt }));
-    // The crowd (SPEC 6.4).
-    beats.push({ type: 'scene', bg: rid === 'asher' ? 'crowd_lying' : 'crowd' }, { type: 'fx', fx: 'light', level: 'soft' }, { type: 'verse', key: 'MT_9_2A' }, { type: 'fx', fx: 'light', level: 'bright' });
+    const beats = [
+      { type: 'scene', bg: rid === 'asher' ? 'asher_ceiling' : 'shore_dawn', caption: T(ko('새벽'), 'Dawn') },
+      line('open'), line('dawn'),
+      choice(1, [
+        opt('a', 'aa', { set: { near: true } }),
+        opt('b', 'ab', { bad: 'nap', reaction: [line('yawn')] }),
+        opt('c', 'ac', { scold: { speaker: 'thought', text: T(ko('안 된다'), 'Not that.') } }),
+        opt('d', 'ad')
+      ]),
+      line('after'),
+      { type: 'scene', bg: rid === 'asher' ? 'sky_carried' : 'lane' },
+      pass, line('lane'), line('lanetoo'),
+      choice(2, [opt('a', 'ba'), opt('b', 'bb', { bad: 'lane' })]),
+      { type: 'scene', bg: rid === 'asher' ? 'crowd_lying' : 'crowd' },
+      { type: 'fx', fx: 'light', level: 'soft' }, { type: 'verse', key: 'MT_9_2A' }, { type: 'fx', fx: 'light', level: 'bright' }
+    ];
     if (rid === 'asher') beats.push({ type: 'verse', key: 'MT_9_2B1' }, { type: 'verse', key: 'MT_9_2B2' });
     else beats.push({ type: 'verse', key: 'MT_9_2B' });
     beats.push({ type: 'fx', fx: 'light', level: 'soft' });
-    if (rid === 'scribe') beats.push(choice(2, [1, 2, 3, 2]), { type: 'verse', key: 'MT_9_3Q', speaker: 'scribes' }, choice(3, [1, 2, 3, null], { d: cutOpt }));
-    if (rid === 'friend') beats.push(choice(3, [1, 2, 3, 3]), { type: 'line', when: { flag: 'near', is: true }, text: T(ko('near'), 'Close by.') });
-    if (rid === 'asher') beats.push(choice(2, [1, 2, 3, 3]), line('scribes stiff'), choice(3, [1, 2, 3, 2]));
-    beats.push({ type: 'verse', key: 'MT_9_4N' }, { type: 'verse', key: 'MT_9_4Q' }, { type: 'verse', key: 'MT_9_5' },
-      { type: 'verse', key: 'MT_9_6A' }, { type: 'verse', key: 'MT_9_6N' }, { type: 'fx', fx: 'light', level: 'bright' }, { type: 'verse', key: 'MT_9_6B' });
-    if (rid === 'asher') beats.push({ type: 'press', action: 'getup' });
+    if (rid === 'scribe') beats.push({ type: 'verse', key: 'MT_9_3Q', speaker: 'scribes' });
+    beats.push(choice(3, [
+      opt('a', 'ca', { reaction: [{ type: 'line', when: { flag: 'near', is: true }, text: T(ko('가까이'), 'Close by.') }] }),
+      opt('b', 'cb', { scold: { speaker: scolder[rid], text: T(ko('그건 아니지'), 'No way.') } }),
+      opt('c', 'cc', { bad: 'guard' })
+    ]));
+    beats.push({ type: 'verse', key: 'MT_9_4N' }, { type: 'verse', key: 'MT_9_4Q' }, { type: 'verse', key: 'MT_9_5' });
+    beats.push(choice(4, [opt('a', 'da'), opt('b', 'db'), opt('c', 'dc', { bad: 'nap' }), opt('d', 'dd', { scold: { text: T(ko('조용히'), 'Hush.') } })]));
+    beats.push({ type: 'verse', key: 'MT_9_6A' }, { type: 'verse', key: 'MT_9_6N' }, { type: 'fx', fx: 'light', level: 'bright' }, { type: 'verse', key: 'MT_9_6B' });
+    if (rid === 'asher') beats.push({ type: 'press', label: T(ko('일어나기'), 'Get up') });
     beats.push({ type: 'verse', key: 'MT_9_7' }, { type: 'verse', key: 'MT_9_8' }, { type: 'fx', fx: 'light', level: 'soft' });
-    beats.push(choice(4, [1, 2, 3, rid === 'friend' ? 2 : 1]), { type: 'fx', fx: 'light', level: 'off' });
-    const r = {
-      id: rid, beats,
+    beats.push(choice(5, [opt('a', 'ea'), opt('b', 'eb'), opt('c', 'ec')]));
+    beats.push({ type: 'fx', fx: 'light', level: 'off' });
+    return {
+      id: rid,
+      beats,
       endings: {
-        1: { beats: [line('e1')], last: T(ko('last1'), 'Last one.') },
-        2: { beats: [line('e2')], last: T(ko('last2'), 'Last two.') },
-        3: { beats: [line('e3'), { type: 'line', when: { lastLens: 3 }, text: T(ko('c4'), 'Last pick three.') }], last: T(ko('last3'), 'Last three.') }
+        good: { title: T(ko('끝까지'), 'All the Way'), verse: MEMORY_VERSE[rid], beats: [line('home')], last: T(ko('마지막'), 'The last line.') },
+        bad: {
+          nap: badEnd('낮잠 자기', 'A Nap', 'nap'),
+          lane: badEnd('골목에서', 'In the Lane', 'lane'),
+          guard: badEnd('수비대', 'The Guardhouse', 'guard')
+        }
       }
     };
-    if (rid !== 'asher') r.endings.cut = { beats: [line('cut 1'), line('cut 2', rid === 'scribe' ? 'hanan' : 'narrator')], last: T(ko('cut last'), 'Cut last.') };
-    if (rid === 'asher') {
-      r.actions = [{ id: 'getup', label: T(ko('up'), 'Get up'), replies: [T(ko('no'), 'No.'), T(ko('no2'), 'Still no.'), T(ko('no3'), 'No again.')], counter: 'getup_count' },
-        { id: 'goout', label: T(ko('out'), 'Go out'), replies: [T(ko('door'), 'The door is far.')], counter: 'goout_count' }];
-      r.endingCoda = [{ type: 'line', text: T(ko('{{var:getup_count}}'), 'Tries: {{var:getup_count}}') }];
-    }
-    return r;
   };
   d.routes = { scribe: mk('scribe'), friend: mk('friend'), asher: mk('asher') };
   if (opts.withEngine) return { data: d, engine: loaded.data.engine, bhs: loaded.bhs };
@@ -2436,15 +2456,18 @@ function selfTest() {
   };
   const find = (d, rid, pred) => d.routes[rid].beats.find(pred);
   const cho = (d, rid, id) => find(d, rid, (x) => x.type === 'choice' && x.id === id);
-  // Pads a route's main beats with narration so every path shows exactly `n` more screens.
+  // Pads a route's main beats with narration right before c5, so every true path shows exactly `n` more
+  // screens and the cut paths (all cut before c5) stay as they are.
   const pad = (d, rid, n) => {
-    const at = d.routes[rid].beats.findIndex((x) => x.type === 'choice' && x.id === 'c1');
-    for (let i = 0; i < n; i++) d.routes[rid].beats.splice(at, 0, { type: 'line', text: T('가 채움 ' + i, 'Filler ' + i + '.') });
+    const at = d.routes[rid].beats.findIndex((x) => x.type === 'choice' && x.id === 'c5');
+    for (let i = 0; i < n; i++) d.routes[rid].beats.splice(at, 0, { type: 'line', text: T('가 채움', 'Filler.') });
   };
-  const maxScreens = (d, rid) => {
-    let m = 0;
-    for (const picks of allPicks()) m = Math.max(m, readingStats(simulate(d.routes[rid], d, picksToChoices(picks)).out, d).screens);
-    return m;
+  const maxTrue = (d, rid) => Math.max(...truePaths(d.routes[rid]).map((p) => readingStats(simulate(d.routes[rid], d, { picks: p }).out, d).screens));
+  const withEngine = () => {
+    const fx = fixtureData(root, { withEngine: true });
+    if (!fx.engine || !fx.bhs) return null;
+    fx.bhs.routes = fx.data.routes;
+    return fx;
   };
   t('good fixture has no route/common ERROR', () => {
     const rep = run(clone(base));
@@ -2452,15 +2475,31 @@ function selfTest() {
     if (errs.length) console.log(errs.map((f) => `   ${f.code} ${f.where}: ${f.msg}`).join('\n'));
     return errs.length === 0;
   });
-  t('good fixture: no cut/dist/screens/canon WARN either', () => {
+  t('good fixture: no outcome/shape/screens/canon/ending/schema/cond/digits/voice WARN either', () => {
     const rep = run(clone(base));
-    const w = rep.findings.filter((f) => f.level === 'WARN' && ['cut', 'dist', 'screens', 'canon', 'balance', 'ending', 'schema', 'cond'].includes(f.code));
+    const w = rep.findings.filter((f) => f.level === 'WARN' && ['outcome', 'shape', 'screens', 'canon', 'ending', 'schema', 'cond', 'digits', 'voice'].includes(f.code));
     if (w.length) console.log(w.map((f) => `   ${f.code} ${f.where}: ${f.msg}`).join('\n'));
     return w.length === 0;
   });
+  t('paths: true paths = combinations of continue options; cut paths = cutting options after every continue prefix', () => {
+    const r = base.routes.scribe;
+    // continue options: c1 a,d; c2 a; c3 a; c4 a,b; c5 a,b,c -> 2*1*1*2*3 = 12 true paths
+    // cut options: c1 b (1 prefix), c2 b (2), c3 c (2), c4 c (2) -> 7 cut paths
+    const tp = truePaths(r);
+    const cp = cutPaths(r);
+    return tp.length === 12 && cp.length === 7 && cp.filter((c) => c.bad === 'nap').length === 3 && pathLabel(r, cp[0].picks) === 'b----';
+  });
+  t('simulation: a scold plays its line and the choice comes back without it; a cut skips the rest', () => {
+    const r = base.routes.scribe;
+    const s = simulate(r, base, { picks: { c1: 'c' } });
+    const i = s.out.findIndex((it) => it.kind === 'line' && /scold/.test(it.phase));
+    const again = s.out[i + 1];
+    const cut = simulate(r, base, { picks: { c3: 'c' } });
+    return s.presentations.c1.length === 2 && s.presentations.c1[1].join('') === 'abd' && again.kind === 'choice' && again.shown.join('') === 'abd' &&
+      cut.cut && cut.cut.bad === 'guard' && !cut.out.some((it) => it.kind === 'verse' && it.beat.key === 'MT_9_5') && cut.out[cut.out.length - 1].kind === 'snip';
+  });
   t('line speaker jesus -> ERROR guard', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', speaker: 'jesus', text: T('가 a', 'b') }); return run(d).has('ERROR', 'guard', /speaker "jesus"/); });
   t('MT_9_3Q in friend -> ERROR guard', () => { const d = clone(base); d.routes.friend.beats.splice(5, 0, { type: 'verse', key: 'MT_9_3Q' }); return run(d).has('ERROR', 'guard', /MT_9_3Q/); });
-  t('MT_9_3 token in asher -> ERROR guard', () => { const d = clone(base); d.routes.asher.beats.splice(5, 0, { type: 'line', text: T('가 {{v:MT_9_3}}', 'x {{v:MT_9_3}}') }); return run(d).has('ERROR', 'guard', /MT_9_3 /); });
   t('passerby altered -> ERROR canon', () => {
     const d = clone(base);
     const b = find(d, 'friend', (x) => x.speaker === 'passerby');
@@ -2475,296 +2514,238 @@ function selfTest() {
     const rep = run(d);
     return rep.has('WARN', 'canon', /normalizing/) && !rep.has('ERROR', 'canon', /passerby line \(en\) is missing/);
   });
-  t('passerby only after the friend cut -> ERROR canon (shown on every path)', () => {
+  t('condition on a later choice / unknown choice -> ERROR cond', () => {
     const d = clone(base);
-    const bs = d.routes.friend.beats;
-    const p = bs.splice(bs.findIndex((x) => x.speaker === 'passerby'), 1)[0];
-    bs.splice(bs.findIndex((x) => x.type === 'verse' && x.key === 'MT_9_2A'), 0, p);
-    return run(d).has('ERROR', 'canon', /passerby line \(verbatim, ko and en\) is not shown on 64\/256 paths/);
-  });
-  t('condition on a later choice -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.splice(4, 0, { type: 'line', when: { choice: 'c3', is: 'a' }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /c3, which does not appear earlier/); });
-  t('condition on c5 (no such choice) -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', when: { choice: 'c5', is: 'a' }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /unknown choice id "c5"/); });
-  t('flag never set -> ERROR cond', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', when: { flag: 'nope', is: true }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /never set/); });
-  t('flag set only later -> ERROR cond', () => { const d = clone(base); d.routes.friend.beats.splice(3, 0, { type: 'line', when: { flag: 'near', is: true }, text: T('가 x', 'x') }); return run(d).has('ERROR', 'cond', /only set later/); });
-  t('lastLens / c10lens in main beats -> ERROR cond', () => {
-    const d = clone(base);
-    d.routes.scribe.beats.push({ type: 'line', when: { lastLens: 2 }, text: T('가 x', 'x') });
+    d.routes.scribe.beats.splice(2, 0, { type: 'line', when: { choice: 'c3', is: 'a' }, text: T('가 x', 'x') });
     const d2 = clone(base);
-    d2.routes.scribe.beats.push({ type: 'line', when: { c10lens: 2 }, text: T('가 x', 'x') });
-    return run(d).has('ERROR', 'cond', /lastLens may only/) && run(d2).has('ERROR', 'cond', /c10lens may only/);
+    d2.routes.scribe.beats.push({ type: 'line', when: { choice: 'c9', is: 'a' }, text: T('가 x', 'x') });
+    return run(d).has('ERROR', 'cond', /c3, which does not appear earlier/) && run(d2).has('ERROR', 'cond', /unknown choice id "c9"/);
   });
-  t('c10lens alias accepted in endings (INFO), lastLens in endings.cut -> WARN', () => {
+  t('flag never set / set only later -> ERROR cond', () => {
     const d = clone(base);
-    d.routes.scribe.endings['2'].beats.push({ type: 'line', when: { c10lens: 2 }, text: T('가 x', 'x') });
-    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { lastLens: 1 }, text: T('가 y', 'y') });
-    const rep = run(d);
-    return !rep.has('ERROR', 'cond') && rep.has('INFO', 'cond', /old name of lastLens/) && rep.has('WARN', 'cond', /never true inside endings.cut/);
-  });
-  t('endings.cut condition on a choice after the cut -> ERROR cond', () => {
-    const d = clone(base);
-    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { choice: 'c4', is: 'a' }, text: T('가 x', 'x') });
-    d.routes.scribe.endings.cut.beats.push({ type: 'line', when: { choice: 'c2', is: 'a' }, text: T('가 y', 'y') });
-    const rep = run(d);
-    return rep.has('ERROR', 'cond', /c4, which is never asked on a cut path/) && !rep.has('ERROR', 'cond', /c2, which/);
-  });
-  t('reaction may reference its own choice', () => {
-    const d = clone(base);
-    const c = cho(d, 'scribe', 'c3');
-    c.options[1].reaction = [{ type: 'line', when: { choice: 'c3', is: 'b' }, text: T('가 x', 'x') }];
-    return !run(d).has('ERROR', 'cond');
-  });
-  t('two unconditional reaction lines -> WARN (one allowed; two on a cut option)', () => {
-    const d = clone(base);
-    cho(d, 'scribe', 'c2').options[0].reaction = [{ type: 'line', text: T('가 x', 'x') }, { type: 'line', text: T('가 y', 'y') }];
-    const ok1 = run(d).has('WARN', 'schema', /2 unconditional beats/);
+    d.routes.scribe.beats.push({ type: 'line', when: { flag: 'nope', is: true }, text: T('가 x', 'x') });
     const d2 = clone(base);
-    cho(d2, 'scribe', 'c3').options[3].reaction.push({ type: 'line', text: T('가 z', 'z') });
-    return ok1 && !run(d2).has('WARN', 'schema', /unconditional beats/);
+    d2.routes.friend.beats.splice(2, 0, { type: 'line', when: { flag: 'near', is: true }, text: T('가 x', 'x') });
+    return run(d).has('ERROR', 'cond', /never set/) && run(d2).has('ERROR', 'cond', /only set later/);
   });
-  t('{{v:}} on refOnly key -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{v:MT_8_19_20}}', 'x {{v:MT_8_19_20}}') }); return run(d).has('ERROR', 'token', /reference-only/); });
-  t('unknown key -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{r:MT_99_1}}', 'x {{r:MT_99_1}}') }); return run(d).has('ERROR', 'token', /unknown scripture key/); });
-  t('malformed token -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{v: MT_9_5}}', 'x {{v: MT_9_5}}') }); return run(d).has('ERROR', 'token', /malformed/); });
-  t('{{var:}} outside asher -> ERROR token', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 {{var:getup_count}}', 'x {{var:getup_count}}') }); return run(d).has('ERROR', 'token', /not an action counter/); });
-  t('quotes around token -> WARN', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 "{{v:MT_9_5}}"', 'x "{{v:MT_9_5}}"') }); return run(d).has('WARN', 'token', /quotation marks/); });
-  t('unknown bg -> ERROR schema', () => { const d = clone(base); d.routes.scribe.beats.unshift({ type: 'scene', bg: 'roof' }); return run(d).has('ERROR', 'schema', /unknown bg/); });
-  t('Hangul-only en -> ERROR lang', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가나다', '가나다라') }); return run(d).has('ERROR', 'lang', /mostly Hangul/); });
-  t('English-only ko -> ERROR lang', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('Hello there', 'Hello there') }); return run(d).has('ERROR', 'lang', /no Hangul/); });
-  t('forbidden name -> ERROR names', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('메나헴이 온다', 'Menahem comes.') }); return run(d).has('ERROR', 'names'); });
-  t('forbidden English name Jonah -> ERROR names', () => { const d = clone(base); d.routes.friend.beats.push({ type: 'line', text: T('요나가 온다', 'Jonah comes.') }); return run(d).has('ERROR', 'names', /Jonah/); });
-  t('crowd order swapped -> ERROR canon', () => {
+  t('lens conditions of the earlier releases -> ERROR cond', () => {
+    const d = clone(base);
+    d.routes.scribe.endings.good.beats.push({ type: 'line', when: { lastLens: 2 }, text: T('가 x', 'x') });
+    return run(d).has('ERROR', 'cond', /lastLens is a lens condition/);
+  });
+  t('a cut branch may use only the choices asked before it', () => {
+    const d = clone(base);
+    d.routes.scribe.endings.bad.guard.beats.push({ type: 'line', when: { choice: 'c4', is: 'a' }, text: T('가 x', 'x') });
+    d.routes.scribe.endings.bad.guard.beats.push({ type: 'line', when: { choice: 'c2', is: 'a' }, text: T('가 y', 'y') });
+    const rep = run(d);
+    return rep.has('ERROR', 'cond', /c4, which is never asked before this cut branch/) && !rep.has('ERROR', 'cond', /c2, which/);
+  });
+  t('reaction may reference its own choice; two unconditional reaction lines -> WARN', () => {
+    const d = clone(base);
+    cho(d, 'scribe', 'c2').options[0].reaction = [{ type: 'line', when: { choice: 'c2', is: 'a' }, text: T('가 x', 'x') }];
+    const d2 = clone(base);
+    cho(d2, 'scribe', 'c2').options[0].reaction = [{ type: 'line', text: T('가 x', 'x') }, { type: 'line', text: T('가 y', 'y') }];
+    return !run(d).has('ERROR', 'cond') && run(d2).has('WARN', 'schema', /2 unconditional beats/);
+  });
+  t('tokens: refOnly / unknown / malformed / var -> ERROR; quotes around a token -> WARN', () => {
+    const add = (txt) => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가 ' + txt, 'x ' + txt) }); return run(d); };
+    return add('{{v:MT_8_19_20}}').has('ERROR', 'token', /reference-only/) && add('{{r:MT_99_1}}').has('ERROR', 'token', /unknown scripture key/) &&
+      add('{{v: MT_9_5}}').has('ERROR', 'token', /malformed/) && add('{{var:getup_count}}').has('ERROR', 'token', /not an action counter/) &&
+      add('"{{v:MT_9_5}}"').has('WARN', 'token', /quotation marks/);
+  });
+  t('unknown bg -> ERROR schema; language and name checks', () => {
+    const d = clone(base);
+    d.routes.scribe.beats.unshift({ type: 'scene', bg: 'roof' });
+    const add = (k, e) => { const x = clone(base); x.routes.friend.beats.push({ type: 'line', text: T(k, e) }); return run(x); };
+    return run(d).has('ERROR', 'schema', /unknown bg/) && add('가나다', '가나다라').has('ERROR', 'lang', /mostly Hangul/) &&
+      add('Hello there', 'Hello there').has('ERROR', 'lang', /no Hangul/) && add('메나헴이 온다', 'Menahem comes.').has('ERROR', 'names') &&
+      add('요나가 온다', 'Jonah comes.').has('ERROR', 'names', /Jonah/);
+  });
+  t('crowd order swapped / MT_9_7 missing -> ERROR canon on the true paths', () => {
     const d = clone(base);
     const bs = d.routes.scribe.beats;
     const i5 = bs.findIndex((x) => x.key === 'MT_9_5');
     const i4 = bs.findIndex((x) => x.key === 'MT_9_4Q');
     [bs[i5], bs[i4]] = [bs[i4], bs[i5]];
-    return run(d).has('ERROR', 'canon', /crowd sequence/);
+    const d2 = clone(base);
+    d2.routes.asher.beats = d2.routes.asher.beats.filter((x) => x.key !== 'MT_9_7');
+    return run(d).has('ERROR', 'canon', /crowd sequence/) && run(d2).has('ERROR', 'canon', /MT_9_7 not shown on 12\/12 true paths/);
   });
-  t('missing MT_9_7 -> ERROR canon (on the non-cut paths)', () => { const d = clone(base); d.routes.asher.beats = d.routes.asher.beats.filter((x) => x.key !== 'MT_9_7'); return run(d).has('ERROR', 'canon', /MT_9_7 not shown on 256\/256 non-cut paths/); });
-  t('cut paths may stop early: no "not shown" errors from them', () => {
-    const rep = run(clone(base));
-    return !rep.has(null, 'canon', /not shown/);
-  });
-  t('three choices -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats = d.routes.asher.beats.filter((x) => x.id !== 'c3'); return run(d).has('ERROR', 'schema', /exactly 4 choices/); });
-  t('five choices -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats.push(Object.assign(clone(cho(d, 'asher', 'c4')), { id: 'c5' })); return run(d).has('ERROR', 'schema', /exactly 4 choices|choice id must be c1\.\.c4/); });
-  t('option without lens -> ERROR schema', () => { const d = clone(base); delete cho(d, 'scribe', 'c2').options[0].lens; return run(d).has('ERROR', 'schema', /no lens/); });
-  t('option ids out of order -> ERROR schema', () => { const d = clone(base); const c = cho(d, 'scribe', 'c2'); c.options[0].id = 'b'; return run(d).has('ERROR', 'schema', /option ids/); });
-  t('cut option in asher -> ERROR cut', () => { const d = clone(base); Object.assign(cho(d, 'asher', 'c2').options[3], { cut: true, lens: null }); return run(d).has('ERROR', 'cut', /must not have a cut option/); });
-  t('endings.cut in asher -> ERROR cut', () => { const d = clone(base); d.routes.asher.endings.cut = clone(d.routes.scribe.endings.cut); return run(d).has('ERROR', 'cut', /no cut ending by design/); });
-  t('scribe without a cut option -> ERROR cut', () => { const d = clone(base); const o = cho(d, 'scribe', 'c3').options[3]; delete o.cut; o.lens = 2; return run(d).has('ERROR', 'cut', /no cut option/); });
-  t('two cut options -> ERROR cut and ERROR dist (share over 25%)', () => {
+  t('cut paths may stop early: no "not shown" errors from them', () => !run(clone(base)).has(null, 'canon', /not shown/));
+  t('choice ids out of order -> ERROR schema', () => { const d = clone(base); cho(d, 'asher', 'c3').id = 'c7'; return run(d).has('ERROR', 'schema', /c1, c2, \.\.\. in beat order/); });
+  t('one option or five options -> ERROR schema; option ids out of order -> ERROR schema', () => {
     const d = clone(base);
-    Object.assign(cho(d, 'scribe', 'c2').options[3], { cut: true, lens: null });
+    cho(d, 'scribe', 'c2').options.pop();
+    const d2 = clone(base);
+    cho(d2, 'scribe', 'c1').options.push({ id: 'e', text: T('가 e', 'e') });
+    const d3 = clone(base);
+    cho(d3, 'scribe', 'c4').options[0].id = 'b';
+    return run(d).has('ERROR', 'schema', /2-4 options \(SPEC 4\.5\), found 1/) && run(d2).has('ERROR', 'schema', /found 5/) && run(d3).has('ERROR', 'schema', /option ids/);
+  });
+  t('both bad and scold -> ERROR outcome; bad without its ending / an unreachable ending -> ERROR outcome', () => {
+    const d = clone(base);
+    Object.assign(cho(d, 'friend', 'c5').options[0], { bad: 'guard', scold: { text: T('가 x', 'x') } });
+    const d2 = clone(base);
+    cho(d2, 'friend', 'c5').options[0].bad = 'nowhere';
+    const d3 = clone(base);
+    delete cho(d3, 'friend', 'c3').options[2].bad;
+    return run(d).has('ERROR', 'outcome', /exactly one outcome/) && run(d2).has('ERROR', 'outcome', /has no endings\.bad\.nowhere/) &&
+      run(d3).has('ERROR', 'outcome', /unreachable/);
+  });
+  t('scold without text -> ERROR outcome; a scold by Jesus -> ERROR guard', () => {
+    const d = clone(base);
+    delete cho(d, 'asher', 'c1').options[2].scold.text;
+    const d2 = clone(base);
+    cho(d2, 'asher', 'c1').options[2].scold.speaker = 'jesus';
+    return run(d).has('ERROR', 'outcome', /scold needs a text/) && run(d2).has('ERROR', 'guard', /scold spoken by Jesus/);
+  });
+  t('a choice with no continue option -> ERROR outcome (dead end, no true path)', () => {
+    const d = clone(base);
+    cho(d, 'scribe', 'c2').options[0].scold = { text: T('가 x', 'x') };
     const rep = run(d);
-    return rep.has('ERROR', 'cut', /2 cut options/) && rep.has('ERROR', 'dist', /cut paths are 43\.8%/);
+    return rep.has('ERROR', 'outcome', /c2 has no continue option/) && rep.has('ERROR', 'outcome', /no true path/);
   });
-  t('cut option in c4 or c1 -> ERROR cut', () => {
+  t('lens-release fields: cut -> ERROR, lens -> WARN, endings 1/2/3/cut -> ERROR', () => {
     const d = clone(base);
-    const o = cho(d, 'friend', 'c2').options[3];
-    delete o.cut;
-    o.lens = 2;
-    Object.assign(cho(d, 'friend', 'c4').options[3], { cut: true, lens: null });
-    const d2 = clone(base);
-    const o2 = cho(d2, 'friend', 'c2').options[3];
-    delete o2.cut;
-    o2.lens = 2;
-    Object.assign(cho(d2, 'friend', 'c1').options[0], { cut: true, lens: null });
-    return run(d).has('ERROR', 'cut', /sits in c4/) && run(d2).has('ERROR', 'cut', /sits in c1/);
-  });
-  t('cut option with a lens -> ERROR cut; cut: "yes" -> ERROR cut', () => {
-    const d = clone(base);
-    cho(d, 'scribe', 'c3').options[3].lens = 2;
-    const d2 = clone(base);
-    cho(d2, 'scribe', 'c3').options[3].cut = 'yes';
-    return run(d).has('ERROR', 'cut', /must have lens null/) && run(d2).has('ERROR', 'cut', /boolean true/);
-  });
-  t('missing endings.cut -> ERROR cut', () => { const d = clone(base); delete d.routes.friend.endings.cut; return run(d).has('ERROR', 'cut', /endings\.cut = \{ beats, last \}/); });
-  t('screens: 33 on a path -> ERROR, 32 -> WARN, 31 -> no path warning, median over 30 -> WARN', () => {
-    const at = (extra) => { const d = clone(base); pad(d, 'asher', extra); return d; };
-    const m0 = maxScreens(base, 'asher');
-    const dE = at(33 - m0);
-    const dW = at(32 - m0);
-    const d31 = at(31 - m0);
-    const d30 = at(30 - m0);
-    const med = (d) => median(Array.from({ length: PATH_COUNT }, (_, k) => {
-      const picks = [0, 1, 2, 3].map((i) => (k >> (2 * i)) & 3);
-      return readingStats(simulate(d.routes.asher, d, picksToChoices(picks)).out, d).screens;
-    }));
-    const r31 = run(d31, 'asher');
-    const medianOk = med(d31) > 30 ? r31.has('WARN', 'screens', /typical \(median\)/) : !r31.has('WARN', 'screens', /typical/);
-    return maxScreens(dE, 'asher') === 33 && run(dE, 'asher').has('ERROR', 'screens', /exceed 32 screens/) &&
-      run(dW, 'asher').has('WARN', 'screens', /paths have 32 screens/) && !run(dW, 'asher').has('ERROR', 'screens') &&
-      !r31.has(null, 'screens', /exceed|have 32/) && medianOk &&
-      !run(d30, 'asher').has('WARN', 'screens');
-  });
-  t('ending lengths: 4 beats in a lens ending or 1 in endings.cut -> WARN ending', () => {
-    const d = clone(base);
-    d.routes.scribe.endings['1'].beats.push({ type: 'line', text: T('가 1', 'One.') }, { type: 'line', text: T('가 2', 'Two.') }, { type: 'line', text: T('가 3', 'Three.') });
-    d.routes.friend.endings.cut.beats.pop();
+    Object.assign(cho(d, 'scribe', 'c2').options[1], { cut: true, lens: null });
+    d.routes.scribe.endings['1'] = { beats: [], last: T('가 x', 'x') };
     const rep = run(d);
-    return rep.has('WARN', 'ending', /shows 4 beat.*scribe › endings\.1/) && rep.has('WARN', 'ending', /shows 1 beat.*friend › endings\.cut/);
+    return rep.has('ERROR', 'outcome', /"cut" is the cut option/) && rep.has('WARN', 'obsolete', /"lens" is ignored/) && rep.has('ERROR', 'obsolete', /lens or cut endings/);
   });
-  t('skewed lenses -> ERROR dist', () => {
+  t('true ending: missing -> ERROR; unknown or reference-only memory verse -> ERROR; another verse -> WARN', () => {
     const d = clone(base);
-    d.routes.scribe.beats.filter((x) => x.type === 'choice').forEach((c) => c.options.forEach((o) => { if (!o.cut) o.lens = 1; }));
-    cho(d, 'scribe', 'c4').options[1].lens = 2;
-    cho(d, 'scribe', 'c4').options[2].lens = 3;
-    return run(d, 'scribe').has('ERROR', 'dist', /ending 1 is/);
-  });
-  t('missing lens coverage in c3 -> ERROR balance; null lens at c4 -> ERROR balance', () => {
-    const d = clone(base);
-    cho(d, 'asher', 'c3').options.forEach((o) => { o.lens = 1; });
+    delete d.routes.friend.endings.good;
     const d2 = clone(base);
-    cho(d2, 'asher', 'c4').options[3].lens = null;
-    return run(d).has('ERROR', 'balance', /c3/) && run(d2).has('ERROR', 'balance', /c4 \(the last choice\)/);
+    d2.routes.friend.endings.good.verse = 'NOPE_1';
+    const d3 = clone(base);
+    d3.routes.friend.endings.good.verse = 'MT_20_2';
+    const d4 = clone(base);
+    d4.routes.friend.endings.good.verse = 'MT_9_6A';
+    return run(d).has('ERROR', 'schema', /the true ending/) && run(d2).has('ERROR', 'token', /unknown memory verse/) &&
+      run(d3).has('ERROR', 'token', /reference-only/) && run(d4).has('WARN', 'canon', /SPEC 4\.6 gives MT_9_2A/);
   });
-  t('echoVerse highlight not a substring -> ERROR fx', () => {
+  t('cut branch: a long title or a single beat -> WARN ending', () => {
+    const d = clone(base);
+    d.routes.scribe.endings.bad.nap.title = T('아주 아주 길고 긴 가지 이름', 'A long one');
+    d.routes.scribe.endings.bad.lane.beats.pop();
+    const rep = run(d);
+    return rep.has('WARN', 'ending', /title has 1[0-9] Korean characters/) && rep.has('WARN', 'ending', /shows 1 beat.*endings\.bad\.lane/);
+  });
+  t('ASCII digits in our own story text -> ERROR digits (inside a token they are fine)', () => {
+    const d = clone(base);
+    d.routes.scribe.beats.push({ type: 'line', text: T('가 5분만 더', 'Five more minutes.') });
+    const d2 = clone(base);
+    d2.routes.scribe.beats.push({ type: 'line', text: T('가 {{r:MT_9_5}}', 'See {{r:MT_9_5}}.') });
+    return run(d).has('ERROR', 'digits', /5분/) && !run(d2).has('ERROR', 'digits');
+  });
+  t('screens: 29 on a true path -> WARN, 31 -> ERROR; a cut path over 20 -> ERROR', () => {
+    const m0 = maxTrue(base, 'asher');
+    const dW = clone(base);
+    pad(dW, 'asher', 29 - m0);
+    const dE = clone(base);
+    pad(dE, 'asher', 31 - m0);
+    const dC = clone(base);
+    for (let i = 0; i < 8; i++) dC.routes.friend.endings.bad.guard.beats.push({ type: 'line', text: T('가 길다', 'Long.') });
+    return maxTrue(dW, 'asher') === 29 && run(dW, 'asher').has('WARN', 'screens', /29-30|have 29/) && !run(dW, 'asher').has('ERROR', 'screens') &&
+      run(dE, 'asher').has('ERROR', 'screens', /exceed 30 screens/) && run(dC, 'friend').has('ERROR', 'screens', /at most 20.*endings\.bad\.guard/);
+  });
+  t('story shape: four choices, two cut branches, one scold -> WARN shape', () => {
+    const d = clone(base);
+    d.routes.scribe.beats = d.routes.scribe.beats.filter((x) => !(x.type === 'choice' && x.id === 'c5'));
+    const d2 = clone(base);
+    delete cho(d2, 'friend', 'c2').options[1].bad;
+    delete d2.routes.friend.endings.bad.lane;
+    const d3 = clone(base);
+    delete cho(d3, 'asher', 'c3').options[1].scold;
+    delete cho(d3, 'asher', 'c4').options[3].scold;
+    return run(d).has('WARN', 'shape', /4 choices/) && run(d2).has('WARN', 'shape', /2 cut branch/) && run(d3).has('WARN', 'shape', /1 scold option/);
+  });
+  t('voice: the scribe narration says 그분 -> WARN; the friend narration says 예수라는 사람 -> WARN', () => {
+    const d = clone(base);
+    d.routes.scribe.beats.push({ type: 'line', text: T('그분이 말씀하신다.', 'He speaks.') });
+    const d2 = clone(base);
+    d2.routes.friend.beats.push({ type: 'line', text: T('예수라는 사람이 말한다.', 'This Jesus speaks.') });
+    return run(d).has('WARN', 'voice', /scribe POV/) && run(d2).has('WARN', 'voice', /friend POV/);
+  });
+  t('fx and press checks: highlight not a substring, unknown fx, press with an unknown action', () => {
     const d = clone(base);
     const c1 = cho(d, 'scribe', 'c1');
     c1.options[0].set = { underline: 'he' };
     d.routes.scribe.beats.splice(d.routes.scribe.beats.indexOf(c1) + 1, 0, { type: 'fx', fx: 'echoVerse', key: 'PS_103_3', highlight: { flag: 'underline', map: { he: { ko: ['없는 말'], en: ['who forgives'] } } } });
-    return run(d).has('ERROR', 'fx', /not a substring/);
+    const d2 = clone(base);
+    d2.routes.scribe.beats.push({ type: 'fx', fx: 'shake' });
+    const d3 = clone(base);
+    d3.routes.asher.beats.push({ type: 'press', action: 'jump' });
+    return run(d).has('ERROR', 'fx', /not a substring/) && run(d2).has('ERROR', 'fx', /unknown fx/) && run(d3).has('ERROR', 'schema', /press action/);
   });
-  t('unknown fx -> ERROR fx', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'fx', fx: 'shake' }); return run(d).has('ERROR', 'fx', /unknown fx/); });
-  t('press with unknown action -> ERROR schema', () => { const d = clone(base); d.routes.asher.beats.push({ type: 'press', action: 'jump' }); return run(d).has('ERROR', 'schema', /press action/); });
-  t('asher without goout -> ERROR schema', () => { const d = clone(base); d.routes.asher.actions.pop(); return run(d).has('ERROR', 'schema', /goout/); });
-  t('flag compared to false is accepted, and unset matches false', () => {
+  t('obsolete meta and common fields -> WARN obsolete', () => {
     const d = clone(base);
-    d.routes.friend.beats.push({ type: 'line', when: { flag: 'near', is: false }, text: T('가 x', 'x') });
+    d.meta = Object.assign(clone(d.meta), { lenses: { 1: {} } });
+    d.common = Object.assign(clone(d.common), { mismatchLine: T('가 x', 'x') });
     const rep = run(d);
-    return !rep.has(null, 'cond', /false/) && evalCond({ flag: 'near', is: false }, { flags: {} }) && !evalCond({ flag: 'near', is: false }, { flags: { near: true } });
+    return rep.has('WARN', 'obsolete', /meta\.lenses/) && rep.has('WARN', 'obsolete', /mismatch line/);
   });
-  t('scene time day/evening/night accepted, other values -> ERROR schema', () => {
-    const d = clone(base);
-    d.routes.asher.endings['1'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'evening' });
-    d.routes.asher.endings['2'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'night' });
-    const rep = run(d);
-    const ok = !rep.has(null, 'schema', /time/) && rep.has('INFO', 'scene', /evening\/epilogue/);
-    d.routes.asher.endings['3'].beats.unshift({ type: 'scene', bg: 'asher_home', time: 'dusk' });
-    return ok && run(d).has('ERROR', 'schema', /time must be one of/);
-  });
-  t('scripture full must be {ko, en} -> ERROR scripture', () => {
-    const d = clone(base);
-    d.scripture = clone(d.scripture);
-    d.scripture.MT_9_2B = Object.assign({}, d.scripture.MT_9_2B, { full: { ko: '' } });
-    return run(d).has('ERROR', 'scripture', /full must be/);
-  });
-  t('meta without cut column or cut titles -> ERROR meta', () => {
-    const d = clone(base);
-    d.meta = clone(d.meta);
-    delete d.meta.cut;
-    delete d.meta.endings.friend.cut;
-    const rep = run(d);
-    return rep.has('ERROR', 'meta', /cut/) && rep.has('ERROR', 'meta', /endings\.friend\.cut/);
-  });
-  t('engine cross-check: correct engine passes', () => {
-    const d = clone(base);
-    d.engine = { computeLens: (rid, ch) => computeLensFor(d.routes[rid], ch), evalCond: (c, st) => evalCond(c, st), resolveText: (t2, lang) => renderText(t2[lang], lang, d.scripture) };
-    const rep = run(d);
-    return !rep.has('ERROR', 'engine') && !rep.has('WARN', 'engine');
-  });
-  t('engine cross-check: wrong tie-break fails', () => {
-    const d = clone(base);
-    d.engine = {
-      computeLens: (rid, ch) => {
-        const r = computeLensFor(d.routes[rid], ch);
-        if (r.cut) return r;
-        const max = Math.max(r.scores[1], r.scores[2], r.scores[3]);
-        const lens = LENSES.find((l) => r.scores[l] === max);
-        return Object.assign({}, r, { lens, mismatch: r.lastLens !== null && lens !== r.lastLens });
-      }
-    };
-    return run(d).has('ERROR', 'engine', /disagrees/);
-  });
-  t('engine cross-check: a hardcoded c10 weight (no double weight on c4) fails', () => {
-    const d = clone(base);
-    d.engine = {
-      computeLens: (rid, ch) => {
-        const r = computeLensFor(d.routes[rid], ch);
-        if (r.cut) return r;
-        const scores = { 1: 0, 2: 0, 3: 0 };
-        for (const b of d.routes[rid].beats) {
-          if (b.type !== 'choice') continue;
-          const o = b.options.find((x) => x.id === ch[b.id]);
-          if (o && o.lens) scores[o.lens] += b.id === 'c10' ? 2 : 1;
-        }
-        const max = Math.max(scores[1], scores[2], scores[3]);
-        const lens = LENSES.find((l) => scores[l] === max);
-        return { lens, scores, lastLens: null, c10Lens: null, mismatch: false, cut: false };
-      }
-    };
-    return run(d).has('ERROR', 'engine', /disagrees/);
-  });
-  t('engine cross-check: an engine that ignores cut options fails', () => {
-    const d = clone(base);
-    d.engine = {
-      computeLens: (rid, ch) => {
-        const r = computeLensFor(d.routes[rid], ch);
-        if (!r.cut) return r;
-        const c = {};
-        for (const [k, v] of Object.entries(ch)) {
-          const b = d.routes[rid].beats.find((x) => x.type === 'choice' && x.id === k);
-          const o = b && b.options.find((x) => x.id === v);
-          if (!(o && o.cut)) c[k] = v;
-        }
-        return Object.assign(computeLensFor(d.routes[rid], c), { cut: false });
-      }
-    };
-    return run(d).has('ERROR', 'engine', /disagrees/);
-  });
-  t('real js/engine.js matches the reference on the fixture routes (computeLens + createGame, all 256 paths, cut paths included)', () => {
-    const fx = fixtureData(root, { withEngine: true });
-    if (!fx.engine || !fx.bhs) return false;
-    fx.bhs.routes = fx.data.routes;
+  t('real js/engine.js matches the reference on the fixture routes (true paths, cut paths, scolds, Try again)', () => {
+    const fx = withEngine();
+    if (!fx) return false;
     fx.data.engine = fx.engine;
     const rep = run(fx.data);
     const engErr = rep.findings.filter((f) => f.code === 'engine' && f.level !== 'INFO');
     if (engErr.length) console.log(engErr.map((f) => `   ${f.level} ${f.where}: ${f.msg}`).join('\n'));
     const lines = rep.stats.find((x) => x.title === 'Engine cross-check');
-    return !engErr.length && lines && lines.lines.filter((l) => /matches the reference step by step on 256\/256 paths/.test(l)).length === 3 &&
-      lines.lines.some((l) => /scribe .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /friend .*\(64 cut\)/.test(l)) && lines.lines.some((l) => /asher .*\(0 cut\)/.test(l));
+    return !engErr.length && lines && lines.lines.length === 3 && lines.lines.every((l) => /24 true-path runs and 14 cut-path runs.*Try again back at the right choice 14\/14/.test(l));
+  });
+  t('engine cross-check: an engine that keeps scolded options -> ERROR engine', () => {
+    const fx = withEngine();
+    if (!fx) return false;
+    fx.data.engine = Object.assign({}, fx.engine, {
+      createGame: (rid, o) => {
+        const g = fx.engine.createGame(rid, o);
+        const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(g), 'step');
+        Object.defineProperty(g, 'step', {
+          get() {
+            const s = desc.get.call(this);
+            if (!s || s.kind !== 'choice' || !s.removed || !s.removed.length) return s;
+            const b = fx.data.routes[rid].beats.find((x) => x.type === 'choice' && x.id === s.id);
+            return Object.assign({}, s, { options: b.options.map((x) => ({ id: x.id, text: x.text })) });
+          }
+        });
+        return g;
+      }
+    });
+    return run(fx.data, 'scribe').has('ERROR', 'engine', /differs from the SPEC reference/);
+  });
+  t('engine cross-check: Try again that fails or stays on the snip card -> ERROR engine', () => {
+    const broken = (impl) => {
+      const fx = withEngine();
+      fx.data.engine = Object.assign({}, fx.engine, { createGame: (rid, o) => { const g = fx.engine.createGame(rid, o); g.retry = impl; return g; } });
+      return run(fx.data, 'friend');
+    };
+    return broken(() => false).has('ERROR', 'engine', /retry\(\) on the snip card failed/) && broken(() => true).has('ERROR', 'engine', /Try again shows "snip/);
+  });
+  t('engine cross-check: treeOf that places a branch at its last choice -> ERROR engine', () => {
+    const fx = withEngine();
+    if (!fx) return false;
+    fx.data.engine = Object.assign({}, fx.engine, {
+      treeOf: (rid) => {
+        const tr = fx.engine.treeOf(rid);
+        tr.levels[0].branches = [];
+        return tr;
+      }
+    });
+    return run(fx.data, 'asher').has('ERROR', 'engine', /treeOf gives/);
   });
   t('verse display rule: lowercase English excerpts get a leading "…"; Korean and capitalized text unchanged', () => {
     const scr = { MT_9_2B2: { ko: '네 죄 사함을 받았느니라', en: 'your sins are forgiven.' }, MT_9_2B1: { ko: '작은 자야 안심하라', en: 'Take heart, my son;' } };
     return verseDisplayText('your sins are forgiven.', 'en') === '…your sins are forgiven.' &&
       verseDisplayText('Take heart, my son;', 'en') === 'Take heart, my son;' &&
-      verseDisplayText('…already marked', 'en') === '…already marked' &&
       verseDisplayText('네 죄 사함을 받았느니라', 'ko') === '네 죄 사함을 받았느니라' &&
       renderText('x {{v:MT_9_2B2}}', 'en', scr) === 'x “…your sins are forgiven.”' &&
-      renderText('{{v:MT_9_2B1}}', 'en', scr) === '“Take heart, my son;”' &&
-      renderText('{{v:MT_9_2B2}}', 'ko', scr) === '“네 죄 사함을 받았느니라”';
-  });
-  t('engine cross-check: verseDisplay without the leading "…" -> ERROR engine', () => {
-    const fx = fixtureData(root, { withEngine: true });
-    if (!fx.engine || !fx.bhs) return false;
-    fx.bhs.routes = fx.data.routes;
-    const hasLower = Object.values(fx.data.scripture || {}).some((e) => e && !e.refOnly && /^[a-z]/.test(e.en || ''));
-    fx.data.engine = Object.assign({}, fx.engine, { verseDisplay: (key, lang) => fx.engine.verseText(key, lang) });
-    return hasLower && run(fx.data).has('ERROR', 'engine', /verseDisplay disagrees/);
+      renderText('{{v:MT_9_2B1}}', 'en', scr) === '“Take heart, my son;”';
   });
   t('lexer: Korean inside strings is not a comment', () => {
     const lx = lexJs('var a = "// 가"; /* ok */ var r = /\\/\\*x/; // 나\n`${"/*"}` // end');
     return lx.comments.length === 3 && lx.comments.filter((c) => HANGUL_TEST.test(c.text)).length === 1;
-  });
-  t('enumeration matches the per-path rule (256 paths, cut paths counted apart)', () => {
-    const { table, cuts } = lensTable(base.routes.scribe);
-    const dist = enumerateEndings(table, cuts);
-    let agree = true;
-    let nCut = 0;
-    for (const picks of allPicks()) {
-      const r = computeLensFor(base.routes.scribe, picksToChoices(picks));
-      const r2 = lensFromTable(table, cuts, picks);
-      if (r.cut !== r2.cut || r.lens !== r2.lens) agree = false;
-      if (r.cut) nCut++;
-    }
-    return agree && dist.total === 256 && nCut === 64 && dist.cut === 64 && dist.counts[1] + dist.counts[2] + dist.counts[3] === 192;
-  });
-  t('reference scoring: c4 counts double; ties go to the last lens; lastChoiceOf is the highest cN', () => {
-    const r = base.routes.asher;
-    // asher fixture lenses: c1 [1,2,3,1], c2 [1,2,3,3], c3 [1,2,3,2], c4 [1,2,3,1]
-    const a = computeLensFor(r, { c1: 'b', c2: 'b', c3: 'b', c4: 'a' }); // {1:2, 2:3} -> 2, last 1: mismatch
-    const b = computeLensFor(r, { c1: 'a', c2: 'a', c3: 'c', c4: 'b' }); // {1:2, 2:2, 3:1} tie -> last lens 2
-    const shuffled = { id: 'x', beats: clone(r.beats).filter((x) => x.type === 'choice').reverse() };
-    return a.lens === 2 && a.mismatch && a.lastLens === 1 && b.lens === 2 && !b.mismatch && lastChoiceOf(shuffled) === 'c4';
   });
   let pass = 0;
   for (const r of results) {
