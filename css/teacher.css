@@ -1025,7 +1025,7 @@ kbd {
   font-size: 1.0625rem;
 }
 
-/* ---------- 3. Endings board ---------- */
+/* ---------- 4. Endings board ---------- */
 .board-sheet {
   max-width: var(--wide);
   margin-top: 1.25rem;
@@ -1449,7 +1449,7 @@ kbd {
   color: var(--ink-2);
 }
 
-/* ---------- 4. Gathering steps ---------- */
+/* ---------- 5. Gathering steps ---------- */
 .steps {
   list-style: none;
   margin: 1.25rem 0 0;
@@ -1627,7 +1627,7 @@ kbd {
   color: var(--ink-2);
 }
 
-/* ---------- 5. Scripture ---------- */
+/* ---------- 6. Scripture ---------- */
 .legend {
   display: flex;
   align-items: center;
@@ -1728,7 +1728,7 @@ kbd {
   }
 }
 
-/* ---------- 6. Notes ---------- */
+/* ---------- 7. Notes ---------- */
 .notes {
   list-style: none;
   margin: 0.75rem 0 0;
@@ -1780,7 +1780,7 @@ kbd {
   font-weight: 700;
 }
 
-/* ---------- 7. Principles ---------- */
+/* ---------- 8. Principles ---------- */
 .principles {
   list-style: none;
   margin: 1rem 0 0;
@@ -1814,7 +1814,7 @@ kbd {
   display: block;
 }
 
-/* ---------- 8. Sources ---------- */
+/* ---------- 9. Sources ---------- */
 .notices {
   max-width: var(--measure);
   font-size: 0.9375rem;
@@ -1926,7 +1926,7 @@ kbd {
     display: none !important;
   }
 
-  /* Sections 5-7 print only when the "print all" box is checked. */
+  /* Sections 6-8 print only when the "print all" box is checked. */
   html:not(.print-all) .print-optional {
     display: none !important;
   }
@@ -2070,7 +2070,7 @@ kbd {
     line-height: 1.45;
   }
 
-  /* 2. Link and QR. */
+  /* 3. Link and QR. */
   .linkcard {
     max-width: none;
     grid-template-columns: 27mm minmax(0, 1fr);
@@ -2105,7 +2105,7 @@ kbd {
     margin-bottom: 0;
   }
 
-  /* 3. Endings board: its own page, always a table, sized to fit A4 and US Letter. */
+  /* 4. Endings board: its own page, always a table, sized to fit A4 and US Letter. */
   #board {
     break-before: page;
     margin-top: 0;
@@ -2267,7 +2267,7 @@ kbd {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* 4. Steps: plain blocks with rules instead of cards. */
+  /* 5. Steps: plain blocks with rules instead of cards. */
   #gather {
     break-before: page;
     margin-top: 0;
@@ -2383,7 +2383,7 @@ kbd {
     font-size: 10.5pt;
   }
 
-  /* 5-7 when printed. */
+  /* 6-8 when printed. */
   .scripture,
   .notes,
   .split,

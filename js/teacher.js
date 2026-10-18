@@ -365,7 +365,7 @@
     if (node && typeof text === "string" && text) node.textContent = text;
   }
 
-  /* ---------- 3. Endings board ---------- */
+  /* ---------- 4. Endings board ---------- */
 
   function lensHeaderCell(id) {
     var l = lensInfo(id);
@@ -462,7 +462,7 @@
     host.appendChild(table);
   }
 
-  /* ---------- 3b. Ending last lines (teacher prep) ---------- */
+  /* ---------- 4b. Ending last lines (teacher prep) ---------- */
 
   function renderLastLines() {
     var host = byId("lastlines-body");
@@ -521,7 +521,7 @@
     });
   }
 
-  /* ---------- 4. Discussion slots ---------- */
+  /* ---------- 5. Discussion slots ---------- */
 
   function renderStep3() {
     var verseHost = byId("step3-verse");
@@ -600,7 +600,7 @@
     renderReadVerse(byId("step2-verse"), 3);
   }
 
-  /* ---------- 5. Scripture side by side ---------- */
+  /* ---------- 6. Scripture side by side ---------- */
 
   function renderScripture() {
     var host = byId("scripture");
@@ -635,7 +635,7 @@
     host.appendChild(el("p", { class: "sc-ref" }, ["마태복음 9:1–8 · ", el("span", { lang: "en" }, "Matthew 9:1–8 (ESV)")]));
   }
 
-  /* ---------- 8. Notices ---------- */
+  /* ---------- 9. Notices ---------- */
 
   function renderNotices() {
     var host = byId("notices");
