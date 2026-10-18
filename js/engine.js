@@ -26,6 +26,8 @@
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
  *   verseDisplay(key, lang)              -> verse text as shown: an English excerpt that starts with a
  *                                           lowercase letter gets a leading "…" (SPEC 4.3); data unchanged
+ *   memoryDisplay(key, lang)             -> the memory-verse card's text: verseDisplay plus a trailing "…"
+ *                                           when the key stops mid-sentence (SPEC 4.6); data unchanged
  *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
  *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
@@ -219,6 +221,32 @@
     var txt = verseText(key, lang);
     if (txt == null) return null;
     return lang === "en" && /^[a-z]/.test(txt) ? ELLIPSIS + txt : txt;
+  }
+
+  // True when a key is an excerpt that stops mid-sentence: its `full` verse goes on after it with more
+  // words, and the excerpt does not end in terminal punctuation (. ? ! closing quotes, an ellipsis).
+  // The Korean Bible text has no full stops, so a Korean excerpt stops mid-sentence whenever words follow.
+  var TERMINAL_END = /[.?!”’"'…]$/;
+  var WORD_CHAR = /[0-9A-Za-zᄀ-ᇿㄱ-ㆎ가-힣]/;
+  function stopsMidSentence(key, lang) {
+    var s = scriptureEntry(key);
+    var txt = verseText(key, lang);
+    var l = lang === "en" ? "en" : "ko";
+    if (!s || txt == null || !s.full || typeof s.full[l] !== "string") return false;
+    var full = s.full[l];
+    // The last place the excerpt fits, so a phrase that also ends the verse is never marked.
+    var at = full.lastIndexOf(txt);
+    if (at < 0) return false;
+    if (!WORD_CHAR.test(full.slice(at + txt.length))) return false;
+    return !TERMINAL_END.test(txt.replace(/\s+$/, ""));
+  }
+
+  // The memory-verse card of the true ending (SPEC 4.6) shows the verse in its display form, plus a
+  // trailing "…" when the key stops mid-sentence (the scribe's MT_9_6A). Display only; data unchanged.
+  function memoryDisplay(key, lang) {
+    var txt = verseDisplay(key, lang);
+    if (txt == null) return null;
+    return stopsMidSentence(key, lang) ? txt + ELLIPSIS : txt;
   }
 
   function verseRef(key, lang) {
@@ -474,9 +502,18 @@
     if (!saved.stage || typeof saved.stage !== "object" || !saved.step || typeof saved.step.kind !== "string") return false;
     if (!saved.choices || typeof saved.choices !== "object") return false;
     if (saved.removed != null && typeof saved.removed !== "object") return false;
-    if (saved.retry != null && (typeof saved.retry !== "object" || saved.retry.routeId !== saved.routeId)) return false;
+    // The Try-again snapshot is a whole state of its own (its own retry is null); a damaged one would
+    // break "Try again" later, so the save is refused now.
+    if (saved.retry != null && (typeof saved.retry !== "object" || saved.retry.routeId !== saved.routeId || saved.retry.retry != null || !canRestore(saved.retry))) return false;
     var fp = fingerprint(saved.routeId);
     return !!fp && saved.fp === fp;
+  }
+
+  // A minimal shape check for a Try-again snapshot before it is installed (custom test sequences have
+  // no fingerprint, so canRestore cannot be used here).
+  function usableSnapshot(snap) {
+    return !!snap && typeof snap === "object" && !!snap.stage && typeof snap.stage === "object" && !!snap.step && typeof snap.step.kind === "string" &&
+      Array.isArray(snap.segs) && Array.isArray(snap.stack) && typeof snap.seg === "number" && !!snap.choices && typeof snap.choices === "object";
   }
 
   // ---------------------------------------------------------------------------
@@ -1046,6 +1083,10 @@
   Game.prototype.retry = function () {
     var snap = this.state.retry;
     if (!snap) return false;
+    if (!usableSnapshot(snap)) {
+      warn("retry snapshot is damaged; Try again refused");
+      return false;
+    }
     var restored = clone(snap);
     restored.retry = clone(snap);
     this.state = restored;
@@ -1225,6 +1266,7 @@
     nestQuotes: nestQuotes,
     verseText: verseText,
     verseDisplay: verseDisplay,
+    memoryDisplay: memoryDisplay,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,
     fingerprint: fingerprint,

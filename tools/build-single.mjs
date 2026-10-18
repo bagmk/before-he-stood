@@ -1,16 +1,17 @@
 // tools/build-single.mjs - builds the single-file versions of the game (SPEC 5.7). No dependencies.
-//   node tools/build-single.mjs
-// Writes:
+//   node tools/build-single.mjs [--out DIR]
+// Writes (to dist/, or to DIR for tests):
 //   dist/before-he-stood.html  one self-contained page (all CSS/JS/data inlined) that runs offline
 //   dist/artifact.html         the same content as a body fragment for claude.ai artifacts
-// Google Fonts stay as an optional stylesheet link; everything else is inlined.
+// Google Fonts stay as an optional, non-blocking stylesheet link; everything else is inlined.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
-const dist = path.join(root, "dist");
+const outAt = process.argv.indexOf("--out");
+const dist = outAt > 0 && process.argv[outAt + 1] ? path.resolve(process.argv[outAt + 1]) : path.join(root, "dist");
 const MAX_BYTES = 2 * 1024 * 1024;
 const TITLE = "그가 일어나기 전 · Before He Stood";
 
@@ -34,12 +35,28 @@ const bodyMatch = html.match(/<body([^>]*)>([\s\S]*?)<\/body>/i);
 const bodyAttrs = bodyMatch[1];
 let body = bodyMatch[2];
 
+// Google Fonts (optional): the stylesheet link and its <noscript> fallback. The link must never block
+// the page: on a network that stalls instead of failing (a captive portal, a filtering Wi-Fi), a
+// blocking stylesheet keeps the game blank until the request times out. A link without
+// media="print" + onload is rewritten that way (and reported).
+const FONT_CSS = /fonts\.googleapis\.com\/css/;
+const fontNoscripts = [];
+const headOutsideNoscript = head.replace(/<noscript>[\s\S]*?<\/noscript>/gi, (block) => {
+  if (FONT_CSS.test(block)) fontNoscripts.push(block.trim());
+  return "";
+});
+function nonBlocking(tag) {
+  if (/\smedia="print"/i.test(tag) && /\sonload="this\.media='all'"/i.test(tag)) return tag;
+  warnings.push("font stylesheet made non-blocking in the build (index.html has a blocking link)");
+  return tag.replace(/\smedia="[^"]*"/i, "").replace(/\sonload="[^"]*"/i, "").replace(/\s*\/?>$/, ` media="print" onload="this.media='all'">`);
+}
 const fontLinks = [];
-head.replace(/<link\b[^>]*>/gi, (tag) => {
+headOutsideNoscript.replace(/<link\b[^>]*>/gi, (tag) => {
   const href = (tag.match(/href="([^"]+)"/i) || [])[1] || "";
-  if (/fonts\.googleapis\.com\/css/.test(href)) fontLinks.push(tag);
+  if (FONT_CSS.test(href) && /rel="stylesheet"/i.test(tag)) fontLinks.push(nonBlocking(tag));
   return tag;
 });
+const fontTags = fontLinks.concat(fontNoscripts).join("\n");
 
 let css = "";
 head.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/gi, (tag) => {
@@ -88,7 +105,7 @@ ${metaDescription}
 <style>
 ${safeStyle(css)}
 </style>
-${fontLinks.join("\n")}
+${fontTags}
 </head>
 <body${bodyAttrs}>
 ${bodyTrim}
@@ -109,7 +126,7 @@ const artifact = `<title>${TITLE}</title>
 ${safeStyle(css)}
 ${artifactCss}
 </style>
-${fontLinks.join("\n")}
+${fontTags}
 ${bodyTrim}
 `;
 
@@ -121,6 +138,11 @@ function audit(name, text) {
     warnings.push(`${name}: uses confirm/alert/prompt`);
   }
   if (/<script\s+src=/i.test(text)) warnings.push(`${name}: still has an external script`);
+  // Outside <noscript>, every external stylesheet must be non-blocking.
+  text.replace(/<noscript>[\s\S]*?<\/noscript>/gi, "").replace(/<link\b[^>]*rel="stylesheet"[^>]*>/gi, (tag) => {
+    if (/href="https?:/i.test(tag) && !/\smedia="print"/i.test(tag)) warnings.push(`${name}: a blocking external stylesheet`);
+    return tag;
+  });
   return bytes;
 }
 
@@ -134,7 +156,11 @@ if (/<!doctype|<html[\s>]|<head[\s>]|<body[\s>]|<\/(html|head|body)>/i.test(arti
 fs.writeFileSync(path.join(dist, "before-he-stood.html"), single);
 fs.writeFileSync(path.join(dist, "artifact.html"), artifact);
 
-for (const [file, bytes] of Object.entries(sizes)) console.log(`${file}  ${(bytes / 1024).toFixed(1)} KB`);
+for (const [file, bytes] of Object.entries(sizes)) {
+  const target = path.join(dist, path.basename(file));
+  const rel = path.relative(root, target);
+  console.log(`${rel.startsWith("..") ? target : rel}  ${(bytes / 1024).toFixed(1)} KB`);
+}
 console.log("scripts inlined: " + scriptOrder.join(", "));
 warnings.forEach((w) => console.log("WARN  " + w));
 process.exit(0);

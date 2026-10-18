@@ -37,6 +37,7 @@
     replyTimer: 0,
     riseTimer: 0,
     choiceTimers: [],
+    lastChoice: "",
     handlers: {}
   };
 
@@ -249,6 +250,14 @@
     var txt = eng && (eng.verseDisplay ? eng.verseDisplay(key, l) : eng.verseText(key, l));
     if (txt) return txt;
     return S.debug ? "[" + key + "]" : "…";
+  }
+
+  // The memory-verse card's text: the display form plus a trailing "…" when the key stops mid-sentence
+  // (BHS.engine.memoryDisplay, SPEC 4.6).
+  function memoryOf(key, l) {
+    var eng = E();
+    var txt = eng && eng.memoryDisplay ? eng.memoryDisplay(key, l) : null;
+    return txt || verseOf(key, l);
   }
 
   function refOf(key, l) {
@@ -807,7 +816,7 @@
       var p = h("p", { class: ls.length > 1 && idx > 0 ? "en" : "ko", lang: l });
       var chars = typing ? [] : null;
       if (opts.verseKey) {
-        var txt = verseOf(opts.verseKey, l);
+        var txt = opts.memory ? memoryOf(opts.verseKey, l) : verseOf(opts.verseKey, l);
         if (chars) {
           Array.from(txt).forEach(function (ch) {
             var c = doc.createElement("span");
@@ -840,6 +849,7 @@
     var panel = $("panel");
     panel.className = "panel";
     panel.removeAttribute("data-testid");
+    panel.style.removeProperty("--memory-fit");
     panel.hidden = false;
     clear($("text"));
     $("ref").hidden = true;
@@ -865,6 +875,28 @@
     doc.body.classList.remove("is-last");
   }
 
+  // The memory-verse card sits centered in the dock. A long verse (the friend's whole Matt 9:2) at a large
+  // text size could grow past it, so the card's type is scaled down, never up, until it fits.
+  var MEMORY_FIT_MIN = 0.5;
+
+  function fitMemory() {
+    var panel = $("panel");
+    var dock = $("dock");
+    if (!panel || !dock || panel.hidden || !panel.classList.contains("panel--memory")) return;
+    panel.style.removeProperty("--memory-fit");
+    var cs = window.getComputedStyle(dock);
+    var room = dock.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+    // The speaker plate (Jesus' words) sticks out above the card.
+    var plate = $("plate");
+    if (plate && !plate.hidden) room -= plate.offsetHeight * 0.6;
+    if (!(room > 0)) return;
+    var fit = 1;
+    for (var i = 0; i < 6 && panel.offsetHeight > room && fit > MEMORY_FIT_MIN; i++) {
+      fit = Math.max(MEMORY_FIT_MIN, fit * Math.min(0.97, (room / panel.offsetHeight) * 0.99));
+      panel.style.setProperty("--memory-fit", fit.toFixed(3));
+    }
+  }
+
   function renderPlay(v, ctx) {
     ctx = ctx || {};
     var step = v.step;
@@ -882,6 +914,8 @@
     var text = $("text");
     var hush = !!(v.now && v.now.hush);
     var groups = [];
+    // A choice that comes back after another screen is a new presentation (see renderChoice).
+    if (step.kind !== "choice") S.lastChoice = "";
 
     switch (step.kind) {
       case "line": {
@@ -905,15 +939,16 @@
           panel.classList.add("panel--memory");
           setLight("bright");
         }
-        groups = fillText(text, null, state, { instant: ctx.instant, hush: hush, verseKey: step.key });
+        groups = fillText(text, null, state, { instant: ctx.instant, hush: hush, verseKey: step.key, memory: step.kind === "memory" });
         var ref = $("ref");
         ref.textContent = refLine(step.key);
         ref.hidden = !ref.textContent;
+        if (step.kind === "memory") fitMemory();
         break;
       }
       case "choice":
         panel.hidden = true;
-        renderChoice(step, state, ctx.marks || {});
+        renderChoice(step, state, ctx.marks || {}, !!ctx.instant);
         break;
       case "press":
         panel.hidden = true;
@@ -960,7 +995,7 @@
     } else {
       props["data-testid"] = "choice-" + o.id;
       props["data-option"] = o.id;
-      props["aria-keyshortcuts"] = String(idx + 1) + " " + "ABCD".charAt(idx);
+      props["aria-keyshortcuts"] = String(idx + 1);
       if (marks[o.id]) props["data-snipped"] = "true";
     }
     var kids = [h("span", { class: "opt__body" }, biRich(o.text, state))];
@@ -1031,16 +1066,20 @@
     );
   }
 
-  // Choice panel (SPEC 5.6): 2-4 options, no number badges (keys 1-4 / A-D still pick by position, the
-  // focus ring shows the current option). After a scold the same choice comes back without that option.
-  function renderChoice(step, state, marks) {
+  // Choice panel (SPEC 5.6): 2-4 options, no number badges (keys 1-4 still pick by position, the focus
+  // ring shows the current option). After a scold the same choice comes back without that option.
+  function renderChoice(step, state, marks, instant) {
     var box = $("choices");
     clear(box);
     var again = !!step.again;
     box.classList.toggle("is-again", again);
     var pid = "prompt-" + step.id;
     if (step.prompt) box.appendChild(h("p", { class: "choices__prompt", id: pid }, biRich(step.prompt, state)));
-    var animate = !!(step.justRemoved && !S.test && !S.reduced);
+    // The scolded option leaves once, when the re-ask first appears. Re-rendering the same screen
+    // (a language switch, A+/A-, Continue after a reload) shows the options as they are now.
+    var choiceKey = step.id + "|" + (step.removed || []).join(",");
+    var animate = !!(step.justRemoved && !S.test && !S.reduced && !instant && choiceKey !== S.lastChoice);
+    S.lastChoice = choiceKey;
     var count = step.options.length;
     var list = h("div", {
       class: "choices__list" + (again ? " is-again" : ""),
@@ -1216,6 +1255,9 @@
       typeStop();
       stopChoiceTimers();
       clear($("reply"));
+      S.lastChoice = "";
+      // The darker veil of the last line belongs to the story only (not the tree or the title).
+      doc.body.classList.remove("is-last");
     }
   }
 
@@ -1260,9 +1302,18 @@
       );
     };
 
-    var actions = [btn("btn--primary", u("start"), "start", o.onStart)];
-    if (o.hasSave) actions.push(btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null));
+    // A clicker's next key presses the default button: Continue when there is a save (so it never
+    // starts over by accident), otherwise Start. With a save, Continue also takes the focus, so its ring
+    // shows what the next key will do (main.js, buttonScreenKey).
+    var startBtn = btn("btn--primary", u("start"), "start", o.onStart);
+    var contBtn = o.hasSave ? btn("btn--ghost", u("continueGame"), "continue", o.onContinue, o.saveLabel || null) : null;
+    var actions = [startBtn];
+    if (contBtn) actions.push(contBtn);
     actions.push(btn("btn--text", u("treesOpen"), "trees-open", o.onTrees));
+    actions.forEach(function (b) {
+      b.setAttribute("data-pagebtn", "");
+    });
+    (contBtn || startBtn).setAttribute("data-default", "true");
 
     var kids = [
       h("div", { class: "title-head" }, [
@@ -1285,6 +1336,7 @@
       ])
     ];
     page("title-page", kids);
+    if (contBtn) focusDefault(contBtn);
   }
 
   // "#rrggbb" -> "rgba(r, g, b, a)" for the soft wash behind a route card's figure.
@@ -1680,12 +1732,22 @@
         if (o.onNo) o.onNo();
       }
     };
+    // The dialog is modal: Tab and Shift+Tab stay on its two buttons.
+    m.onkeydown = function (ev) {
+      if (ev.key !== "Tab") return;
+      var items = [yes, no];
+      var at = items.indexOf(doc.activeElement);
+      ev.preventDefault();
+      var next = at < 0 ? 0 : (at + (ev.shiftKey ? -1 : 1) + items.length) % items.length;
+      focusDefault(items[next]);
+    };
     no.focus({ preventScroll: true });
   }
 
   function closeModal() {
     var m = $("modal");
     m.hidden = true;
+    m.onkeydown = null;
     clear(m);
   }
 
@@ -1698,7 +1760,7 @@
   function applySettings(o) {
     if (o.lang) S.lang = o.lang;
     if (o.speed) S.speed = o.speed;
-    if (typeof o.size === "number") S.size = Math.max(0, Math.min(SIZE_STEPS.length - 1, o.size));
+    if (typeof o.size === "number" && isFinite(o.size)) S.size = Math.max(0, Math.min(SIZE_STEPS.length - 1, Math.round(o.size)));
     doc.documentElement.style.setProperty("--text-scale", String(SIZE_STEPS[S.size]));
     doc.documentElement.setAttribute("lang", S.lang === "en" ? "en" : "ko");
     // Language-dependent caches must be rebuilt.
@@ -1724,7 +1786,10 @@
       S.reduced = false;
     }
     var adv = $("advance");
-    adv.addEventListener("click", function () {
+    adv.addEventListener("click", function (ev) {
+      // A pointer click must not leave the full-screen stage button focused (Chrome and Edge focus a
+      // clicked button): Enter/Space at a choice would then press it instead of showing the options.
+      if (ev.detail > 0 && typeof adv.blur === "function") adv.blur();
       if (S.handlers.onAdvance) S.handlers.onAdvance();
     });
     var resizeTimer = 0;
@@ -1733,10 +1798,18 @@
       resizeTimer = setTimeout(function () {
         anchorCast();
         placeLight();
+        fitMemory();
       }, 120);
     });
     try {
-      if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(anchorCast);
+      if (doc.fonts && doc.fonts.ready) {
+        doc.fonts.ready.then(function () {
+          anchorCast();
+          fitMemory();
+        });
+      }
+      // Web fonts that arrive later change the memory card's size too.
+      if (doc.fonts && doc.fonts.addEventListener) doc.fonts.addEventListener("loadingdone", fitMemory);
     } catch (err) {
       /* font loading API unavailable */
     }

@@ -1340,15 +1340,16 @@ body.is-last .veil {
   animation: memory-in 1.1s ease both;
 }
 
+/* --memory-fit (ui.js) scales the type down only when a long verse would not fit the screen. */
 .panel--memory .text {
-  font-size: calc(var(--fs-memory) * var(--text-scale));
+  font-size: calc(var(--fs-memory) * var(--text-scale) * var(--memory-fit, 1));
   line-height: 1.5;
   word-break: keep-all;
 }
 
 .panel--memory .text .en {
   margin-top: 0.55em;
-  font-size: calc(var(--fs-memory-en) * var(--text-scale));
+  font-size: calc(var(--fs-memory-en) * var(--text-scale) * var(--memory-fit, 1));
   line-height: 1.45;
 }
 
@@ -1526,8 +1527,9 @@ body.is-last .veil {
 }
 
 /* The default button of a page of buttons (Try again, Next character) shows its ring even when the
-   focus was set by script. */
-[data-default="true"]:focus {
+   focus was set by script; so does an option focused by a key (main.js sets data-kbd). */
+[data-default="true"]:focus,
+.opt[data-kbd="true"]:focus {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: 2px;
 }
@@ -2686,8 +2688,14 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     --cast-sink: 6vh;
   }
 
-  /* A focus ring that reads from across the room: light ring with a dark halo. */
-  :focus-visible,
+  /* A focus ring that reads from across the room: light ring with a dark halo. Two rules, so a browser
+     without :focus-visible still keeps the second one. */
+  :focus-visible {
+    outline: var(--focus-w) solid var(--focus-light);
+    outline-offset: 0.35vh;
+    box-shadow: 0 0 0 1.1vh rgba(16, 15, 13, 0.75);
+  }
+
   .routecard[data-next="true"]:focus {
     outline: var(--focus-w) solid var(--focus-light);
     outline-offset: 0.35vh;
@@ -3154,7 +3162,8 @@ html.is-test .routecard[data-next="true"]:focus .routecard__art--lying .routecar
     gap: 2vh;
   }
 
-  [data-default="true"]:focus {
+  [data-default="true"]:focus,
+  .opt[data-kbd="true"]:focus {
     outline: var(--focus-w) solid var(--focus-light);
     outline-offset: 0.35vh;
     box-shadow: 0 0 0 1.1vh rgba(16, 15, 13, 0.75);

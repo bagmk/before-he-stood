@@ -24,8 +24,14 @@
   // longer fits the loaded data (for example one from the lens releases) is dropped silently.
   var SAVE_VERSION = 3;
   var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true, snip: true };
-  // Screens whose buttons a clicker can drive (next/previous) and Enter activates.
-  var BUTTON_SCREENS = { snip: true, tree: true, trees: true };
+  // Screens whose buttons a clicker can drive (next/previous) and Enter activates. On the title the
+  // default button is Continue when there is a save, so a clicker never starts over by accident.
+  var BUTTON_SCREENS = { title: true, snip: true, tree: true, trees: true };
+  // Input guards in ms: right after a screen appears, every activation (keys, clicks, taps) waits this
+  // long, so a double click, a double tap or a quick double press of a clicker never presses something
+  // the class has not seen yet. The press beats (Asher's rising) and the snip card wait longest.
+  var GUARD = { line: 220, choice: 400, press: 600, snip: 700, tree: 700, page: 400 };
+  var IDLE_MS = 3000;
 
   // ------------------------------------------------------------------ storage (never throws)
 
@@ -102,6 +108,23 @@
     return window.performance && performance.now ? performance.now() : Date.now();
   }
 
+  function setGuard(ms) {
+    app.guardUntil = app.test ? 0 : now() + ms;
+  }
+
+  // True while the screen that just appeared still ignores activations (see GUARD).
+  function guarded() {
+    return now() < app.guardUntil;
+  }
+
+  // Wraps a button handler of a page screen so it waits for the guard.
+  function whenReady(fn) {
+    return function () {
+      if (guarded()) return;
+      fn.apply(null, arguments);
+    };
+  }
+
   function routeExists(id) {
     return !!(BHS.routes && BHS.routes[id] && Array.isArray(BHS.routes[id].beats));
   }
@@ -113,7 +136,11 @@
     if (s && typeof s === "object") {
       if (s.lang === "ko" || s.lang === "en" || s.lang === "both") app.settings.lang = s.lang;
       if (s.speed === "slow" || s.speed === "normal" || s.speed === "instant") app.settings.speed = s.speed;
-      if (typeof s.size === "number" && isFinite(s.size)) app.settings.size = s.size;
+      // The size is an index into the view's size steps: a whole number in range (a stored 1.5 or 9
+      // would leave the text scale undefined).
+      var steps = (V && V.sizeSteps && V.sizeSteps.length) || 5;
+      var size = typeof s.size === "string" ? parseFloat(s.size) : s.size;
+      if (typeof size === "number" && isFinite(size)) app.settings.size = Math.max(0, Math.min(steps - 1, Math.round(size)));
     }
   }
 
@@ -131,6 +158,12 @@
   function persist() {
     if (!app.game) return;
     var state = app.game.serialize();
+    // The prologue never replaces a saved place (a route, or the route select): it is saved only while
+    // nothing else is, so "Start" by mistake keeps Continue until the class picks a route again.
+    if (state.routeId === "prologue") {
+      var kept = loadSave();
+      if (kept && kept.routeId !== "prologue") return;
+    }
     store.set(KEYS.save, {
       v: SAVE_VERSION,
       at: Date.now(),
@@ -171,12 +204,13 @@
   }
 
   // Seen ids ("scribe-good", "friend-bad-bigCatch"). Ids of earlier releases ("scribe-1", "friend-cut")
-  // are ignored here and dropped on the next write.
+  // are ignored here and dropped on the next write. This session's ids are also kept in memory and
+  // merged in, so storage that can be read but not written (a full quota) loses nothing.
   function loadSeen() {
     var g = store.get(KEYS.seen);
-    var list = Array.isArray(g) ? g : app.memSeen || [];
-    return list.filter(function (x) {
-      return !!E.parseSeenId(x);
+    var list = (Array.isArray(g) ? g : []).concat(app.memSeen || []);
+    return list.filter(function (x, i) {
+      return !!E.parseSeenId(x) && list.indexOf(x) === i;
     });
   }
 
@@ -197,7 +231,10 @@
     V.showLayer(name);
     // Re-rendering the same screen (for example after A+/A-) keeps the settings panel open.
     if (changed) V.closeSettings();
+    // The cursor shows on page screens; back in the story it hides again after a while, even when
+    // only the keyboard or a clicker is used.
     if (!PLAY_SCREENS[name]) doc.body.classList.remove("is-idle");
+    else if (changed && !doc.body.classList.contains("is-idle")) armIdle();
   }
 
   function headerHandlers() {
@@ -227,13 +264,14 @@
     }
     var notice = app.notice ? BHS.ui[app.notice] : !app.storageOK ? BHS.ui.storageOff : null;
     app.notice = null;
+    setGuard(GUARD.page);
     V.renderTitle({
       hasSave: !!save,
       saveLabel: saveLabel,
       notice: notice,
-      onStart: startPrologue,
-      onContinue: continueGame,
-      onTrees: showTrees,
+      onStart: whenReady(startPrologue),
+      onContinue: whenReady(continueGame),
+      onTrees: whenReady(showTrees),
       onLang: function (mode) {
         setLang(mode);
       }
@@ -256,10 +294,13 @@
     setScreen("routeSelect");
     V.pageStage("shore_dawn");
     persistRouteSelect();
+    // A second press of the key (or click) that opened this page must not start a route at once.
+    setGuard(GUARD.page);
     V.renderRouteSelect({
       seen: loadSeen(),
       notice: opts && opts.notice ? BHS.ui[opts.notice] : null,
       onPick: function (id) {
+        if (guarded()) return;
         if (!routeExists(id)) {
           showRouteSelect({ notice: "routeMissing" });
           return;
@@ -326,19 +367,21 @@
     var marks = kind === "choice" ? g.optionMarks(loadSeen()) : null;
     setScreen(screenForGame(g));
     V.renderPlay(v, { routeId: g.state.routeId, state: tokenState(g), instant: !!(opts && opts.instant), marks: marks });
-    // The snip card waits a little longer, so a quick double press of a clicker never skips it.
-    app.guardUntil = app.test ? 0 : now() + (kind === "snip" ? 700 : 220);
+    // Choices, the press beats and the snip card wait longer, so a double click or a quick double press
+    // of a clicker never picks, presses or skips anything the class has not seen.
+    setGuard(kind === "snip" ? GUARD.snip : kind === "press" ? GUARD.press : kind === "choice" ? GUARD.choice : GUARD.line);
     persist();
     refreshDebug();
   }
 
-  // The route is over (true ending): record it, then show the route's story tree.
+  // The route is over (true ending): record it, then show the route's story tree. The save moves on to
+  // the route select, so a reload on the tree keeps the class's place (Continue opens the route select).
   function finishRoute() {
     var g = app.game;
     var ending = g && g.state.ending;
     var rid = (ending && ending.routeId) || (g && g.state.routeId) || app.lastRoute;
     if (ending && ending.kind === "good") markSeen(ending.id);
-    clearSave();
+    persistRouteSelect();
     app.game = null;
     app.lastRoute = rid;
     showTree(rid);
@@ -347,25 +390,26 @@
   function showTree(rid) {
     app.game = null;
     app.lastRoute = rid;
-    app.guardUntil = app.test ? 0 : now() + 700;
+    setGuard(GUARD.tree);
     setScreen("tree");
     V.pageStage("shore_dawn");
     V.renderTree({
       route: rid,
       seen: loadSeen(),
-      onNext: function () {
+      onNext: whenReady(function () {
         showRouteSelect();
-      },
-      onHome: showTitle
+      }),
+      onHome: whenReady(showTitle)
     });
     refreshDebug();
   }
 
   function showTrees() {
     app.game = null;
+    setGuard(GUARD.page);
     setScreen("trees");
     V.pageStage("shore_dawn");
-    V.renderTrees({ seen: loadSeen(), onHome: showTitle });
+    V.renderTrees({ seen: loadSeen(), onHome: whenReady(showTitle) });
     refreshDebug();
   }
 
@@ -413,7 +457,7 @@
 
   function onChoose(optId) {
     var g = app.game;
-    if (!g || !g.step || g.step.kind !== "choice") return;
+    if (!g || !g.step || g.step.kind !== "choice" || guarded()) return;
     if (!g.choose(optId)) return;
     renderGame();
     focusAdvance();
@@ -421,7 +465,7 @@
 
   function onPress() {
     var g = app.game;
-    if (!g || !g.step || g.step.kind !== "press") return;
+    if (!g || !g.step || g.step.kind !== "press" || guarded()) return;
     g.press();
     renderGame();
     focusAdvance();
@@ -429,7 +473,7 @@
 
   function onAction(id, btn) {
     var g = app.game;
-    if (!g) return;
+    if (!g || guarded()) return;
     var res = g.tapAction(id);
     if (!res) return;
     if (res.pressed) {
@@ -446,7 +490,7 @@
   // "Try again" on the snip card: back to the choice exactly as it was shown.
   function onRetry() {
     var g = app.game;
-    if (!g || !g.step || g.step.kind !== "snip") return;
+    if (!g || !g.step || g.step.kind !== "snip" || guarded()) return;
     if (!g.retry()) return;
     renderGame({ instant: true });
     focusAdvance();
@@ -454,6 +498,7 @@
 
   // "Title screen" on the snip card: the save keeps the choice before the cut, so Continue starts there.
   function onSnipHome() {
+    if (guarded()) return;
     var g = app.game;
     if (g && g.step && g.step.kind === "snip" && g.retry()) {
       app.screen = "play";
@@ -465,12 +510,21 @@
   // Keyboard and presentation-clicker control (SPEC 5.6, TV display).
   var ADVANCE_KEYS = { " ": true, Spacebar: true, Enter: true, ArrowRight: true, ArrowDown: true, PageDown: true };
   var INERT_KEYS = { ArrowLeft: true, ArrowUp: true, PageUp: true };
+  // Presentation clickers send "b" or "." (black screen) and "w" (white screen); here they do nothing.
+  var BLANK_KEYS = { b: true, B: true, ".": true, w: true, W: true };
 
-  // Keys pick options by their place on screen (there are no visible numbers): 1-4 and A-D.
+  // Keys pick options by their place on screen (there are no visible numbers): 1-4 only. Letters are
+  // not used, because clickers send letters for other things (see BLANK_KEYS).
   function choiceIndexForKey(key) {
-    if (/^[1-4]$/.test(key)) return Number(key) - 1;
-    var i = "abcd".indexOf(String(key).toLowerCase());
-    return key && key.length === 1 && i >= 0 ? i : -1;
+    return /^[1-4]$/.test(key) ? Number(key) - 1 : -1;
+  }
+
+  // F toggles fullscreen. An input source such as Korean 2-Set reports a jamo for the F key, so the
+  // key's place (ev.code) is used when ev.key is not a Latin letter.
+  function isFullscreenKey(ev) {
+    var key = ev.key || "";
+    if (key === "f" || key === "F") return true;
+    return ev.code === "KeyF" && !/^[A-Za-z]$/.test(key);
   }
 
   function moveChoiceFocus(dir) {
@@ -478,6 +532,8 @@
     if (!opts.length) return;
     var cur = opts.indexOf(doc.activeElement);
     var next = cur < 0 ? (dir < 0 ? opts.length - 1 : 0) : dir === 0 ? cur : (cur + dir + opts.length) % opts.length;
+    // Focus moved by a key always shows its ring (data-kbd), whatever the browser's focus heuristics.
+    opts[next].setAttribute("data-kbd", "true");
     try {
       opts[next].focus({ preventScroll: false });
     } catch (err) {
@@ -502,9 +558,10 @@
     }
   }
 
-  // Snip card and story trees: Enter/Space press the focused button natively; next keys of a clicker
-  // (Right, Down, PageDown) press the focused button (the default one when nothing has focus), and
-  // previous keys (Left, Up, PageUp) move the focus between the buttons.
+  // Title, snip card and story trees: Enter/Space press the focused button natively; next keys of a
+  // clicker (Right, Down, PageDown) press the focused button (the default one when nothing has focus:
+  // Continue or Start on the title, Try again, Next character), and previous keys (Left, Up, PageUp)
+  // move the focus between the buttons.
   function buttonScreenKey(ev, key, nativeActivate) {
     var scope = app.screen === "snip" ? doc.getElementById("snip") : doc.getElementById("screen");
     var btns = Array.prototype.slice.call(scope ? scope.querySelectorAll("[data-pagebtn]") : []);
@@ -542,28 +599,32 @@
     var tag = target.tagName || "";
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!target.isContentEditable;
     if (key === "Escape" || key === "Esc") {
-      handleEscape(ev);
+      // A held Esc would open and close the menu over and over.
+      if (ev.repeat) ev.preventDefault();
+      else handleEscape(ev);
       return;
     }
     if (typing) return;
-    if ((key === "f" || key === "F") && !ev.repeat) {
+    if (isFullscreenKey(ev)) {
       ev.preventDefault();
-      toggleFullscreen();
+      if (!ev.repeat) toggleFullscreen();
+      return;
+    }
+    if (BLANK_KEYS[key]) return;
+    var activateKey = key === " " || key === "Enter" || key === "Spacebar";
+    // A held key never activates anything again: auto-repeat must not skip screens, pick an option or
+    // press a button natively (preventing the keydown also stops the button's own activation).
+    if (activateKey && ev.repeat) {
+      ev.preventDefault();
       return;
     }
     if (V.isModalOpen()) return;
-    // Space/Enter on a focused button or link keep their native meaning.
-    var nativeActivate = (key === " " || key === "Enter" || key === "Spacebar") && (tag === "BUTTON" || tag === "A");
+    // Space/Enter on a focused button or link keep their native meaning, except on the full-screen
+    // stage button (#advance): it only stands for "next" and may hold focus after a click.
+    var nativeActivate = activateKey && (tag === "BUTTON" || tag === "A") && target.id !== "advance";
 
-    if (app.screen === "title") {
-      if (ADVANCE_KEYS[key] && !nativeActivate && !ev.repeat) {
-        ev.preventDefault();
-        startPrologue();
-      }
-      return;
-    }
     if (app.screen === "routeSelect") {
-      routeSelectKey(ev, key);
+      routeSelectKey(ev, key, nativeActivate);
       return;
     }
     if (BUTTON_SCREENS[app.screen]) {
@@ -576,9 +637,12 @@
 
     if (kind === "choice") {
       var idx = choiceIndexForKey(key);
-      if (idx >= 0 && step.options[idx]) {
+      if (idx >= 0) {
         ev.preventDefault();
-        if (!ev.repeat) onChoose(step.options[idx].id);
+        if (ev.repeat) return;
+        // While a scolded option fades out, the buttons on screen do not match the options yet.
+        if (doc.querySelector("#choices .opt--leaving")) return;
+        if (step.options[idx]) onChoose(step.options[idx].id);
         return;
       }
       if (key === "ArrowDown" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowLeft") {
@@ -608,9 +672,15 @@
 
   // Route select on a TV: 1-3 start a route (in card order), arrows and PageUp/PageDown move the focus
   // between the cards (the focused card lifts its figure), Enter/Space start the focused one natively.
-  function routeSelectKey(ev, key) {
+  // Right after the page appears, Enter/Space and the digits wait for the guard (a double Enter on the
+  // story tree must not start the next route without showing this page).
+  function routeSelectKey(ev, key, nativeActivate) {
     var cards = Array.prototype.slice.call(doc.querySelectorAll(".routecard"));
     if (!cards.length) return;
+    if ((nativeActivate || /^[1-9]$/.test(key)) && guarded()) {
+      ev.preventDefault();
+      return;
+    }
     if (/^[1-9]$/.test(key)) {
       var card = cards[Number(key) - 1];
       if (!card) return;
@@ -663,12 +733,18 @@
 
   var idleTimer = 0;
 
-  function wakeCursor() {
-    doc.body.classList.remove("is-idle");
+  // The cursor hides after a few seconds without mouse movement on the story screens (SPEC 5.6). The
+  // timer is armed at boot and whenever the story comes back on screen, not only by the mouse.
+  function armIdle() {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(function () {
       if (PLAY_SCREENS[app.screen]) doc.body.classList.add("is-idle");
-    }, 3000);
+    }, IDLE_MS);
+  }
+
+  function wakeCursor() {
+    doc.body.classList.remove("is-idle");
+    armIdle();
   }
 
   // ------------------------------------------------------------------ header actions
@@ -684,7 +760,8 @@
     persist();
     V.ask({
       title: BHS.ui.confirmHomeTitle,
-      body: BHS.ui.confirmHomeBody,
+      // Without storage nothing is kept, so the dialog must not promise a saved place.
+      body: app.storageOK ? BHS.ui.confirmHomeBody : BHS.ui.confirmHomeBodyOff || BHS.ui.confirmHomeBody,
       yes: BHS.ui.confirmHomeYes,
       no: BHS.ui.confirmNo,
       onYes: showTitle,
@@ -798,6 +875,10 @@
         return app.game;
       },
       startRoute: startRoute,
+      // Re-renders the current game screen (tests that move the engine state directly).
+      render: function () {
+        if (app.game) renderGame({ instant: true });
+      },
       showTitle: showTitle,
       showTrees: showTrees,
       showTree: showTree,
@@ -954,6 +1035,28 @@
     return /^(scribe|friend|asher)$/.test(hash) ? hash : null;
   }
 
+  // A deep link is used once: the hash leaves the address bar, so a reload (F5, a clicker's slideshow
+  // key) lands on the title with Continue instead of restarting the route over the save.
+  function consumeHash() {
+    try {
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(window.history.state, "", String(window.location.href).split("#")[0]);
+      }
+    } catch (err) {
+      /* a sandboxed frame may refuse; the matching save is still resumed below */
+    }
+  }
+
+  // #scribe/#friend/#asher (SPEC 5.5). On load a save of the same route is resumed instead of being
+  // overwritten (the hash may still be there when replaceState was refused, or from a bookmark); a hash
+  // typed while the page is open starts the route.
+  function openDeepLink(rid, resume) {
+    consumeHash();
+    var s = resume ? loadSave() : null;
+    if (s && s.routeId === rid && s.state) continueGame();
+    else startRoute(rid);
+  }
+
   function boot() {
     if (!V || !E) {
       if (window.console) console.error("[BHS] engine or view missing");
@@ -974,11 +1077,12 @@
     doc.addEventListener("webkitfullscreenchange", renderHeader);
     window.addEventListener("hashchange", function () {
       var rid = routeFromHash();
-      if (rid) startRoute(rid);
+      if (rid) openDeepLink(rid, false);
     });
     var rid = routeFromHash();
-    if (rid) startRoute(rid);
+    if (rid) openDeepLink(rid, true);
     else showTitle();
+    armIdle();
   }
 
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", boot);

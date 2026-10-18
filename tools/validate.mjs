@@ -799,6 +799,21 @@ export function verseDisplayText(txt, lang) {
   return lang === 'en' && /^[a-z]/.test(s) ? '…' + s : s;
 }
 
+// Display form on the memory-verse card (mirrors BHS.engine.memoryDisplay, SPEC 4.6): verseDisplayText,
+// plus a trailing "…" when the key is an excerpt that stops mid-sentence: its `full` verse goes on with
+// more words after it, and the excerpt does not end in terminal punctuation (. ? ! closing quotes, …).
+export function memoryDisplayText(entry, lang) {
+  if (!isObj(entry)) return '';
+  const txt = String(entry[lang] == null ? '' : entry[lang]);
+  const shown = verseDisplayText(txt, lang);
+  const full = isObj(entry.full) && typeof entry.full[lang] === 'string' ? entry.full[lang] : null;
+  if (!txt || !full) return shown;
+  const at = full.lastIndexOf(txt);
+  if (at < 0) return shown;
+  const goesOn = /[0-9A-Za-z\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]/.test(full.slice(at + txt.length));
+  return goesOn && !/[.?!”’"'…]$/.test(txt.replace(/\s+$/, '')) ? shown + '…' : shown;
+}
+
 export function renderText(str, lang, scripture, vars) {
   return String(str)
     .replace(TOKEN_RE, (m, kind, key) => {
@@ -1373,7 +1388,8 @@ function textsOfItem(it, lang, data) {
     case 'verse':
     case 'memory': {
       const e = isObj(scr) ? scr[b.key] : null;
-      return e ? [verseDisplayText(e[lang] || '', lang), e.ref ? e.ref[lang] || '' : ''] : [];
+      const shown = it.kind === 'memory' ? memoryDisplayText(e, lang) : verseDisplayText(e ? e[lang] || '' : '', lang);
+      return e ? [shown, e.ref ? e.ref[lang] || '' : ''] : [];
     }
     case 'choice': return [r(b.prompt)].concat(optionsOf(b).filter((o) => !it.shown || it.shown.includes(o.id)).map((o) => r(o.text)));
     case 'press': return [r(b.label), r(b.hint)];
@@ -2233,6 +2249,26 @@ function checkEngineExtras(rep, data, routes) {
   } else if (typeof eng.verseText === 'function') {
     rep.warn('engine', 'js/engine.js', 'BHS.engine.verseDisplay is not exposed (SPEC 4.3 display rule for excerpts)');
   }
+  // Memory-verse card (SPEC 4.6): the engine must show each route's memory verse as the reference does
+  // (a trailing "…" only for an excerpt that stops mid-sentence).
+  if (typeof eng.memoryDisplay === 'function' && isObj(data.scripture)) {
+    const keys = [...new Set(ROUTE_IDS.map((rid) => data.routes[rid] && data.routes[rid].endings && data.routes[rid].endings.good && data.routes[rid].endings.good.verse).filter((k) => typeof k === 'string' && isObj(data.scripture[k]) && !data.scripture[k].refOnly))];
+    const bad = [];
+    const trailing = [];
+    for (const key of keys) {
+      for (const lang of ['ko', 'en']) {
+        const want = memoryDisplayText(data.scripture[key], lang);
+        let got;
+        try { got = eng.memoryDisplay(key, lang); } catch (err) { got = 'THREW ' + err.message; }
+        if (got !== want) bad.push(`${key} ${lang}: "${snip(String(got), 40)}", expected "${snip(want, 40)}"`);
+        else if (/…$/.test(want) && !/…$/.test(data.scripture[key][lang])) trailing.push(`${key} ${lang}`);
+      }
+    }
+    if (bad.length) rep.error('engine', 'js/engine.js', `memoryDisplay disagrees with the memory-card rule (SPEC 4.6): ${bad.slice(0, 2).join('; ')}`);
+    else if (keys.length) rep.info('engine', 'js/engine.js', `memory-verse cards follow the display rule for ${keys.join(', ')}${trailing.length ? ` (trailing "…": ${trailing.join(', ')})` : ' (no trailing "…")'}`);
+  } else if (typeof eng.verseText === 'function') {
+    rep.warn('engine', 'js/engine.js', 'BHS.engine.memoryDisplay is not exposed (SPEC 4.6 memory-card display rule)');
+  }
   // The story tree (SPEC 5.8): the engine's tree must match the reference placement.
   if (typeof eng.treeOf === 'function') {
     for (const rid of routes) {
@@ -2625,7 +2661,7 @@ function selfTest() {
     const d4 = clone(base);
     d4.routes.friend.endings.good.verse = 'MT_9_6A';
     return run(d).has('ERROR', 'schema', /the true ending/) && run(d2).has('ERROR', 'token', /unknown memory verse/) &&
-      run(d3).has('ERROR', 'token', /reference-only/) && run(d4).has('WARN', 'canon', /SPEC 4\.6 gives MT_9_2A/);
+      run(d3).has('ERROR', 'token', /reference-only/) && run(d4).has('WARN', 'canon', new RegExp(`SPEC 4\\.6 gives ${MEMORY_VERSE.friend} for the friend route`));
   });
   t('cut branch: a long title or a single beat -> WARN ending', () => {
     const d = clone(base);
@@ -2746,6 +2782,18 @@ function selfTest() {
       verseDisplayText('네 죄 사함을 받았느니라', 'ko') === '네 죄 사함을 받았느니라' &&
       renderText('x {{v:MT_9_2B2}}', 'en', scr) === 'x “…your sins are forgiven.”' &&
       renderText('{{v:MT_9_2B1}}', 'en', scr) === '“Take heart, my son;”';
+  });
+  t('memory-card display rule: a trailing "…" only for an excerpt that stops mid-sentence', () => {
+    const full6 = { ko: '그러나 인자가 권능이 있는 줄을 알게 하려 하노라 하시고 말씀하시되 일어나 가라 하시니', en: 'But that you may know sins”—he then said—“Rise and go home.”' };
+    const v6a = { ko: '그러나 인자가 권능이 있는 줄을 알게 하려 하노라', en: 'But that you may know sins', full: full6 };
+    const full2 = { ko: '데리고 오거늘 이르시되 작은 자야 안심하라', en: 'They brought him. He said, “Take heart, my son.”' };
+    const v2b = { ko: '작은 자야 안심하라', en: 'Take heart, my son.', full: full2 };
+    const whole = { ko: full2.ko, en: full2.en, full: full2 };
+    const lower = { ko: '안심하라', en: 'my son;', full: { ko: '작은 자야 안심하라 끝', en: 'Take heart, my son; go' } };
+    return memoryDisplayText(v6a, 'en') === 'But that you may know sins…' && memoryDisplayText(v6a, 'ko') === v6a.ko + '…' &&
+      memoryDisplayText(v2b, 'en') === v2b.en && memoryDisplayText(v2b, 'ko') === v2b.ko &&
+      memoryDisplayText(whole, 'en') === whole.en && memoryDisplayText(whole, 'ko') === whole.ko &&
+      memoryDisplayText({ ko: '가', en: 'No full verse' }, 'en') === 'No full verse' && memoryDisplayText(lower, 'en') === '…my son;…';
   });
   t('lexer: Korean inside strings is not a comment', () => {
     const lx = lexJs('var a = "// 가"; /* ok */ var r = /\\/\\*x/; // 나\n`${"/*"}` // end');

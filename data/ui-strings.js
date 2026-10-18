@@ -41,6 +41,7 @@
     // Confirm dialog
     confirmHomeTitle: T("처음 화면으로 갈까요?", "Go back to the title screen?"),
     confirmHomeBody: T("지금 있는 곳은 저장돼요. 처음 화면에서 이어서 할 수 있어요.", "Your place is saved. You can continue from the title screen."),
+    confirmHomeBodyOff: T("이 기기에서는 저장이 꺼져 있어서 지금 있는 곳이 남지 않아요.", "Saving is off on this device, so your place won't be kept."),
     confirmHomeYes: T("처음 화면으로", "Go to title"),
     confirmNo: T("계속하기", "Keep playing"),
 

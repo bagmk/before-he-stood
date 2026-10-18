@@ -533,6 +533,34 @@ test("verse display rule (SPEC 4.3): an English excerpt that starts with a lower
   assert.equal(g.step.key, "MT_9_2B2");
 });
 
+test("memory-card display rule (SPEC 4.6): a trailing … only for an excerpt that stops mid-sentence", () => {
+  const scr = BHS.scripture;
+  const full6 = { ko: "그러나 인자가 세상에서 죄를 사하는 권능이 있는 줄을 너희로 알게 하려 하노라 하시고 중풍병자에게 말씀하시되", en: "But that you may know that the Son of Man has authority on earth to forgive sins”—he then said to the paralytic—" };
+  const full2 = { ko: "침상에 누운 중풍병자를 데리고 오거늘 이르시되 작은 자야 안심하라 네 죄 사함을 받았느니라", en: "And behold, some people brought to him a paralytic. He said, “Take heart, my son; your sins are forgiven.”" };
+  const tmp = {
+    T_6A: { ref: { ko: "마 9:6", en: "Matt 9:6" }, ko: "그러나 인자가 세상에서 죄를 사하는 권능이 있는 줄을 너희로 알게 하려 하노라", en: "But that you may know that the Son of Man has authority on earth to forgive sins", speaker: "jesus", full: full6 },
+    T_2: { ref: { ko: "마 9:2", en: "Matt 9:2" }, ko: full2.ko, en: full2.en, speaker: "narrator", full: full2 },
+    T_2B: { ref: { ko: "마 9:2", en: "Matt 9:2" }, ko: "작은 자야 안심하라 네 죄 사함을 받았느니라", en: "Take heart, my son; your sins are forgiven.", speaker: "jesus", full: full2 },
+    T_2B2: { ref: { ko: "마 9:2", en: "Matt 9:2" }, ko: "네 죄 사함을 받았느니라", en: "your sins are forgiven.", speaker: "jesus", full: full2 }
+  };
+  Object.assign(scr, tmp);
+  try {
+    assert.equal(E.memoryDisplay("T_6A", "en"), tmp.T_6A.en + "…", "the scribe's verse stops mid-sentence (EN)");
+    assert.equal(E.memoryDisplay("T_6A", "ko"), tmp.T_6A.ko + "…", "the scribe's verse stops mid-sentence (KO)");
+    assert.equal(E.memoryDisplay("T_2", "en"), full2.en, "a whole verse is unchanged");
+    assert.equal(E.memoryDisplay("T_2", "ko"), full2.ko);
+    assert.equal(E.memoryDisplay("T_2B", "en"), tmp.T_2B.en, "an excerpt ending with a period is unchanged");
+    assert.equal(E.memoryDisplay("T_2B", "ko"), tmp.T_2B.ko, "nothing follows the Korean excerpt");
+    assert.equal(E.memoryDisplay("T_2B2", "en"), "…your sins are forgiven.", "the leading … rule still applies");
+    assert.equal(E.verseDisplay("T_6A", "en"), tmp.T_6A.en, "verse cards are unchanged");
+    assert.equal(E.memoryDisplay("MT_9_6A", "en"), E.verseDisplay("MT_9_6A", "en"), "no full verse: nothing to compare, unchanged");
+    assert.equal(E.memoryDisplay("NOPE_1", "en"), null);
+    assert.equal(scr.T_6A.en, "But that you may know that the Son of Man has authority on earth to forgive sins", "data unchanged");
+  } finally {
+    Object.keys(tmp).forEach((k) => delete scr[k]);
+  }
+});
+
 test("resolveText: inner double quotes become single curly quotes inside the token quotes", () => {
   assert.equal(E.resolveText({ ko: "{{v:MT_9_3}}", en: "{{v:MT_9_3}}" }, "en", {}), "“And behold, some of the scribes said to themselves, ‘This man is blaspheming.’”");
   assert.equal(E.resolveText({ ko: "x", en: "{{v:MT_9_5}}" }, "en", {}), "“For which is easier, to say, ‘Your sins are forgiven,’ or to say, ‘Rise and walk’?”");
@@ -743,6 +771,29 @@ test("canRestore refuses saves of the lens releases and damaged or stale snapsho
   assert.equal(E.canRestore(v3), false);
   assert.throws(() => E.restoreGame(v3), /Incompatible saved state/);
   assert.equal(E.warnings.length, warned, "the old snapshot was never run");
+});
+
+test("canRestore checks the Try-again snapshot too; a damaged snapshot never crashes Try again", () => {
+  const g = E.createGame("friend");
+  playTo(g, (s) => s.kind === "choice" && s.id === "c2");
+  const good = snapshot(g);
+  assert.ok(good.retry && good.retry.retry === null, "the snapshot is a whole state whose own retry is null");
+  assert.equal(E.canRestore(good), true);
+  // A fingerprint that fits, but a snapshot that is only a stub (audit N4).
+  assert.equal(E.canRestore(Object.assign({}, good, { retry: { routeId: "friend" } })), false, "a stub snapshot");
+  assert.equal(E.canRestore(Object.assign({}, good, { retry: Object.assign({}, good.retry, { stage: null }) })), false, "a snapshot without a stage");
+  assert.equal(E.canRestore(Object.assign({}, good, { retry: Object.assign({}, good.retry, { fp: "r0" }) })), false, "a stale snapshot");
+  assert.equal(E.canRestore(Object.assign({}, good, { retry: Object.assign({}, good.retry, { retry: good.retry }) })), false, "a nested snapshot");
+  assert.equal(E.canRestore(Object.assign({}, good, { retry: null })), true, "no snapshot yet is fine");
+  // An installed game whose snapshot got damaged refuses Try again instead of throwing.
+  const h = E.restoreGame(good);
+  h.state.retry = { routeId: "friend" };
+  let ok;
+  assert.doesNotThrow(() => {
+    ok = h.retry();
+  });
+  assert.equal(ok, false);
+  assert.equal(h.step.kind, "choice", "the game stays where it was");
 });
 
 // ---------------------------------------------------------------- prologue + sequences
