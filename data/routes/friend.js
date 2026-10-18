@@ -115,8 +115,8 @@
           {
             id: "d",
             text: {
-              ko: "“오늘 하루 품삯은 한 데나리온인데.” ({{r:MT_20_2}})",
-              en: "“But today's wage is a whole denarius.” ({{r:MT_20_2}})"
+              ko: "“오늘 하루 품삯은 한 데나리온인데.”",
+              en: "“But today's wage is a whole denarius.”"
             },
             lens: 3,
             reaction: [

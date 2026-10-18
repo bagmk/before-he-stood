@@ -217,9 +217,10 @@
           {
             id: "c",
             lens: 2,
-            text: { ko: "병의 이유를 우리가 알 수 있나. 욥의 친구들도 틀렸다. ({{r:JB_42_7}})", en: "Can we even know why a man is sick? Job's friends got it wrong. ({{r:JB_42_7}})" },
+            text: { ko: "병의 이유를 우리가 알 수 있나. 욥의 친구들도 틀렸다.", en: "Can we even know why a man is sick? Job's friends got it wrong." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "그들은 친구를 위로하러 와서, 친구를 정죄했다.", en: "They came to comfort their friend and ended up condemning him." } }
+              // Reference moved off the option; anchored to God's rebuke, which is what Job 42:7 says.
+              { type: "line", speaker: "thought", text: { ko: "그들은 친구를 위로하러 와서, 친구를 정죄했다. 하나님은 그들을 책망하셨다({{r:JB_42_7}}).", en: "They came to comfort their friend and ended up condemning him. Then God rebuked them ({{r:JB_42_7}})." } }
             ]
           },
           {
@@ -330,7 +331,7 @@
           {
             id: "b",
             lens: 2,
-            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데. ({{r:KI1_8_39B}})", en: "How did he know a thought I never spoke? Only God knows the heart. ({{r:KI1_8_39B}})" },
+            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데.", en: "How did he know a thought I never spoke? Only God knows the heart." },
             reaction: [
               { type: "line", speaker: "thought", text: { ko: "성전을 봉헌하던 솔로몬의 기도가 떠오른다. {{v:KI1_8_39B}}", en: "Solomon's prayer at the temple's dedication comes back to me. {{v:KI1_8_39B}}" } }
             ]

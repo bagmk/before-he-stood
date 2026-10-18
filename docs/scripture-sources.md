@@ -409,6 +409,13 @@ Other findings:
 - Status: Korean **VERIFIED** (publisher page labeled 개역개정 + LDS Korean, both exact); English **VERIFIED** (two sources, both exact).
 - Notes: **Corrected:** 개역개정 has 「여호와여 **내게** 은혜를 베푸소서」, not 「나에게」 (publisher and LDS agree). Narrator, whole verse: the inner ESV quotation “O LORD, … against you!” stays as published, so a {{v:PS_41_4}} token will show double quotes nested inside the engine's double quotes (see Notes for other agents).
 
+### PS_41_4Q — 시 41:4 / Ps 41:4
+
+- Speaker: narrator (prayed by Asher in his route, c1 option b)
+- Whole verse: as PS_41_4 above (same sources).
+- Stored text (cut): ko 「여호와여 내게 은혜를 베푸소서 내가 주께 범죄하였사오니 나를 고치소서」; en "O LORD, be gracious to me; heal me, for I have sinned against you!" — the prayer itself, without the framing 내가 말하기를 … 하였나이다 / As for me, I said, “…”.
+- Status: **VERIFIED** by derivation — both cuts are exact contiguous substrings of the verified PS_41_4 text (checked in Node); added by the lead after the scripture agent's suggestion.
+
 ### PS_22_1A — 시 22:1 / Ps 22:1
 
 - Speaker: narrator

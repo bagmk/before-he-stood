@@ -33,12 +33,21 @@
   function r1(v) { var n = Math.round(v * 10) / 10; return n === 0 ? 0 : n; }
   function op(o) { return o !== undefined && o !== 1 ? ' opacity="' + o + '"' : ""; }
 
-  // Joins numbers for path data; a negative number needs no separator.
+  // Number without a leading zero (0.5 -> .5, -0.5 -> -.5).
+  function fmt(n) {
+    var s = String(n);
+    if (s.length > 1 && s.charAt(0) === "0") return s.slice(1);
+    if (s.length > 2 && s.slice(0, 2) === "-0") return "-" + s.slice(2);
+    return s;
+  }
+  // Joins numbers for path data with the fewest separators.
   function nums(arr) {
-    var s = "";
+    var s = "", prev = "";
     for (var i = 0; i < arr.length; i++) {
-      var n = rn(arr[i]);
-      s += (i === 0 || n < 0 ? "" : " ") + n;
+      var t = fmt(rn(arr[i]));
+      if (i > 0 && t.charAt(0) !== "-" && !(t.charAt(0) === "." && prev.indexOf(".") >= 0)) s += " ";
+      s += t;
+      prev = t;
     }
     return s;
   }
@@ -74,17 +83,21 @@
   }
 
   // Smooth path through points (Catmull-Rom as cubic Beziers). A point with a third entry
-  // is a corner: its tangents point along the chords to its neighbours.
+  // is a corner: its tangents point along the chords to its neighbours. Written with
+  // relative commands; offsets come from rounded absolute points, so nothing drifts.
   function curve(p, closed) {
-    var n = p.length, d = "M" + nums([p[0][0], p[0][1]]), last = closed ? n : n - 1;
+    var n = p.length, last = closed ? n : n - 1;
+    var cx = rn(p[0][0]), cy = rn(p[0][1]), out = [];
     for (var i = 0; i < last; i++) {
       var p0 = p[(i - 1 + n) % n], p1 = p[i], p2 = p[(i + 1) % n], p3 = p[(i + 2) % n];
       if (!closed) { if (i === 0) p0 = p1; if (i + 2 >= n) p3 = p2; }
       var a = p1[2] ? [lerp(p1[0], p2[0], 0.3), lerp(p1[1], p2[1], 0.3)] : [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
       var b = p2[2] ? [lerp(p2[0], p1[0], 0.3), lerp(p2[1], p1[1], 0.3)] : [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-      d += "C" + nums([a[0], a[1], b[0], b[1], p2[0], p2[1]]);
+      var ex = rn(p2[0]), ey = rn(p2[1]);
+      out.push(rn(a[0]) - cx, rn(a[1]) - cy, rn(b[0]) - cx, rn(b[1]) - cy, ex - cx, ey - cy);
+      cx = ex; cy = ey;
     }
-    return d + (closed ? "Z" : "");
+    return "M" + nums([p[0][0], p[0][1]]) + "c" + nums(out) + (closed ? "z" : "");
   }
   function sm(f, list) { return curve(mapPts(f, list), true); }
 
@@ -112,6 +125,7 @@
     this.defs = [];
     this.body = [];
     this.sil = [];
+    this.refs = {};
     this.n = 0;
     this.tint = null;
   }
@@ -120,9 +134,22 @@
   Ctx.prototype.def = function (s) { this.defs.push(s); };
   // Filled path. o = opacity; sil = also part of the outer silhouette (rim light, shadow).
   Ctx.prototype.fill = function (d, color, o, sil, extra) {
-    this.body.push('<path d="' + d + '" fill="' + color + '"' + op(o) + (extra || "") + "/>");
-    if (sil) this.sil.push(d);
+    var a = ' fill="' + color + '"' + op(o) + (extra || "");
+    this.refs[d] = { i: this.body.length, a: a };
+    this.body.push('<path d="' + d + '"' + a + "/>");
+    if (sil) this.sil.push(this.ref(d));
     return d;
+  };
+  // A shape needed again (silhouette, clip) moves into <defs> once; the body then draws it
+  // with <use>, so its path data is written a single time.
+  Ctx.prototype.ref = function (d) {
+    var r = this.refs[d] || (this.refs[d] = {});
+    if (!r.id) {
+      r.id = this.id("p" + (++this.n));
+      this.def('<path id="' + r.id + '" d="' + d + '"/>');
+      if (r.i !== undefined) this.body[r.i] = '<use href="#' + r.id + '"' + r.a + "/>";
+    }
+    return r.id;
   };
   Ctx.prototype.shape = function (f, list, color, o, sil) { return this.fill(sm(f, list), color, o, sil); };
   // Open smooth stroke through frame-local points.
@@ -132,7 +159,7 @@
   };
   Ctx.prototype.clip = function (d) {
     var id = this.id("k" + (++this.n));
-    this.def('<clipPath id="' + id + '"><path d="' + d + '"/></clipPath>');
+    this.def('<clipPath id="' + id + '"><use href="#' + this.ref(d) + '"/></clipPath>');
     return "url(#" + id + ")";
   };
   Ctx.prototype.inside = function (d) { this.body.push('<g clip-path="' + this.clip(d) + '">'); };
@@ -145,7 +172,7 @@
     var sid = this.id("sil"), u = "#" + sid, i;
     var box = ' x="-40" y="-40" width="680" height="980"';
     var defs = '<g id="' + sid + '">';
-    for (i = 0; i < this.sil.length; i++) defs += '<path d="' + this.sil[i] + '"/>';
+    for (i = 0; i < this.sil.length; i++) defs += '<use href="#' + this.sil[i] + '"/>';
     defs += "</g>" +
       // Rim: the silhouette minus itself shifted down-right leaves a thin upper-left edge.
       '<mask id="' + this.id("rim") + '" maskUnits="userSpaceOnUse"' + box + '><use href="' + u + '" fill="#fff"/>' +
@@ -251,8 +278,9 @@
   // separate so beards can go between. Returns the head outline path.
   function head(c, f, o) {
     var keep = PREC;
-    PREC = 10;
+    PREC = f.s < 100 ? 1 : 10;
     var hd = c.shape(f, headPts(o), o.skin, 1, true);
+    PREC = 1;
     if (o.ear) {
       c.shape(f, [[0.6, -0.05], [0.69, -0.1], [0.8, -0.06], [0.84, 0.1], [0.79, 0.29], [0.69, 0.38], [0.61, 0.33]], mix(o.skin, SH, 0.2), 1, true);
       c.shape(f, [[0.665, 0.0], [0.75, -0.03], [0.785, 0.1], [0.74, 0.25], [0.69, 0.21], [0.72, 0.1], [0.68, 0.06]], SH, 0.32);
@@ -282,6 +310,7 @@
     }
     c.end();
     // Eyes and brows.
+    PREC = 10;
     var ey = 0.03, es = o.eye;
     eye(c, f, -0.505, ey, 0.115 * es, 1, o);
     eye(c, f, 0.035, ey, 0.146 * es, -1, o);
@@ -475,7 +504,7 @@
     leaf(c, b, [2.12, 2.18], [2.1, 2.45], [2.08, 2.8], 0.05, "#e7ddc5");
     leaf(c, b, [2.17, 2.18], [2.19, 2.47], [2.2, 2.84], 0.045, "#3e5d8a");
     leaf(c, b, [2.2, 2.18], [2.25, 2.44], [2.29, 2.76], 0.05, "#e7ddc5");
-    c.sil.push(sm(b, [[2.04, 2.1], [2.3, 2.1], [2.32, 2.84], [2.06, 2.82]]));
+    c.sil.push(c.ref(sm(b, [[2.04, 2.1], [2.3, 2.1], [2.32, 2.84], [2.06, 2.82]])));
     // Small scroll held to the chest; the fist grips its lower end, thumb over the top.
     var q = b(-0.74, 2.72), h = frame(q[0], q[1], 122, -0.5), skin = mix(o.skin, SH, 0.06);
     c.shape(h, [[-0.3, -0.1, 1], [1.1, -0.1, 1], [1.1, 0.1, 1], [-0.3, 0.1, 1]], "#d5c096", 1, true);
@@ -558,7 +587,7 @@
     var rc = b(-1.2, 2.56), r = frame(rc[0], rc[1], 124, 0.22);
     var outer = curve(mapPts(r, ellPts(0, 0, 0.66, 0.98, 16)), true), inner = curve(mapPts(r, ellPts(0, 0, 0.44, 0.76, 16)), true);
     c.fill(outer + inner, "#b39462", 1, false, ' fill-rule="evenodd"');
-    c.sil.push(outer);
+    c.sil.push(c.ref(outer));
     c.inside(outer + inner);
     c.add('<path d="' + outer + inner + '" fill="none" stroke="#6f5636" stroke-width="3" stroke-dasharray="6 9" opacity=".6" clip-rule="evenodd"/>');
     c.shape(r, [[0.1, -1.2], [1.0, -0.4], [0.9, 1.2], [-0.3, 1.2]], SH, 0.2);
