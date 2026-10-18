@@ -177,6 +177,7 @@ Context:
 | MT_8_20Q | jesus | 여우도 굴이 있고 공중의 새도 거처가 있으되 인자는 머리 둘 곳이 없다 |
 | MT_8_26B | narrator | 곧 일어나사 바람과 바다를 꾸짖으시니 아주 잔잔하게 되거늘 |
 | MT_8_34 | narrator | 온 시내가 예수를 만나려고 나가서 보고 그 지방에서 떠나시기를 간구하더라 |
+| DN_7_14A | narrator | 그에게 권세와 영광과 나라를 주고 / And to him was given dominion and glory and a kingdom, (scribe true ending) |
 | MT_26_65Q | narrator | (대제사장) 그가 신성 모독하는 말을 하였으니 / He has uttered blasphemy. |
 | JN_9_2 | narrator | 랍비여 이 사람이 맹인으로 난 것이 누구의 죄로 인함이니이까 자기니이까 그의 부모니이까 |
 | JN_9_3 | jesus | 이 사람이나 그 부모의 죄로 인한 것이 아니라 그에게서 하나님이 하시는 일을 나타내고자 하심이라 |

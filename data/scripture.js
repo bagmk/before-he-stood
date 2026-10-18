@@ -197,6 +197,17 @@
       en: "And behold, all the city came out to meet Jesus, and when they saw him, they begged him to leave their region.",
       speaker: "narrator"
     },
+    // Daniel 7:14 (first clause): the Son of Man receives dominion. Menahem recalls it at the true ending.
+    DN_7_14A: {
+      ref: r("단 7:14", "Dan 7:14"),
+      ko: "그에게 권세와 영광과 나라를 주고",
+      en: "And to him was given dominion and glory and a kingdom,",
+      speaker: "narrator",
+      full: {
+        ko: "그에게 권세와 영광과 나라를 주고 모든 백성과 나라들과 다른 언어를 말하는 모든 자들이 그를 섬기게 하였으니 그의 권세는 소멸되지 아니하는 영원한 권세요 그의 나라는 멸망하지 아니할 것이니라",
+        en: "And to him was given dominion and glory and a kingdom, that all peoples, nations, and languages should serve him; his dominion is an everlasting dominion, which shall not pass away, and his kingdom one that shall not be destroyed."
+      }
+    },
     MT_26_65Q: {
       ref: r("마 26:65", "Matt 26:65"),
       ko: "그가 신성모독 하는 말을 하였으니",

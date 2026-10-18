@@ -35,6 +35,7 @@ Status legend:
 | MT_8_20Q | 마 8:20 / Matt 8:20 | jesus | VERIFIED | VERIFIED |
 | MT_8_26B | 마 8:26 / Matt 8:26 | narrator | VERIFIED | VERIFIED |
 | MT_8_34 | 마 8:34 / Matt 8:34 | narrator | VERIFIED | VERIFIED |
+| DN_7_14A | 단 7:14 / Dan 7:14 | narrator | VERIFIED | VERIFIED |
 | MT_26_65Q | 마 26:65 / Matt 26:65 | narrator | VERIFIED | VERIFIED |
 | JN_9_2 | 요 9:2 / John 9:2 | narrator | VERIFIED | VERIFIED |
 | JN_9_3 | 요 9:3 / John 9:3 | jesus | VERIFIED | VERIFIED |
@@ -538,3 +539,6 @@ The friend route's memory verse. The text is the whole verse already verified as
 
 - KO: 침상에 누운 중풍병자를 사람들이 데리고 오거늘 예수께서 그들의 믿음을 보시고 중풍병자에게 이르시되 작은 자야 안심하라 네 죄 사함을 받았느니라
 - EN: And behold, some people brought to him a paralytic, lying on a bed. And when Jesus saw their faith, he said to the paralytic, “Take heart, my son; your sins are forgiven.”
+
+### DN_7_14A — 단 7:14 / Dan 7:14 (added 2026-10-18)
+Checked: Korean on churchofjesuschrist.org (개역개정 wording), English on esv.org. Excerpt = first clause.

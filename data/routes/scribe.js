@@ -240,7 +240,10 @@
           // One screen, varied by where his eyes went at c5. "He" here is always Jesus.
           { when: { choice: "c5", is: "a" }, type: "line", speaker: "thought", text: { ko: "그 권능으로 아무도 벌하지 않았다. 그저 한 사람을 집으로 돌려보냈다.", en: "He didn't use that authority to punish anyone. He just sent a man home." } },
           { when: { choice: "c5", is: "b" }, type: "line", speaker: "thought", text: { ko: "죄를 사하는 건 하나님의 일이다. 그런데 그 일을 저 사람이 했다.", en: "Forgiving sins is God's work. And that man just did it." } },
-          { when: { choice: "c5", is: "c" }, type: "line", text: { ko: "무리 속에서 므나헴의 입술도 소리 없이 움직인다. 하나님께 영광을.", en: "In the crowd, Menahem's lips move too, without a sound. Glory to God." } }
+          { when: { choice: "c5", is: "c" }, type: "line", text: { ko: "무리 속에서 므나헴의 입술도 소리 없이 움직인다. 하나님께 영광을.", en: "In the crowd, Menahem's lips move too, without a sound. Glory to God." } },
+          // Dan 7:13-14: a scribe hears "Son of Man" and remembers Daniel's vision. He recalls it; he draws no conclusion.
+          { type: "line", speaker: "thought", text: { ko: "인자…? 다니엘이 밤 환상 중에 본, 하늘 구름을 타고 오는 그 인자 말인가.", en: "Son of Man…? The one Daniel saw in a night vision, coming with the clouds of heaven?" } },
+          { type: "verse", key: "DN_7_14A" }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 하나다. 저 사람은 누구인가.", en: "You were right about God. That leaves one question: who is this man?" }
       },

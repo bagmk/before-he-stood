@@ -3997,6 +3997,17 @@ html.is-test .echo mark {
       en: "And behold, all the city came out to meet Jesus, and when they saw him, they begged him to leave their region.",
       speaker: "narrator"
     },
+    // Daniel 7:14 (first clause): the Son of Man receives dominion. Menahem recalls it at the true ending.
+    DN_7_14A: {
+      ref: r("단 7:14", "Dan 7:14"),
+      ko: "그에게 권세와 영광과 나라를 주고",
+      en: "And to him was given dominion and glory and a kingdom,",
+      speaker: "narrator",
+      full: {
+        ko: "그에게 권세와 영광과 나라를 주고 모든 백성과 나라들과 다른 언어를 말하는 모든 자들이 그를 섬기게 하였으니 그의 권세는 소멸되지 아니하는 영원한 권세요 그의 나라는 멸망하지 아니할 것이니라",
+        en: "And to him was given dominion and glory and a kingdom, that all peoples, nations, and languages should serve him; his dominion is an everlasting dominion, which shall not pass away, and his kingdom one that shall not be destroyed."
+      }
+    },
     MT_26_65Q: {
       ref: r("마 26:65", "Matt 26:65"),
       ko: "그가 신성모독 하는 말을 하였으니",
@@ -4554,7 +4565,10 @@ html.is-test .echo mark {
           // One screen, varied by where his eyes went at c5. "He" here is always Jesus.
           { when: { choice: "c5", is: "a" }, type: "line", speaker: "thought", text: { ko: "그 권능으로 아무도 벌하지 않았다. 그저 한 사람을 집으로 돌려보냈다.", en: "He didn't use that authority to punish anyone. He just sent a man home." } },
           { when: { choice: "c5", is: "b" }, type: "line", speaker: "thought", text: { ko: "죄를 사하는 건 하나님의 일이다. 그런데 그 일을 저 사람이 했다.", en: "Forgiving sins is God's work. And that man just did it." } },
-          { when: { choice: "c5", is: "c" }, type: "line", text: { ko: "무리 속에서 므나헴의 입술도 소리 없이 움직인다. 하나님께 영광을.", en: "In the crowd, Menahem's lips move too, without a sound. Glory to God." } }
+          { when: { choice: "c5", is: "c" }, type: "line", text: { ko: "무리 속에서 므나헴의 입술도 소리 없이 움직인다. 하나님께 영광을.", en: "In the crowd, Menahem's lips move too, without a sound. Glory to God." } },
+          // Dan 7:13-14: a scribe hears "Son of Man" and remembers Daniel's vision. He recalls it; he draws no conclusion.
+          { type: "line", speaker: "thought", text: { ko: "인자…? 다니엘이 밤 환상 중에 본, 하늘 구름을 타고 오는 그 인자 말인가.", en: "Son of Man…? The one Daniel saw in a night vision, coming with the clouds of heaven?" } },
+          { type: "verse", key: "DN_7_14A" }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 하나다. 저 사람은 누구인가.", en: "You were right about God. That leaves one question: who is this man?" }
       },
