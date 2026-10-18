@@ -126,18 +126,26 @@
     this.rnd = prng(hash(bg));
     this.defs = [];
     this.body = [];
+    this.names = {};
   }
   Ctx.prototype.id = function (name) { return this.pre + name; };
   Ctx.prototype.url = function (name) { return "url(#" + this.pre + name + ")"; };
   Ctx.prototype.def = function (s) { this.defs.push(s); };
   Ctx.prototype.add = function (s) { this.body.push(s); };
+  // Gradient names are made unique within a scene, so two gradients can never collide.
+  Ctx.prototype.fresh = function (name) {
+    var n = this.names[name] = (this.names[name] || 0) + 1;
+    return n === 1 ? name : name + n;
+  };
   Ctx.prototype.lin = function (name, x1, y1, x2, y2, list) {
+    name = this.fresh(name);
     this.def('<linearGradient id="' + this.id(name) + '" gradientUnits="userSpaceOnUse" x1="' + x1 + '" y1="' + y1 +
       '" x2="' + x2 + '" y2="' + y2 + '">' + stops(list) + "</linearGradient>");
     return this.url(name);
   };
   // Radial gradient; ry (optional) squashes it into an ellipse around its center.
   Ctx.prototype.rad = function (name, cx, cy, r, list, ry) {
+    name = this.fresh(name);
     var tf = ry && ry !== r ? ' gradientTransform="translate(' + cx + " " + cy + ")scale(1 " + r2(ry / r) + ")translate(" + -cx + " " + -cy + ')"' : "";
     this.def('<radialGradient id="' + this.id(name) + '" gradientUnits="userSpaceOnUse" cx="' + cx + '" cy="' + cy + '" r="' + r + '"' +
       tf + ">" + stops(list) + "</radialGradient>");
@@ -147,6 +155,12 @@
   Ctx.prototype.glow = function (name, cx, cy, r, color, alpha, ry, mid) {
     var m = mid === undefined ? 0.35 : mid;
     this.add(full(this.rad(name, cx, cy, r, [[0, color, alpha], [m, color, r2(alpha * 0.45)], [1, color, 0]], ry)));
+  };
+  // Clip path (cheap, no filters) used to keep stones inside their wall.
+  Ctx.prototype.clip = function (name, d) {
+    name = this.fresh(name);
+    this.def('<clipPath id="' + this.id(name) + '"><path d="' + d + '"/></clipPath>');
+    return this.url(name);
   };
   Ctx.prototype.vignette = function (color, alpha, cx, cy, r) {
     this.add(full(this.rad("vig", cx || MX, cy || 760, r || 1350, [[0, color, 0], [0.5, color, 0], [1, color, alpha]])));
@@ -186,7 +200,7 @@
       while (u < o.u1) {
         var sw = lerp(o.sw[0], o.sw[1], rnd());
         var skip = rnd() < (o.skip || 0);
-        if (!skip && !(o.keep && !o.keep(u + sw / 2, v + ch / 2))) {
+        if (!(o.keep && !o.keep(u + sw / 2, v + ch / 2))) {
           var g = o.gap, a = u + g, b = u + sw - g, t = v + g, e = v + ch - g, j = o.jit || 0;
           var k = Math.min(b - a, e - t), c1 = k * (0.12 + rnd() * 0.3), c2 = k * (0.08 + rnd() * 0.3);
           var pts = rnd() < 0.5
@@ -200,6 +214,8 @@
             if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
           }
           var visible = maxX > -10 && minX < W + 10 && maxY > -10 && minY < H + 10 && maxX - minX >= (o.minW || 0);
+          // Skipped stones leave gaps; large (near) stones are never skipped so walls stay solid.
+          if (skip && maxX - minX < (o.skipMaxW || 1e9)) visible = false;
           if (visible) {
             var ti = o.tone((minX + maxX) / 2, (minY + maxY) / 2, rnd, u, v);
             if (ti >= 0) out[clamp(ti, 0, o.n - 1)] += poly(pts);
@@ -256,7 +272,7 @@
     var wx = 990, wy = 828;                  // wick point of the lamp on the table
     var fh = night ? 30 : 46;                // flame height ("lower" at night)
     var gx = wx, gy = wy - fh * 0.5;         // light center
-    var reach = night ? 540 : 720;
+    var reach = night ? 470 : 620;
 
     c.add(full(night ? "#0a0b0d" : "#0e0f12"));
 
@@ -268,10 +284,10 @@
       u0: 0, u1: W, v0: 150, v1: 852, ch: [46, 70], sw: [72, 138], gap: 4, jit: 5, n: 7,
       tone: function (x, y, r) {
         var dx = x - gx, dy = (y - gy) * 1.2;
-        var L = Math.pow(clamp(1 - Math.sqrt(dx * dx + dy * dy) / reach, 0, 1), 1.3);
+        var L = Math.pow(clamp(1 - Math.sqrt(dx * dx + dy * dy) / reach, 0, 1), 1.5);
         var wdx = x - 590, wdy = (y - 600) * 1.25, wd = Math.sqrt(wdx * wdx + wdy * wdy);
         if (L < 0.16 && wd < 250 && r() < 0.85) return wd < 150 ? 6 : 5;
-        if (L < 0.07 && r() < 0.75) return -1;
+        if (L < 0.08 && r() < 0.8) return -1;
         return clamp(Math.floor(L * 5 + (r() - 0.5) * 1.1), 0, 4);
       }
     }), tones);
@@ -420,7 +436,7 @@
         (function (topY) {
           addStones(c, stones(rnd, function (u, v) { return P(x, topY - v, u); }, {
             u0: z0, u1: z1, v0: 0.26, v1: houses[h][2] + G * (z1 - z0) + 0.2, ch: [0.26, 0.4], sw: [0.45, 0.9],
-            gap: 0.035, jit: 0.05, n: tones.length, skip: lit ? 0.14 : 0.42, minW: 5,
+            gap: 0.035, jit: 0.05, n: tones.length, skip: lit ? 0.14 : 0.42, skipMaxW: 70, minW: 5,
             keep: function (u, v) { return topY - v > fl(u) - 0.1; },
             tone: function (cx, cy, r, u, v) {
               var t = r() * tones.length;
@@ -495,27 +511,35 @@
   // Fill comes from the <use> element; "color" sets hair (back views) or skin (front views).
   // Faces never get features: a skin oval, a hair or hood shadow, sometimes a beard shadow.
   function crowdDefs(c) {
-    var body = '<path d="M-.45.8Q-1.9 1-2.05 2.3L-2.3 14.5H2.3L2.05 2.3Q1.9 1 .45.8Z"/>';
-    var hood = '<path d="M0-1.25C1.25-1.25 1.32.4 1.15 1.1Q2.2 1.4 2.3 2.6L2.45 14.5H-2.45L-2.3 2.6Q-2.2 1.4-1.15 1.1C-1.32.4-1.25-1.25 0-1.25Z"/>';
-    var shade = path("M-2.2 7.5H2.2L2.45 14.5H-2.45Z", "#000", op(0.16));
-    var fold = path("M-.5 3.2L-.85 14.5H-.45L-.2 3.4Z", "#000", op(0.12));
-    var sLight = path("M-.45.8Q-1.9 1-2.05 2.3Q-1.5 1.5-.3 1.25ZM.45.8Q1.9 1 2.05 2.3Q1.5 1.5.3 1.25Z", "#fff", op(0.18));
-    var hLight = path("M-1.05-.55C-.95-1.32.95-1.32 1.05-.55C.7-1.02-.7-1.02-1.05-.55ZM-1.15 1.1Q-2.2 1.4-2.3 2.6Q-1.7 1.75-1 1.45ZM1.15 1.1Q2.2 1.4 2.3 2.6Q1.7 1.75 1 1.45Z", "#fff", op(0.2));
+    // Soft shading toward the feet (local units, so it scales with each figure).
+    var grad = c.lin("fsh", 0, 2, 0, 14.5, [[0, "#000", 0], [1, "#000", 0.32]]);
+    // Base shapes are defined once and reused by every template.
+    function ref(name, extra) { return '<use href="#' + c.id(name) + '"' + (extra || "") + "/>"; }
+    c.def('<path id="' + c.id("sb") + '" d="M-.45.8Q-1.75 1-2.05 2.1L-2.3 7.2Q-2.32 8.1-2.05 8.6L-2.25 14.5H2.25L2.05 8.6Q2.32 8.1 2.3 7.2L2.05 2.1Q1.75 1 .45.8Z"/>');
+    c.def('<path id="' + c.id("sm") + '" d="M0-1.25C1.25-1.25 1.32.4 1.15 1.1Q2.2 1.4 2.35 2.6L2.5 10.1Q0 10.9-2.5 10.1L-2.35 2.6Q-2.2 1.4-1.15 1.1C-1.32.4-1.25-1.25 0-1.25Z"/>');
+    c.def('<path id="' + c.id("st") + '" d="M-2.05 9.6H2.05L2.2 14.5H-2.2Z"/>');
+    var body = ref("sb") + ref("sb", ' fill="' + grad + '"') +
+      path("M-2.05 2.3L-2.28 7.4Q-1.9 7.9-1.55 7.6L-1.45 3ZM2.05 2.3L2.28 7.4Q1.9 7.9 1.55 7.6L1.45 3Z", "#000", op(0.13)) +
+      path("M-2.25 6.9H2.25V7.35H-2.25Z", "#000", op(0.22));
+    // Mantle over the head down to the knees, darker tunic below.
+    var hood = ref("st") + ref("st", ' fill="#000" opacity=".3"') + ref("sm") + ref("sm", ' fill="' + grad + '"') +
+      path("M-.5 3.2L-.8 10.3H-.42L-.2 3.4Z", "#000", op(0.12));
+    var sLight = path("M-.45.8Q-1.75 1-2.05 2.1Q-1.5 1.45-.3 1.25ZM.45.8Q1.75 1 2.05 2.1Q1.5 1.45.3 1.25Z", "#fff", op(0.18));
+    var hLight = path("M-1.05-.55C-.95-1.32.95-1.32 1.05-.55C.7-1.02-.7-1.02-1.05-.55ZM-1.15 1.1Q-2.2 1.4-2.35 2.6Q-1.7 1.75-1 1.45ZM1.15 1.1Q2.2 1.4 2.35 2.6Q1.7 1.75 1 1.45Z", "#fff", op(0.2));
     function g(name, inner) { c.def('<g id="' + c.id(name) + '">' + inner + "</g>"); }
     // Back views.
-    g("fb", body + shade + sLight + '<ellipse rx=".9" ry="1.05" fill="currentColor"/>' +
+    g("fb", body + sLight + '<ellipse rx=".9" ry="1.05" fill="currentColor"/>' +
       path("M-.72-.5C-.55-1.12.55-1.12.72-.5C.4-.82-.4-.82-.72-.5Z", "#fff", op(0.22)));
-    g("fh", hood + shade + fold + hLight);
+    g("fh", hood + hLight);
     // Front views.
-    g("fa", body + shade + sLight + '<ellipse cy=".05" rx=".85" ry="1.02" fill="currentColor"/>' +
+    g("fa", body + sLight + '<ellipse cy=".05" rx=".85" ry="1.02" fill="currentColor"/>' +
       path("M-.88-.05C-.98-1.3.98-1.3.88-.05C.62-.62-.62-.62-.88-.05Z", "#000", op(0.6)) +
       path("M-.72.38Q-.62 1.16 0 1.22Q.62 1.16.72.38Q.36.72 0 .74Q-.36.72-.72.38Z", "#000", op(0.4)));
-    g("fc", hood + shade + fold + '<ellipse cy=".2" rx=".62" ry=".8" fill="currentColor"/>' +
+    g("fc", hood + '<ellipse cy=".2" rx=".62" ry=".8" fill="currentColor"/>' +
       path("M-.66.06Q0-.52.66.06Q.5-.38 0-.44Q-.5-.38-.66.06Z", "#000", op(0.35)) + hLight);
     // Scribe: pale mantle drawn over the head with dark bands near the hem, tunic below.
     g("fs", path("M-2.2 9.5H2.2L2.35 14.5H-2.35Z", "#8f918c") +
-      '<path d="M0-1.3C1.3-1.3 1.36.4 1.2 1.1Q2.25 1.4 2.4 2.6L2.6 10.2Q0 10.9-2.6 10.2L-2.4 2.6Q-2.25 1.4-1.2 1.1C-1.36.4-1.3-1.3 0-1.3Z"/>' +
-      path("M-2.4 6.5H2.4L2.6 10.2Q0 10.9-2.6 10.2Z", "#000", op(0.1)) +
+      '<g transform="scale(1.03 1.01)">' + ref("sm") + ref("sm", ' fill="' + grad + '"') + "</g>" +
       path("M-2.57 9.2Q0 9.85 2.57 9.2L2.58 9.6Q0 10.25-2.58 9.6ZM-2.53 8.4Q0 9 2.53 8.4L2.54 8.7Q0 9.3-2.54 8.7Z", "#2d3340") +
       path("M-2.62 10.1l.16 1.2h.24l-.06-1.15ZM2.62 10.1l-.16 1.2h-.24l.06-1.15Z", "#efe9da") +
       path("M-1.1-.6C-1-1.38 1-1.38 1.1-.6C.75-1.08-.75-1.08-1.1-.6ZM-1.2 1.1Q-2.25 1.4-2.4 2.6Q-1.75 1.75-1 1.45ZM1.2 1.1Q2.25 1.4 2.4 2.6Q1.75 1.75 1 1.45Z", "#fff", op(0.3)));
@@ -553,20 +577,24 @@
     for (i = 0; i < 26; i++) gl += "M" + ri(rnd() * W) + " " + ri(HZ + 4 + rnd() * (shoreY - HZ - 10)) + "h" + ri(10 + rnd() * 30);
     c.add(line(gl, "#ffffff", 2.2, op(0.75)));
 
-    // Edge of town on the left: basalt houses near the shore (landscape only).
+    // Edge of town on the left: low basalt houses near the shore, softened by noon haze.
     function house(x0, x1, z0, z1, h) {
       var a = [X(x0, z0), Y(h, z0)], b = [X(x1, z0), Y(h, z0)], b2 = [X(x1, z0), Y(0, z0)], a2 = [X(x0, z0), Y(0, z0)];
       var s1 = [X(x1, z1), Y(h, z1)], s2 = [X(x1, z1), Y(0, z1)];
-      c.add(path(poly([b, s1, s2, b2]), "#8a8b88"));
-      c.add(path(poly([a, b, b2, a2]), "#646a70"));
-      c.add(path(poly([a, s1, [s1[0], s1[1] + 3], [a[0], a[1] + 3]]), "#c2bfb5"));
+      c.add(path(poly([b, s1, s2, b2]), "#7a7a79"));
+      c.add(path(poly([a, b, b2, a2]), "#5b5f63"));
+      // Roof edge of packed mud with a few beam ends under it, and a small dark doorway.
+      c.add(path(poly([[a[0] - 4, a[1] - 5], [s1[0] + 2, s1[1] - 4], [s1[0], s1[1] + 3], [a[0], a[1] + 3]]), "#7d7466"));
+      var be = "";
+      for (var bx = x0 + 0.4; bx < x1 - 0.2; bx += 0.9) be += "M" + ri(X(bx, z0)) + " " + ri(a[1] + 3) + "h4v4h-4z";
+      c.add(path(be, "#2a2622"));
       var dx = lerp(a[0], b[0], 0.62), dw = (F * 0.45) / z0, dh = (F * 1.5) / z0;
-      c.add(rect(ri(dx), ri(a2[1] - dh), ri(dw), ri(dh), "#3b3d40"));
+      c.add(rect(ri(dx), ri(a2[1] - dh), ri(dw), ri(dh), "#25272a"));
     }
-    house(-10.5, -6.6, 28, 32, 3.0);
-    house(-17, -10.2, 21, 26, 3.2);
+    house(-12, -7.6, 29, 33, 2.8);
+    house(-19, -11.5, 23, 28, 3.0);
 
-    // His boat, pulled up at the end of the parted crowd (no mast).
+    // His boat, pulled up on the shore beyond the crowd (no mast).
     var k0 = X(-2.1, 33), k1 = X(2.1, 33), kt = Y(0.85, 33), kb = Y(0, 33);
     c.add(path("M" + ri(k0) + " " + ri(kt - 4) + "Q" + MX + " " + ri(kt + 8) + " " + ri(k1) + " " + ri(kt - 8) + "L" + ri(k1 - 10) + " " + ri(kb - 4) +
       "Q" + MX + " " + ri(kb + 4) + " " + ri(k0 + 12) + " " + ri(kb - 3) + "Z", "#4a3c31"));
@@ -585,9 +613,8 @@
     function open(px, pz) {
       if (ed(px, pz) < 1.12) return true;                                    // the clearing
       if (pz < ZC && Math.abs(px) < 1.0) return true;                        // open front, where the bed came in
-      if (pz > ZC && Math.abs(px) < 0.7 + 0.12 * (pz - ZC)) return true;     // parted toward the boat
       if (pz > 5.2 && pz < 6.55 && px < -0.6 && px > -2.6) return true;      // keep the scribes in view
-      if (px < -6 && pz > 19) return true;                                   // houses at the edge of town
+      if (px < -6.5 && pz > 21) return true;                                 // houses at the edge of town
       return false;
     }
     function spaced(px, pz, d) {
@@ -611,7 +638,7 @@
       if (!open(x, z) && spaced(x, z, 0.5)) person(x, z);
     }
     t = 0;
-    while (t++ < 5000 && people.length < 170) {
+    while (t++ < 5000 && people.length < 146) {
       z = Math.sqrt(lerp(5.4 * 5.4, 30 * 30, wr()));
       x = (wr() * 2 - 1) * (z * 0.75 + 0.5);
       var dd = ed(x, z);
@@ -628,12 +655,12 @@
       var front = p.z > ZC + 0.4;
       var kind = p.k || (front ? (p.hood ? "fc" : "fa") : (p.hood ? "fh" : "fb"));
       var haze = clamp((p.z - 7) / 26, 0, 0.6), dark = clamp((5.6 - p.z) / 4.5, 0, 0.38);
-      var fill = mix(mix(kind === "fs" ? "#e4ddca" : p.cloth, "#dcd6c8", haze), "#25211e", dark);
+      var fill = mix(mix(kind === "fs" ? "#d8cfba" : p.cloth, "#dcd6c8", haze), "#25211e", dark);
       var col = kind === "fb" ? p.hair : kind === "fa" || kind === "fc" ? p.skin : null;
       if (col) col = mix(mix(col, "#dcd6c8", haze), "#25211e", dark);
-      if (p.z > 4.6 && p.z < 20) {
-        var fy = hy + 14.5 * s * p.h, rx = 2.3 * s * p.w, ry = 0.42 * s;
-        shadows += "M" + r1(hx - rx) + " " + r1(fy) + "a" + r1(rx) + " " + r1(ry) + " 0 1 0 " + r1(2 * rx) + " 0a" + r1(rx) + " " + r1(ry) + " 0 1 0 " + r1(-2 * rx) + " 0z";
+      if (ed(p.x, p.z) < 2.3) {
+        var fy = ri(hy + 14.5 * s * p.h), rx = ri(2.3 * s * p.w), ry = ri(0.42 * s);
+        shadows += "M" + ri(hx - rx) + " " + fy + "a" + rx + " " + ry + " 0 1 0 " + 2 * rx + " 0a" + rx + " " + ry + " 0 1 0 " + -2 * rx + " 0z";
       }
       figs.push({ z: p.z, svg: useFig(c, kind, hx, hy, s * p.w * (p.flip ? -1 : 1), s * p.h, fill, col) });
     }
@@ -644,7 +671,575 @@
     for (; i < figs.length; i++) c.add(figs[i].svg);
 
     c.vignette("#5a4a32", 0.32, MX, 700, 1300);
+    return c.svg();
+  };
+
+  // ---------------------------------------------------------------- shore
+
+  // Galilee fishing boat in side view, never with a mast. x0..x1 span, g gunwale y, k keel y.
+  function boat(x0, x1, g, k, hull, rim, flip) {
+    var L = x1 - x0, h = k - g;
+    function X(t) { return ri(flip ? x1 - t * L : x0 + t * L); }
+    var sheer = "M" + X(0) + " " + ri(g - h * 0.14) + "Q" + X(0.3) + " " + ri(g + h * 0.1) + " " + X(0.55) + " " + ri(g + h * 0.06) +
+      "Q" + X(0.85) + " " + ri(g + h * 0.02) + " " + X(1) + " " + ri(g - h * 0.34);
+    return path(sheer + "L" + X(0.95) + " " + ri(k - h * 0.3) + "Q" + X(0.55) + " " + ri(k + h * 0.12) + " " + X(0.07) + " " + ri(k - h * 0.38) + "Z", hull) +
+      path(sheer + "L" + X(0.995) + " " + ri(g - h * 0.2) + "Q" + X(0.85) + " " + ri(g + h * 0.16) + " " + X(0.55) + " " + ri(g + h * 0.2) +
+        "Q" + X(0.3) + " " + ri(g + h * 0.24) + " " + X(0.01) + " " + ri(g) + "Z", rim) +
+      line("M" + X(0.05) + " " + ri(g + h * 0.34) + "Q" + X(0.5) + " " + ri(g + h * 0.56) + " " + X(0.95) + " " + ri(g + h * 0.16), "#000", 3, op(0.22));
+  }
+
+  // A net drying between two poles, sagging from its rope (never a single pole with a crossbar).
+  function netPoles(c, xa, xb, top, ground, dark) {
+    var sag = (xb - xa) * 0.16, mid = (xa + xb) / 2, half = (xb - xa) / 2, hem = "", fl = "", i;
+    for (i = 7; i >= 0; i--) {
+      var x = lerp(xa + 8, xb - 8, i / 7), yr = top + 10 + sag * (1 - Math.pow((x - mid) / half, 2));
+      hem += "L" + ri(x) + " " + ri(yr + 120 + (i % 2) * 28 + Math.sin(i * 1.7) * 16);
+    }
+    for (i = 1; i < 8; i++) {
+      var fx = lerp(xa, xb, i / 8), fy = top + 10 + sag * (1 - Math.pow((fx - mid) / half, 2));
+      fl += "M" + ri(fx - 5) + " " + ri(fy) + "a5 3.5 0 1 0 10 0a5 3.5 0 1 0-10 0z";
+    }
+    var d = "M" + ri(xa) + " " + (top + 10) + "Q" + ri(mid) + " " + ri(top + 10 + sag * 2) + " " + ri(xb) + " " + (top + 10) + hem + "Z";
+    var folds = "";
+    for (i = 1; i < 6; i++) {
+      var fx2 = lerp(xa, xb, i / 6 + 0.03), fy2 = top + 14 + sag * (1 - Math.pow((fx2 - mid) / half, 2));
+      folds += "M" + ri(fx2) + " " + ri(fy2) + "q" + ri(6 - i * 2) + " 60 " + ri(-4 + i) + " " + ri(100 + (i % 2) * 22);
+    }
+    c.add(path(d, dark, op(0.72)));
+    c.add(path(d, c.url("mesh")));
+    c.add(line(folds, "#000", 7, op(0.25)));
+    c.add(rect(ri(xa - 6), top, 12, ground - top, "#1f1a17"));
+    c.add(rect(ri(xb - 6), top + 6, 12, ground - top - 6, "#1f1a17"));
+    c.add(path(fl, "#d9c6a2", op(0.85)));
+  }
+  function meshDef(c, color) {
+    c.def('<pattern id="' + c.id("mesh") + '" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+      '<path d="M0 .5H10M.5 0V10" fill="none" stroke="' + color + '" stroke-width="1.1" opacity=".38"/></pattern>');
+  }
+
+  // Sea of Galilee at dawn: beached boats, nets drying, pale light over the eastern hills.
+  scenes.shore_dawn = function (c) {
+    var rnd = c.rnd, i, s = "";
+    var HY = 620;
+    c.add(rect(0, 0, W, HY + 10, c.lin("sky", 0, 0, 0, HY, [[0, "#111a2e"], [0.42, "#293a5b"], [0.72, "#5e6e8e"], [0.9, "#c2a598"], [1, "#ecd2ae"]])));
+    for (i = 0; i < 28; i++) s += "M" + ri(rnd() * W) + " " + ri(rnd() * 330) + "h2v2h-2z";
+    c.add(path(s, "#e8edf6", op(0.5)));
+    c.glow("dawn", 930, 612, 640, "#ffe2b2", 0.62, 300, 0.3);
+    c.add(path(ridge(rnd, 566, 14, 9, HY + 8), "#7b7690"));
+    c.add(path(ridge(rnd, 592, 10, 12, HY + 8), "#58587a"));
+
+    // Lake with the dawn reflected in a broken column of light.
+    c.add(rect(0, HY, W, 172, c.lin("lake", 0, HY, 0, 792, [[0, "#cdb6a3"], [0.25, "#8e8fa3"], [1, "#3e4e68"]])));
+    s = "";
+    for (i = 0; i < 34; i++) {
+      var ry = HY + 4 + Math.pow(rnd(), 1.3) * 156, rw = 16 + rnd() * 110 * (1 - (ry - HY) / 210);
+      s += "M" + ri(930 - rw / 2 + (rnd() - 0.5) * 70) + " " + ri(ry) + "h" + ri(rw);
+    }
+    c.add(line(s, "#ffe9c6", 2.6, op(0.6)));
+
+    // A second boat afloat near the shore, with a faint reflection.
+    c.add('<g opacity=".28" transform="translate(0 1546)scale(1 -1)">' + boat(1180, 1480, 756, 786, "#1b1d27", "#1b1d27") + "</g>");
+    c.add(boat(1180, 1480, 756, 786, "#262632", "#5c5560"));
+
+    // Beach of dark basalt pebbles with a pale line of foam.
+    c.add(path("M-20 790Q400 774 800 784T1620 778V1600H-20Z", c.lin("beach", 0, 780, 0, 1300, [[0, "#58524e"], [0.1, "#3d3936"], [1, "#22201d"]])));
+    c.add(line("M-20 790Q400 774 800 784T1620 778", "#ddd3c6", 3, op(0.55)));
+    s = "";
+    for (i = 0; i < 60; i++) {
+      var py = 800 + Math.pow(rnd(), 0.8) * 420, pw = 3 + (py - 780) / 50 + rnd() * 4;
+      s += "M" + ri(rnd() * W) + " " + ri(py) + "h" + ri(pw) + "v" + ri(pw * 0.5) + "h-" + ri(pw) + "z";
+    }
+    c.add(path(s, "#6e6762", op(0.6)));
+
+    // Nets drying on paired poles (one pair at the right of the portrait band, one at far left).
+    meshDef(c, "#d4cab8");
+    netPoles(c, 1090, 1350, 632, 990, "#2b2827");
+    netPoles(c, 120, 360, 660, 1000, "#2b2827");
+
+    // The main boat pulled up on the beach; its top catches the dawn.
+    c.add(ell(740, 892, 300, 16, "#000", op(0.35)));
+    c.add(boat(460, 1020, 806, 892, "#2b2421", "#8a6a50"));
+    // A pile of nets and a basket beside it, where the fishermen mend them.
+    c.add(path("M1018 902Q1030 860 1072 866Q1100 846 1132 872Q1160 878 1158 904Z", "#2e2a28"));
+    c.add(path("M1018 902Q1030 860 1072 866Q1100 846 1132 872Q1160 878 1158 904Z", c.url("mesh")));
+    c.add(path("M404 864Q402 900 434 904Q466 900 464 864Z", "#5e4831"));
+    c.add(ell(434, 864, 30, 8, "#3a2c1e"));
+    c.add(line("M405 878Q434 886 463 878M407 892Q434 898 461 892", "#2f2418", 2.2, op(0.7)));
+
+    c.vignette("#0b0e18", 0.55, 900, 660, 1300);
+    c.grain(0.3, 0.4);
+    return c.svg();
+  };
+
+  // ---------------------------------------------------------------- Asher's house
+
+  // Reeds laid across the beams: a pattern tile is far cheaper than hundreds of strokes.
+  function reedDef(c, colors) {
+    var g = prng(55), s = "";
+    for (var i = 0; i < 22; i++) {
+      var x = r1(i * 7.3 + g() * 4), x2 = r1(x + (g() - 0.5) * 6);
+      s += '<path d="M' + x + " 0L" + x2 + ' 320" stroke="' + colors[Math.floor(g() * colors.length)] + '" stroke-width="' + r1(1.6 + g() * 2.6) + '"/>';
+    }
+    c.def('<pattern id="' + c.id("reed") + '" width="160" height="320" patternUnits="userSpaceOnUse">' + s + "</pattern>");
+  }
+
+  // Lying POV inside Asher's house, looking straight up at the beams, reeds and mud.
+  // time: day (morning shaft from the doorway), evening (amber doorway, lamp below), night (lamp below).
+  scenes.asher_ceiling = function (c, o) {
+    var rnd = c.rnd, t = o.time, i;
+    var day = t === "day", eve = t === "evening";
+    var night = !day && !eve;
+    c.add(full(night ? "#0d0a08" : "#1e1711"));
+    reedDef(c, night ? ["#21180f", "#271d14", "#1b140e"] : ["#3f3326", "#4a3c2c", "#382d22", "#524230"]);
+    c.add(rect(150, 0, 1150, H, c.url("reed")));
+    // Patches of packed mud showing between the reeds.
+    var mud = "";
+    for (i = 0; i < 14; i++) {
+      var mx = 180 + rnd() * 1080, my = rnd() * H, mw = 40 + rnd() * 90, mh = 14 + rnd() * 22;
+      mud += "M" + ri(mx) + " " + ri(my) + "q" + ri(mw / 2) + " " + ri(-mh) + " " + ri(mw) + " 0q" + ri(-mw / 2) + " " + ri(mh) + " " + ri(-mw) + " 0z";
+    }
+    c.add(path(mud, night ? "#140f0b" : "#2a2119", op(0.8)));
+    c.add(full(night ? "#000" : "#140d08", op(night ? 0.4 : 0.32)));
+
+    // Heavy round beams spanning wall to wall, lit from the doorway side.
+    var beamFill = c.lin("beam", 150, 0, 1300, 0, day
+      ? [[0, "#2a1f17"], [0.6, "#4a3726"], [1, "#7a5a3c"]]
+      : eve ? [[0, "#3a2819"], [0.6, "#4a3424"], [1, "#6a4630"]] : [[0, "#4a321e"], [0.5, "#2a1d14"], [1, "#1a130e"]]);
+    var bd = "", bk = "", rnd2 = prng(17);
+    for (i = 0; i < 4; i++) {
+      var cy = 140 + i * 330, top = [], bot = [];
+      for (var k = 0; k <= 6; k++) {
+        var x = 150 + (1150 * k) / 6;
+        top.push([x, cy - 48 + (rnd() - 0.5) * 12]);
+        bot.unshift([x, cy + 48 + (rnd() - 0.5) * 12]);
+      }
+      bd += smooth(top, false) + "L" + bot.map(function (p) { return ri(p[0]) + " " + ri(p[1]); }).join("L") + "Z";
+      for (k = 0; k < 7; k++) {
+        var kx = 180 + rnd2() * 1080, ky = cy + (rnd2() - 0.5) * 60;
+        bk += "M" + ri(kx) + " " + ri(ky) + "h" + ri(60 + rnd2() * 140);
+      }
+    }
+    c.add(path(bd, beamFill));
+    // Round shading: dark top and bottom edges, a soft highlight along the middle, bark streaks.
+    var roundG = [];
+    for (i = 0; i < 4; i++) {
+      var b0 = (140 + i * 330 - 54) / H, b1 = (140 + i * 330 + 54) / H;
+      roundG.push([r2(b0), "#000", 0.5], [r2((b0 * 2 + b1) / 3), "#000", 0], [r2((b0 + b1 * 2) / 3), "#000", 0.08], [r2(b1), "#000", 0.6]);
+    }
+    c.add(path(bd, c.lin("round", 0, 0, 0, H, roundG)));
+    c.add(line(bk, "#000", 3, op(0.22)));
+
+    // Walls at the edges (landscape): the right wall holds the doorway.
+    c.add(rect(0, 0, 150, H, c.lin("lw", 0, 0, 150, 0, [[0, "#0c0a08"], [1, "#1c1712"]])));
+    c.add(rect(1300, 0, 300, H, c.lin("rw", 1300, 0, 1600, 0, [[0, "#211a14"], [1, "#0e0b09"]])));
+    var door = [[1360, 640], [1600, 576], [1600, 1024], [1360, 960]];
+    c.add(path(poly(door), c.lin("door", 1360, 0, 1600, 0, day
+      ? [[0, "#fff4dc"], [1, "#ffe7bd"]] : eve ? [[0, "#f2b066"], [1, "#c9705a"]] : [[0, "#121a2e"], [1, "#0a0f1c"]])));
+    if (night) c.add(ell(1500, 700, 2, 2, "#e8eef8", op(0.8)));
+
+    if (day) {
+      // Morning shaft of light through dusty air, slanting across the beams.
+      c.add(path(poly([[1360, 640], [1360, 960], [260, 820], [260, 250]]),
+        c.lin("shaft", 1360, 0, 260, 0, [[0, "#fff3d6", 0.5], [0.55, "#fff0cc", 0.18], [1, "#ffeec8", 0]])));
+      var dm = "";
+      for (i = 0; i < 16; i++) {
+        var u = rnd(), dx = lerp(1300, 380, u), dy = lerp(lerp(660, 300, u), lerp(940, 800, u), rnd());
+        dm += "M" + ri(dx) + " " + ri(dy) + "a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0z";
+      }
+      c.add(path(dm, "#fffaf0", op(0.7)));
+      c.glow("door", 1360, 800, 700, "#ffe9c4", 0.3, 520);
+    } else {
+      // Lamplight from below (the lamp sits in a niche near the bed).
+      c.glow("lamp", 560, 1300, 900, "#f2a452", eve ? 0.3 : 0.42, 760, 0.3);
+      if (eve) c.glow("door", 1360, 800, 620, "#f0a060", 0.22, 480);
+    }
+
+    c.vignette("#000", night ? 0.8 : 0.6, 760, 760, 1250);
+    c.grain(0.3, 0.3);
+    return c.svg();
+  };
+
+  // Asher's house at eye level: basalt back wall, low doorway, water jar, his bed on the floor.
+  // Portrait sees the back wall; landscape adds the side walls, a shelf niche and a hand mill.
+  // time: day (bright morning doorway), evening (amber dusk outside, lamp lit), night (dark doorway, lamp lit).
+  scenes.asher_home = function (c, o) {
+    var rnd = c.rnd, t = o.time, i;
+    var day = t === "day", eve = t === "evening";
+    var night = !day && !eve;
+    var BL = 420, BR = 1180, BT = 380, BB = 900;   // back wall
+    var DL = 830, DR = 990, DT = 590;              // doorway
+    var LX = 1078, LY = 704;                       // lamp wick in its niche
+    function lit(x, y) {
+      var dd = Math.sqrt((x - 910) * (x - 910) + (y - 750) * (y - 750) * 1.4);
+      var dl = Math.sqrt((x - LX) * (x - LX) + (y - LY) * (y - LY) * 1.4);
+      var a = day ? clamp(1 - dd / 520, 0, 1) : eve ? 0.45 * clamp(1 - dd / 360, 0, 1) : 0;
+      var b = day ? 0 : clamp(1 - dl / (night ? 560 : 460), 0, 1);
+      return Math.max(a, b);
+    }
+
+    // Ceiling with beams running toward us (portrait only).
+    c.add(full(night ? "#0c0a09" : "#16120f"));
+    reedDef(c, night ? ["#1a140f", "#211912"] : eve ? ["#2e231a", "#3a2c20", "#241b14"] : ["#2c241c", "#3a2f24", "#231c16"]);
+    c.add(path("M0 0H1600V93L1180 380H420L0 93Z", c.url("reed")));
+    var bm = "";
+    for (i = 0; i < 6; i++) {
+      var bx = 470 + i * 132, k = 2.615;
+      bm += poly([[bx - 15, BT], [bx + 15, BT], [800 + (bx + 15 - 800) * k, -40], [800 + (bx - 15 - 800) * k, -40]]);
+    }
+    c.add(path(bm, night ? "#1d1610" : "#2f241a"));
+    c.add(path("M0 0H1600V93L1180 380H420L0 93Z", "#000", op(night ? 0.45 : 0.3)));
+
+    // Side walls (landscape): plastered mud in shadow.
+    c.add(path(poly([[BL, BT], [0, 93], [0, 1187], [BL, BB]]), c.lin("lwall", 0, 0, BL, 0, [[0, "#15110e"], [1, night ? "#1e1915" : "#2b241e"]])));
+    c.add(path(poly([[BR, BT], [1600, 93], [1600, 1187], [BR, BB]]), c.lin("rwall", BR, 0, 1600, 0, night || eve
+      ? [[0, "#3a2a1e"], [1, "#130f0c"]] : [[0, "#2e2620"], [1, "#15110e"]])));
+    // Back wall stones lit by the doorway (day) or the lamp (evening, night).
+    c.add(rect(BL, BT, BR - BL, BB - BT, night ? "#14110f" : eve ? "#211b18" : "#272320"));
+    var tones = day ? ["#2f2b28", "#3b3631", "#48413a", "#584f46", "#6b6056"]
+      : eve ? ["#2a2321", "#362b25", "#46362b", "#5a4331", "#6e5036"] : ["#1b1715", "#261f1a", "#33291f", "#453424", "#5a412b"];
+    c.add('<g clip-path="' + c.clip("bw", "M" + BL + " " + BT + "H" + BR + "V" + BB + "H" + BL + "Z") + '">');
+    addStones(c, stones(rnd, flat, {
+      u0: BL, u1: BR, v0: BT, v1: BB, ch: [44, 66], sw: [70, 130], gap: 4, jit: 5, n: 5,
+      keep: function (u, v) { return !(u > DL - 10 && u < DR + 10 && v > DT - 10); },
+      tone: function (x, y, r) {
+        var L = lit(x, y);
+        if (L < 0.06 && r() < 0.6) return -1;
+        return clamp(Math.floor(L * 4.6 + (r() - 0.5) * 1.2), 0, 4);
+      }
+    }), tones);
+    c.add("</g>");
+
+    // Lamp niche.
+    c.add(path(poly([[1052, 628], [1152, 626], [1152, 640], [1052, 642]]), night ? "#2a2119" : "#3b3229"));
+    c.add(rect(1060, 640, 86, 82, "#0b0908"));
+    var lamp = oilLamp(c, LX, LY, day ? 0 : eve ? 20 : 24, 0.6, "lamp");
+    c.add(lamp.body);
+
+    // Doorway: what lies outside depends on the time of day.
+    var out = day ? ["#eaf1f2", "#cfc6b5", "#efe2c2"] : eve ? ["#e9a56f", "#5b4d58", "#6e5a52"] : ["#0d1426", "#151824", "#1b1d26"];
+    c.add(rect(DL, DT, DR - DL, BB - DT, out[1]));
+    c.add(rect(DL, DT, DR - DL, 44, c.lin("osky", 0, DT, 0, DT + 44, [[0, out[0]], [1, mix(out[0], out[1], 0.5)]])));
+    c.add(rect(DL, 836, DR - DL, BB - 836, out[2]));
+    var os = "";
+    for (i = 0; i < 6; i++) os += poly([[DL + 6 + (i % 3) * 52, 660 + Math.floor(i / 3) * 70], [DL + 50 + (i % 3) * 52, 662 + Math.floor(i / 3) * 70], [DL + 48 + (i % 3) * 52, 712 + Math.floor(i / 3) * 70], [DL + 8 + (i % 3) * 52, 710 + Math.floor(i / 3) * 70]]);
+    c.add(path(os, day ? "#bdb3a1" : eve ? "#4e424d" : "#11141e"));
+    if (night) c.add(ell(940, 606, 2, 2, "#e8eef8", op(0.8)));
+    if (day) c.add(rect(DL, DT, DR - DL, BB - DT, "#fff6e2", op(0.42)));
+    // Deep basalt reveal and threshold, then the wooden lintel.
+    c.add(path(poly([[DR, DT], [DR, BB], [971, 874], [971, 595]]), day ? "#d8c6a6" : eve ? "#7a5a4c" : "#17161a"));
+    c.add(path(poly([[DL, BB], [DR, BB], [971, 874], [817, 874]]), day ? "#e9d7b5" : eve ? "#8a6a55" : "#1b1a1e"));
+    c.add(path(poly([[812, 566], [1008, 564], [1008, 592], [812, 594]]), night ? "#21180f" : "#3b2a1d"));
+
+    // Floor of packed earth.
+    c.add(path(poly([[BL, BB], [BR, BB], [1600, 1187], [1600, 1600], [0, 1600], [0, 1187]]),
+      c.lin("floor", 0, BB, 0, 1500, [[0, night ? "#1c1713" : eve ? "#2c231c" : "#3a3129"], [1, "#120f0c"]])));
+    if (day) {
+      c.add(path(poly([[DL, BB], [DR, BB], [1150, 1600], [610, 1600]]),
+        c.lin("spill", 0, BB, 0, 1500, [[0, "#ffe9c2", 0.55], [1, "#ffe9c2", 0]])));
+    } else if (eve) {
+      c.add(path(poly([[DL, BB], [DR, BB], [1100, 1400], [650, 1400]]),
+        c.lin("spill", 0, BB, 0, 1400, [[0, "#f0a15c", 0.3], [1, "#f0a15c", 0]])));
+    }
+
+    // Water jar beside the door, catching light on the door side.
+    c.add(path("M708 902C676 846 684 782 718 760C712 750 716 742 726 740H770C780 742 784 750 778 760C812 782 818 846 788 902Z",
+      c.lin("jar", 684, 0, 818, 0, day ? [[0, "#3a2418"], [0.62, "#7a4a30"], [1, "#d39a6a"]]
+        : eve ? [[0, "#2e1d14"], [0.7, "#6a3e28"], [1, "#b2723e"]] : [[0, "#1c120d"], [0.7, "#4a2c1c"], [1, "#9a5a2e"]])));
+    c.add(ell(748, 742, 24, 5, "#1a100a"));
+
+    // Asher's bed: a light wooden frame with a woven mat and his worn brown cloak.
+    c.add(ell(560, 984, 210, 12, "#000", op(0.35)));
+    c.add(path(poly([[452, 912], [705, 912], [683, 975], [371, 975]]), day ? "#8a7350" : eve ? "#6e5638" : "#4a3a26"));
+    c.add(line("M440 926L700 926M425 940L697 940M410 954L692 954", "#000", 2, op(0.18)));
+    c.add(path("M540 914Q600 900 690 912L684 960Q610 972 520 962Q500 936 540 914Z", day ? "#6d4a32" : eve ? "#5a3a26" : "#3e2a1c"));
+    c.add(path("M560 930Q610 922 660 932Q620 944 566 942Z", "#000", op(0.22)));
+    c.add(path("M454 916Q470 904 500 912L494 950Q470 958 448 948Z", day ? "#b8a582" : eve ? "#8f7c5f" : "#5c4f3c"));
+    c.add(path(poly([[352, 972], [700, 972], [698, 984], [348, 984]]), night ? "#2a1d12" : "#4e3824"));
+    c.add(path(poly([[440, 908], [716, 908], [714, 916], [438, 916]]), night ? "#22180f" : "#3e2c1c"));
+
+    // Basalt hand mill on the floor near the right wall (landscape).
+    c.add(ell(1330, 960, 70, 18, "#1c1a19"));
+    c.add(rect(1260, 930, 140, 30, "#2a2826"));
+    c.add(ell(1330, 930, 70, 18, "#3b3835"));
+    c.add(line("M1360 928L1384 896", "#4a3626", 6));
+
+    // Light.
+    if (day) {
+      c.glow("door", 910, 745, 560, "#fff3da", 0.42, 520);
+      c.add(path(poly([[DL, DT], [DR, DT], [700, 1600], [300, 1600]]),
+        c.lin("shaft", 0, DT, 0, 1500, [[0, "#fff4dc", 0.14], [1, "#fff4dc", 0]])));
+    } else {
+      if (eve) c.glow("door", 910, 745, 440, "#f3a35a", 0.3, 400);
+      c.glow("lamp", LX, LY - 10, night ? 620 : 520, "#ffbe6e", night ? 0.48 : 0.38, night ? 560 : 470, 0.3);
+      c.glow("halo", LX, LY - 14, 46, "#fff0c8", 0.8, 0, 0.3);
+      c.add(lamp.flame);
+    }
+
+    c.vignette("#000", night ? 0.82 : eve ? 0.66 : 0.55, 820, 740, 1250);
+    c.grain(0.3, night ? 0.2 : 0.4);
+    return c.svg();
+  };
+
+  // ---------------------------------------------------------------- carried and lying views
+
+  function circ(x, y, r) {
+    return "M" + ri(x - r) + " " + ri(y) + "a" + ri(r) + " " + ri(r) + " 0 1 0 " + ri(2 * r) + " 0a" + ri(r) + " " + ri(r) + " 0 1 0 " + -ri(2 * r) + " 0z";
+  }
+  // Soft cumulus: overlapping puffs with a cool shaded underside.
+  function cloud(c, cx, cy, s, a) {
+    var d = "", sh = "", parts = [[-1.6, 0.25, 0.85], [-0.75, -0.25, 1.2], [0.45, -0.5, 1.4], [1.55, 0.05, 1.0], [0.2, 0.35, 1.15]];
+    for (var k = 0; k < parts.length; k++) {
+      var px = cx + parts[k][0] * s * 62, py = cy + parts[k][1] * s * 62, r = parts[k][2] * s * 56;
+      d += circ(px, py, r);
+      sh += circ(px + 6, py + r * 0.28, r * 0.92);
+    }
+    c.add(path(sh, "#b3c8da", op(r2(a * 0.9))));
+    c.add(path(d, "#ffffff", op(a)));
+  }
+
+  // A hand gripping a bed pole, seen from below. (x, y) sits on the pole axis; dir = -1 when the
+  // arm comes from the left. The forearm leaves at a slant so pole and arm never form a cross.
+  function grip(c, x, y, dir, skin, sleeve) {
+    var g = '<g transform="translate(' + x + " " + y + ")scale(" + dir + ' 1)">';
+    // Sleeve beyond the elbow, then a tapered forearm reaching down and away from the pole.
+    g += path("M-200 250L-262 186L-446 330L-384 404Z", sleeve);
+    g += path("M-16 2Q-118 58-252 184Q-250 236-178 262Q-80 150 14 34Z", skin);
+    g += path("M-16 2Q-118 58-252 184L-240 196Q-110 74-6 14Z", "#fff", op(0.13));
+    g += path("M-178 262Q-80 150 14 34L16 48Q-74 160-170 270Z", "#000", op(0.18));
+    // Fist wrapped around the pole; the thumb stays hidden behind it.
+    g += path("M-40 -36Q-2 -50 36 -38Q46 0 38 40Q0 54 -36 40Q-48 0 -40 -36Z", skin);
+    g += line("M-36 -14Q0 -22 40 -12M-38 8Q0 0 42 10M-36 28Q0 22 40 30", "#000", 3, op(0.2));
+    g += path("M-36 40Q0 54 38 40L36 46Q0 62 -34 48Z", "#000", op(0.2));
+    return g + "</g>";
+  }
+
+  // Lying POV outdoors while being carried: open sky, the bed's poles and gripping hands at the
+  // sides; landscape shows the carriers as dark shapes at the edges; a roof edge slides by.
+  scenes.sky_carried = function (c) {
+    var rnd = c.rnd;
+    c.add(full(c.rad("sky", 800, 760, 1250, [[0, "#dce9ee"], [0.35, "#a6c7dd"], [1, "#4c81b1"]])));
+    cloud(c, 650, 430, 1.4, 0.92);
+    cloud(c, 1140, 240, 1.0, 0.85);
+    cloud(c, 1010, 900, 0.75, 0.75);
+    cloud(c, 250, 760, 1.1, 0.85);
+    cloud(c, 1420, 610, 0.9, 0.8);
+    c.add(line("M760 330q10-8 20 0q10-8 20 0M826 296q7-6 14 0q7-6 14 0", "#2a3340", 3, op(0.8)));
+
+    // Roof edges sliding past: top-left for portrait, top-right for landscape.
+    function roofEdge(pts, fringe, beams) {
+      c.add(path(poly(pts), "#26282c"));
+      c.add(line(fringe, "#6b5a40", 9, op(0.9)));
+      c.add(path(beams, "#3a2a1c"));
+    }
+    roofEdge([[380, -20], [840, -20], [720, 150], [380, 270]], "M380 262L452 238L520 214L590 190L660 166L720 146", "M470 220l14 34l26-10l-14-34zM590 178l14 34l26-10l-14-34z");
+    roofEdge([[1230, 300], [1620, 250], [1620, 470], [1360, 430]], "M1360 428L1430 440L1500 452L1570 462L1620 468", "M1420 430l-6 36l28 4l6-36zM1530 446l-6 36l28 4l6-36z");
+
+    // The bed's two poles with lashed, rounded ends.
+    var pole = c.lin("pole", 0, 0, 60, 0, [[0, "#3e2a1a"], [0.45, "#7a5634"], [1, "#4a321f"]]);
+    c.add('<path d="M427 1650L477 1650L505 300L467 300Z" fill="' + pole + '"/>');
+    c.add(path("M467 300Q486 270 505 300Z", "#5a3e26"));
+    c.add('<path d="M1173 1650L1123 1650L1095 300L1133 300Z" fill="' + pole + '"/>');
+    c.add(path("M1095 300Q1114 270 1133 300Z", "#5a3e26"));
+    c.add(line("M466 340L506 336M466 352L506 348M1094 336L1134 340M1094 348L1134 352", "#2a1d12", 4));
+
+    // Hands of the friends who carry him (two of them, never a count).
+    c.add(grip(c, 490, 610, 1, "#a36c49", "#b6a383"));
+    c.add(grip(c, 1110, 720, -1, "#8a5a3c", "#4a5872"));
+
+    c.vignette("#1d3550", 0.35, MX, 760, 1300);
+    c.grain(0.22, 0.6);
+    return c.svg();
+  };
+
+  // Lying POV before Jesus: heads and shoulders lean in from the edges against a bright sky.
+  // One side of the ring stays open and warm; nothing stands in that light.
+  scenes.crowd_lying = function (c) {
+    c.add(full(c.rad("sky", 820, 720, 1200, [[0, "#f2f5f1"], [0.4, "#bfd5e0"], [1, "#7ea8c7"]])));
+    c.glow("warm", 1380, 720, 780, "#fff1d4", 0.85, 640, 0.35);
+    var LX = 1380, LY = 720, CXc = 800, CYc = 760;
+    // Templates seen from below: head at the origin (radius 1), top of the head toward the
+    // center of view, shoulders toward the frame edge. Faces are plain backlit ovals.
+    // Shoulders are short and rounded: seen from below, the rest of the body hides behind them.
+    c.def('<g id="' + c.id("lc") + '"><path d="M0-1.32C1.38-1.32 1.44.3 1.22 1.16Q2.5 1.5 2.62 2.6Q2.52 3.75 1.5 4.35H-1.5Q-2.52 3.75-2.62 2.6Q-2.5 1.5-1.22 1.16C-1.44.3-1.38-1.32 0-1.32Z"/>' +
+      '<ellipse cy=".18" rx=".64" ry=".82" fill="currentColor"/>' + path("M-.68.04Q0-.55.68.04Q.5-.4 0-.46Q-.5-.4-.68.04Z", "#000", op(0.4)) +
+      path("M-.6.5Q-.5 1.02 0 1.08Q.5 1.02.6.5Q.3.78 0 .8Q-.3.78-.6.5Z", "#000", op(0.25)) + "</g>");
+    var garments = ["#4a3f38", "#3d4150", "#57423a", "#3f4a3e", "#5c4c3d", "#4a3d4b"];
+    var skins = ["#4c3427", "#422d22", "#56392b", "#3c291f"];
+    // People stand on rings around the viewer (outer rows first so the inner row overlaps them).
+    // The right side of every ring stays open: that is where the light is.
+    var people = [], rows = [[780, 780, 52, [150, 180, 210, 238, 262]], [560, 600, 64, [88, 115, 142, 170, 198, 226, 254, 282, 308]],
+      [360, 400, 80, [72, 102, 132, 162, 192, 222, 252, 282, 311]]];
+    // Everyone wears a head covering against the noon sun, which also frames each face.
+    var kinds = ["lc", "lc"], q = 0;
+    for (var rw = 0; rw < rows.length; rw++) {
+      for (var k = 0; k < rows[rw][3].length; k++, q++) {
+        var a = (rows[rw][3][k] * Math.PI) / 180;
+        people.push([ri(760 + rows[rw][0] * Math.cos(a)), ri(740 + rows[rw][1] * Math.sin(a)), rows[rw][2], kinds[(q * 7) % 3 === 0 ? 1 : q % 2], q % 6, (q * 5) % 4]);
+      }
+    }
+    CXc = 760; CYc = 740;
+    for (var i = 0; i < people.length; i++) {
+      var p = people[i], x = p[0], y = p[1], r = p[2];
+      var ang = ri((Math.atan2(CXc - x, -(CYc - y)) * 180) / Math.PI);
+      var lx = LX - x, ly = LY - y, ln = Math.sqrt(lx * lx + ly * ly), off = r * 0.08;
+      var warm = ln < 760;
+      var haze = r < 60 ? 0.3 : r < 70 ? 0.12 : 0;
+      var rim = warm ? "#ffd9a0" : "#e2edf2";
+      c.add('<use href="#' + c.id(p[3]) + '" transform="translate(' + ri(x + (lx / ln) * off) + " " + ri(y + (ly / ln) * off) + ")rotate(" + ang + ")scale(" + r + ')" fill="' +
+        rim + '" color="' + rim + '" opacity="' + (warm ? 0.9 : 0.6) + '"/>');
+      c.add('<use href="#' + c.id(p[3]) + '" transform="translate(' + x + " " + y + ")rotate(" + ang + ")scale(" + r + ')" fill="' +
+        mix(garments[p[4]], "#a9c0cf", haze) + '" color="' + mix(skins[p[5]], "#a9c0cf", haze) + '"/>');
+    }
+    c.vignette("#3a4a58", 0.25, MX, 760, 1300);
+    c.grain(0.2, 0.6);
+    return c.svg();
+  };
+
+  // ---------------------------------------------------------------- afternoon and dusk
+
+  // The road home in warm afternoon light: olive trees cast long shadows across the dust,
+  // the town of basalt houses waits at the end of the road.
+  scenes.road_home = function (c) {
+    var rnd = c.rnd, i, k;
+    var F = 900, CY = 600, EYE = 1.6;
+    function P(x, y, z) { return [MX + (F * x) / z, CY - (F * (y - EYE)) / z]; }
+    function G(x, z) { return P(x, 0, z); }
+
+    c.add(rect(0, 0, W, 612, c.lin("sky", 0, 0, 0, 600, [[0, "#84a7c1"], [0.55, "#cbd4cd"], [0.85, "#efd7a9"], [1, "#f4cd92"]])));
+    c.glow("sun", 100, 470, 780, "#fff0c4", 0.62, 560);
+    c.add(path(ridge(rnd, 520, 24, 7, 612), "#b9a87c"));
+    c.add(path(ridge(rnd, 562, 16, 9, 612), "#a19566"));
+    c.add(rect(0, 600, W, 1000, c.lin("field", 0, 600, 0, 1300, [[0, "#c9b27b"], [1, "#9a7f4e"]])));
+
+    // The town at the end of the road: sunlit west faces, cooler south fronts.
+    var houses = [[-1.2, 1.5, 38, 3.6], [-12, -8.2, 34, 3.4], [9.4, 13, 34, 3.2], [-3.4, -1.0, 33, 3.0], [4.8, 8.6, 31.5, 3.0], [-7.6, -3.8, 30, 3.2], [1.1, 4.4, 29, 3.3]];
+    for (i = 0; i < houses.length; i++) {
+      var hx0 = houses[i][0], hx1 = houses[i][1], hz = houses[i][2], hh = houses[i][3], dep = 5;
+      if (hx0 > 0) c.add(path(poly([P(hx0, hh, hz), P(hx0, hh, hz + dep), G(hx0, hz + dep), G(hx0, hz)]), "#a48a6c"));
+      else c.add(path(poly([P(hx1, hh, hz), P(hx1, hh, hz + dep), G(hx1, hz + dep), G(hx1, hz)]), "#4d4553"));
+      c.add(path(poly([P(hx0, hh, hz), P(hx1, hh, hz), G(hx1, hz), G(hx0, hz)]), "#6f6159"));
+      c.add(path(poly([P(hx0, hh + 0.12, hz), P(hx1, hh + 0.12, hz), P(hx1, hh, hz), P(hx0, hh, hz)]), "#d2b286"));
+      var dx = lerp(hx0, hx1, 0.3 + rnd() * 0.3);
+      c.add(path(poly([G(dx, hz), P(dx, 1.5, hz), P(dx + 0.7, 1.5, hz), G(dx + 0.7, hz)]), "#2c2522"));
+    }
+
+    // The road of packed dust narrowing toward the town, with worn tracks.
+    c.add(path(poly([G(-2.2, 1.1), G(-1.5, 29), G(1.5, 29), G(2.2, 1.1)]), c.lin("road", 0, 640, 0, 1500, [[0, "#e6cb98"], [1, "#d1ae78"]])));
+    c.add(path(poly([G(-0.75, 1.3), G(-0.62, 28), G(-0.5, 28), G(-0.55, 1.3)]) + poly([G(0.55, 1.3), G(0.5, 28), G(0.62, 28), G(0.75, 1.3)]), "#c29f6c", op(0.6)));
+
+    // Olive trees: [x, z]. Long shadows fall to the right and away from the low western sun,
+    // so the canopies of the left-hand trees lay bands of shade across the road.
+    var trees = [[-3.9, 17], [4.6, 14], [-4.4, 10.5], [3.8, 7.5], [-3.6, 5.0]];
+    var shade = "";
+    for (i = 0; i < trees.length; i++) {
+      var tx = trees[i][0], tz = trees[i][1], pts = [];
+      for (k = 0; k < 14; k++) {
+        var a = (k / 14) * Math.PI * 2, along = 5.6 + Math.cos(a) * 2.5, across = Math.sin(a) * 1.5;
+        pts.push(G(tx + along * 0.92 - across * 0.38, tz + along * 0.38 + across * 0.92));
+      }
+      shade += poly(pts) + poly([G(tx - 0.1, tz), G(tx + 3.2 * 0.92 - 0.1, tz + 3.2 * 0.38 + 0.22), G(tx + 3.2 * 0.92 + 0.1, tz + 3.2 * 0.38 - 0.22), G(tx + 0.1, tz)]);
+    }
+    c.add(path(shade, "#6f5446", op(0.4)));
+
+    // Stones and dry tufts along the roadside.
+    var rs = "", tf = "";
+    for (i = 0; i < 26; i++) {
+      var sz = 3 + Math.pow(rnd(), 1.4) * 20, sx = (rnd() < 0.5 ? -1 : 1) * (2.3 + rnd() * 1.6), ss = 0.12 + rnd() * 0.18;
+      var sp = G(sx, sz), sw = (F * ss) / sz;
+      rs += "M" + ri(sp[0] - sw) + " " + ri(sp[1]) + "q" + ri(sw) + " " + ri(-sw * 0.9) + " " + ri(sw * 2) + " 0z";
+      if (i % 2) tf += "M" + ri(sp[0] + sw * 2) + " " + ri(sp[1]) + "l" + ri(-sw * 0.4) + " " + ri(-sw * 1.6) + "M" + ri(sp[0] + sw * 2.2) + " " + ri(sp[1]) + "l" + ri(sw * 0.5) + " " + ri(-sw * 1.4);
+    }
+    c.add(path(rs, "#7d6b55"));
+    c.add(line(tf, "#8f7c4c", 2.4, op(0.8)));
+
+    // Olive trees: gnarled, forked trunks and wide, broken, silver-green crowns (local units = meters).
+    var trunk = "M-.28 0C-.1-.6-.42-1-.16-1.6L-.82-2.3L-.66-2.42L-.04-1.86L.04-1.9L.72-2.56L.86-2.42L.24-1.55C.42-1 .14-.5.34 0Z";
+    for (i = 0; i < trees.length; i++) {
+      var bx = trees[i][0], bz = trees[i][1], s = r2(F / bz), base = G(bx, bz);
+      var g = '<g transform="translate(' + ri(base[0]) + " " + ri(base[1]) + ")scale(" + s + ')">';
+      g += path(trunk, "#4a3a2c") + path("M-.28 0C-.1-.6-.42-1-.16-1.6L-.82-2.3L-.74-2.36L-.08-1.62C-.3-1-.02-.6-.12 0Z", "#8a7458", op(0.6));
+      var cd = "", cs = "", cl = "";
+      for (k = 0; k < 13; k++) {
+        // Clumps sit around a connected, flattened crown (outer ring) plus a few inside.
+        var ca = (k / 9) * Math.PI * 2 + rnd() * 0.4, cr = k < 9 ? 0.85 + rnd() * 0.15 : rnd() * 0.5;
+        var px = Math.cos(ca) * cr * 1.45, py = -2.95 + Math.sin(ca) * cr * 0.55, pr = 0.4 + rnd() * 0.22;
+        var arc = "M" + r2(px - pr) + " " + r2(py) + "a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(2 * pr) + " 0a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(-2 * pr) + " 0z";
+        cd += arc;
+        cs += "M" + r2(px - pr) + " " + r2(py + 0.16) + "a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(2 * pr) + " 0a" + r2(pr) + " " + r2(pr * 0.8) + " 0 1 0 " + r2(-2 * pr) + " 0z";
+        if (px < 0.3) cl += "M" + r2(px - pr * 0.9) + " " + r2(py - 0.08) + "a" + r2(pr * 0.6) + " " + r2(pr * 0.45) + " 0 1 0 " + r2(pr * 1.2) + " 0a" + r2(pr * 0.6) + " " + r2(pr * 0.45) + " 0 1 0 " + r2(-pr * 1.2) + " 0z";
+      }
+      g += path(cs, "#545a3c") + path(cd, "#7c8462") + path(cl, "#b6b98e", op(0.85));
+      c.add(g + "</g>");
+    }
+
+    c.glow("haze", MX, 610, 980, "#ffe9bf", 0.3, 420);
+    c.vignette("#5a3a1e", 0.4, MX, 700, 1300);
     c.grain(0.25, 0.6);
+    return c.svg();
+  };
+
+  // Asher's doorway at dusk: amber lamplight inside, the sky turning violet; landscape also sees
+  // down the lane to the lake, where one other window is lit.
+  scenes.doorway_evening = function (c) {
+    var rnd = c.rnd, i;
+    var DL = 728, DR = 872, DT = 612, DB = 902;
+    c.add(rect(0, 0, W, 720, c.lin("sky", 0, 0, 0, 660, [[0, "#1f1a35"], [0.35, "#3b3157"], [0.62, "#77587a"], [0.82, "#c07e79"], [1, "#e5a473"]])));
+    c.add(path("M520 120h3v3h-3zM980 210h3v3h-3zM1262 80h3v3h-3zM300 260h2v2h-2z", "#f4f1ea", op(0.85)));
+
+    // View down the lane (left, landscape): dusk lake, far hills, rooftops with one lit window.
+    c.add(path(ridge(rnd, 612, 8, 5, 650), "#3d3350"));
+    c.add(rect(0, 642, 420, 70, c.lin("lake", 0, 642, 0, 712, [[0, "#c28a86"], [1, "#4c3d5b"]])));
+    c.add(path("M-10 700L80 690V662H170V700L240 694V676H330V712L400 706V1000H-10Z", "#1b1622"));
+    c.add(rect(120, 676, 12, 10, "#f2b45a"));
+    c.add(rect(0, 820, 400, 780, "#221c24"));
+
+    // House front of black basalt, warmed only near the doorway.
+    c.add(rect(380, 430, 1220, 1170, "#1d1922"));
+    var tones = ["#2d2833", "#36303c", "#403846", "#5a4434", "#7a5534"];
+    c.add('<g clip-path="' + c.clip("front", "M380 430H1600V920H380Z") + '">');
+    addStones(c, stones(rnd, flat, {
+      u0: 380, u1: W, v0: 448, v1: 920, ch: [46, 68], sw: [74, 136], gap: 4, jit: 5, n: 5,
+      keep: function (u, v) { return !(u > DL - 24 && u < DR + 24 && v > DT - 30); },
+      tone: function (x, y, r) {
+        var d = Math.sqrt((x - 800) * (x - 800) + (y - 760) * (y - 760) * 1.3);
+        if (d < 300) return 3 + (r() < 0.5 && d < 200 ? 1 : 0);
+        return Math.floor(r() * 3);
+      }
+    }), tones);
+    // Corner stones at the left edge of the house.
+    var q = "";
+    for (i = 0; i < 7; i++) q += poly([[380, 452 + i * 66], [380 + (i % 2 ? 60 : 96), 452 + i * 66], [380 + (i % 2 ? 60 : 96), 512 + i * 66], [380, 512 + i * 66]]);
+    c.add(path(q, "#3c3644"));
+    c.add("</g>");
+    // Roof edge of packed mud over reeds, with beam ends under it.
+    c.add(path("M370 414L1600 406V446L370 452Z", "#2b232a"));
+    var fr = "M370 418";
+    for (var fx = 370; fx < W; fx += 22 + rnd() * 26) fr += "L" + ri(fx) + " " + ri(400 + rnd() * 12);
+    c.add(path(fr + "L1600 404V414L370 418Z", "#4a3a2c"));
+    var be = "";
+    for (i = 0; i < 11; i++) be += "M" + (430 + i * 112) + " 448h22v18h-22z";
+    c.add(path(be, "#2a1e15"));
+
+    // Doorway: amber interior with a lit lamp niche, the door leaf swung inward.
+    c.add(rect(DL, DT, DR - DL, DB - DT, c.rad("inside", 815, 770, 220, [[0, "#ffd284"], [0.45, "#d98a3a"], [1, "#6e3714"]], 260)));
+    c.add(rect(790, 712, 46, 40, "#ffe3a8", op(0.7)));
+    c.add(path("M802 744h22l-4-10h-14z", "#7a4a2a"));
+    c.add(path(poly([[DL, DT], [DL + 34, DT + 14], [DL + 34, DB - 8], [DL, DB]]), "#3a2414"));
+    c.add(path(poly([[DR, DT], [DR, DB], [DR - 14, DB - 10], [DR - 14, DT + 8]]), "#c98446"));
+    c.add(path(poly([[706, 588], [894, 586], [894, 614], [706, 616]]), "#3a2a1d"));
+    c.add(path(poly([[716, 902], [884, 902], [892, 920], [708, 920]]), "#5e4a40"));
+
+    // Water jar by the door, lit on the door side.
+    c.add(path("M612 912C590 868 596 822 620 806C616 798 620 792 628 790H660C668 792 672 798 668 806C692 822 698 868 676 912Z",
+      c.lin("jar", 594, 0, 700, 0, [[0, "#1e1418"], [0.7, "#4a2c22"], [1, "#c27a3c"]])));
+
+    // Ground in front of the house and the warm spill from the door.
+    c.add(rect(380, 918, 1220, 682, c.lin("ground", 0, 918, 0, 1400, [[0, "#3b3037"], [1, "#1c171c"]])));
+    c.add(path(poly([[DL, 920], [DR, 920], [1010, 1300], [590, 1300]]), c.lin("spill", 0, 920, 0, 1300, [[0, "#f3a24a", 0.5], [1, "#f3a24a", 0]])));
+    c.glow("door", 800, 760, 420, "#f2a24c", 0.38, 380);
+
+    c.vignette("#0e0b16", 0.6, MX, 720, 1300);
+    c.grain(0.28, 0.35);
     return c.svg();
   };
 

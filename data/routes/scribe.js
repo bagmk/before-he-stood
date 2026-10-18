@@ -30,7 +30,7 @@
       // ---------------------------------------------------------------
       { id: "dawn", type: "scene", bg: "dawn_lamp", caption: { ko: "새벽 · 므나헴의 방", en: "Dawn · Menahem's room" } },
       { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers." } },
-      { type: "line", text: { ko: "새벽마다 그는 같은 고백으로 하루를 연다. {{v:DT_6_4}}", en: "Every dawn he opens the day with the same words. {{v:DT_6_4}}" } },
+      { type: "line", text: { ko: "새벽마다 그는 같은 고백으로 하루를 연다. {{v:DT_6_4}}", en: "Every dawn he begins the day with the same words: {{v:DT_6_4}}" } },
       { type: "line", text: { ko: "맞은편에서 제자 하난이 두루마리를 들여다본다. 오늘 읽을 곳은 시편 103편이다.", en: "Across from him, his student Hanan leans over the scroll. Today's reading is Psalm 103." } },
       { type: "verse", key: "PS_103_3" },
       { type: "line", speaker: "hanan", text: { ko: "선생님, 누가 용서하시고, 누가 고치시는 거예요?", en: "Teacher, who forgives? And who heals?" } },
@@ -53,7 +53,7 @@
             id: "b",
             lens: 2,
             set: { underline: "order" },
-            text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“Forgiving comes first. Healing comes after.”" },
+            text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“So forgiving is named first, and healing after.”" },
             reaction: [
               { type: "line", text: { ko: "므나헴은 *사하시며*와 *고치시며* 사이에 작은 점을 찍는다.", en: "Menahem puts a small dot between *forgives* and *heals*." } },
               { type: "line", speaker: "hanan", text: { ko: "그렇게 읽으니 새롭네요.", en: "I've never read it that way." } }
@@ -116,7 +116,7 @@
           {
             id: "d",
             lens: 3,
-            text: { ko: "“속죄는 성전에서 받는데 못 걷는 사람은 거기까지 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
+            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기 어떻게 가지?” ({{r:LV_4_31B}})", en: "“Atonement happens at the temple. How does a man who can't walk get there?” ({{r:LV_4_31B}})" },
             reaction: [
               { type: "line", speaker: "hanan", text: { ko: "…그건 생각해 본 적이 없어요.", en: "…I've never thought about that." } }
             ]
@@ -127,11 +127,14 @@
       // ---------------------------------------------------------------
       // MORNING: the neighbor at the door with the rumor (c3)
       // ---------------------------------------------------------------
+      // Same background; only the time chip moves on to morning (SPEC 6.2 timeline).
+      { type: "scene", bg: "dawn_lamp", caption: { ko: "아침 · 므나헴의 방", en: "Morning · Menahem's room" } },
       { id: "knock", type: "line", speaker: "sign", text: { ko: "― 문 두드리는 소리 ―", en: "— a knock at the door —" } },
       { type: "line", speaker: "neighbor", text: { ko: "서기관님, 들으셨어요? 예수라는 사람이 배 타고 돌아온대요!", en: "Have you heard, sir? That man Jesus is coming back by boat!" } },
       { type: "line", speaker: "neighbor", text: { ko: "바다에서 폭풍이 그 사람 말 한마디에 잠잠해졌대요. 건너편에선 귀신들이 쫓겨났고요.", en: "They say a storm on the sea went still at one word from him. And across the lake, demons were driven out." } },
       { type: "line", speaker: "neighbor", text: { ko: "그런데 그 동네 사람들은 떠나 달라고 빌었대요.", en: "But the people over there begged him to leave." } },
-      { type: "line", speaker: "neighbor", text: { ko: "따라가겠다던 서기관한테는, 자기는 머리 둘 곳도 없다고 했다더라고요.", en: "And when a scribe offered to follow him, he said he had nowhere to lay his head." } },
+      // The exact words of Matt 8:20 via token, so c8 c ("the Son of Man… nowhere to lay his head") has its setup.
+      { type: "line", speaker: "neighbor", text: { ko: "따라가겠다던 서기관한테는 이렇게 말했다더라고요. {{v:MT_8_20Q}}", en: "He told a scribe who offered to follow him: {{v:MT_8_20Q}}" } },
       {
         type: "choice",
         id: "c3",
@@ -184,8 +187,9 @@
       { type: "line", speaker: "hanan", text: { ko: "선생님, 그 사람이 정말 폭풍을 잠잠하게 했을까요?", en: "Teacher, do you think he really calmed a storm?" } },
       { type: "line", speaker: "menahem", text: { ko: "보면 알겠지. 눈으로 보고, 말씀으로 달아 보자.", en: "We'll see. Watch with your eyes, and weigh it by the Word." } },
       { type: "line", text: { ko: "그때 위쪽에서 발소리가 내려온다. 사람들이 침상에 누운 사람을 들고 온다.", en: "Then footsteps come down from above. Some men are carrying a man on a bed." } },
-      { type: "line", text: { ko: "므나헴과 하난은 벽 쪽으로 비켜 선다. 침상이 지나갈 만큼만.", en: "Menahem and Hanan step back against the wall, just enough for the bed to pass." } },
+      // Same order as the friend and asher routes: passerby, step aside, glance, eyes meet.
       { type: "line", speaker: "passerby", text: { ko: "고통 뒤에 무슨 사연이 있는지 누가 알겠어. 저 사람은 무슨 잘못을 했기에 저렇게 됐을까.", en: "Who knows what's behind suffering like that. What did he do to end up like that?" } },
+      { type: "line", text: { ko: "므나헴과 하난은 벽 쪽으로 비켜선다. 침상이 지나갈 만큼만.", en: "Menahem and Hanan step back against the wall, just enough for the bed to pass." } },
       { type: "line", text: { ko: "므나헴은 침상을 힐끗 본다. 누운 사람은 아셀이다. 잠깐, 두 사람의 눈이 마주친다.", en: "Menahem glances at the bed. The man lying there is Asher. For a moment, their eyes meet." } },
       { type: "line", text: { ko: "누구도 므나헴에게 말을 걸지 않고, 므나헴도 말이 없다.", en: "No one says a word to Menahem, and he says nothing either." } },
       {
@@ -220,7 +224,7 @@
           {
             id: "d",
             lens: 3,
-            text: { ko: "길을 비켜 주고, 손짓으로 옆 사람들도 비켜 서게 한다.", en: "He makes room, and with a wave of his hand gets the people beside him to step back too." },
+            text: { ko: "길을 비켜 주고, 손짓으로 옆 사람들도 비켜서게 한다.", en: "He makes room, and with a wave of his hand gets the people beside him to step back too." },
             reaction: [
               { type: "line", text: { ko: "좁은 골목에, 침상이 지나갈 자리가 조금 넓어진다.", en: "In the narrow lane, there's a little more room for the bed." } }
             ]
@@ -235,9 +239,9 @@
       // AROUND NOON: THE CROWD, fixed sequence of SPEC 6.4 (c5, c6)
       // Menahem says nothing aloud from here until he leaves.
       // ---------------------------------------------------------------
-      { id: "crowd", type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가 빈터", en: "Around noon · Open ground by the shore" } },
+      { id: "crowd", type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가 공터", en: "Around noon · Open ground by the shore" } },
       { type: "fx", fx: "light", level: "soft" },
-      { type: "line", text: { ko: "바닷가 빈터가 사람들로 가득하다. 므나헴은 서기관 몇 사람과 함께 앞쪽에 선다.", en: "The open ground by the shore is packed. Menahem stands near the front with a few other scribes." } },
+      { type: "line", text: { ko: "바닷가 공터가 사람들로 가득하다. 므나헴은 서기관 몇 사람과 함께 앞쪽에 선다.", en: "The open ground by the shore is packed. Menahem stands near the front with a few other scribes." } },
       { type: "line", text: { ko: "무리 한가운데에 예수라는 사람이 있다.", en: "At the center of the crowd is this Jesus." } },
       { type: "line", text: { ko: "골목에서 본 그 침상이 무리 사이를 지나온다. 사람들이 침상을 그 앞에 내려놓는다.", en: "The bed from the lane comes through the crowd. The men set it down in front of him." } },
       { type: "verse", key: "MT_9_2A" },
@@ -248,7 +252,7 @@
       { type: "verse", key: "MT_9_2B" },
       // One echo per underline value so the line right after each echo is always shown with it.
       { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 주어가 번진다. 사하시는 분은 주님이셨다.", en: "The subject I underlined this morning bleeds through. The one who forgives was the Lord." } },
+      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 밑줄 그은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I underlined this morning bleeds through. The one who forgives is the Lord." } },
       { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
       { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot from this morning comes back. Forgiving first, healing after." } },
       { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
@@ -296,7 +300,7 @@
             lens: 3,
             text: { ko: "저 사람에게 직접 말하는구나. 아이를 부르듯이.", en: "He's speaking to the man himself—calling him son." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 침상 위의 그를 보며 생각만 했다. 이 사람은 그에게 말을 건다.", en: "In the lane I only looked at the man on the bed and thought. This man talks to him." } }
+              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 침상 위의 그를 보며 생각만 했다. 이 사람은 그에게 말을 건다.", en: "In the lane, all I did was look at the man on the bed and think. This man speaks to him." } }
             ]
           }
         ]
@@ -388,7 +392,7 @@
             lens: 3,
             text: { ko: "어느 쪽이든, 침상 위 저 사람에겐 둘 다 필요하다.", en: "Either way, the man on the bed needs both." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "다리만 낫거나, 마음만 놓이거나. 어느 쪽도 반쪽이다.", en: "Healed legs and a heavy heart, or the other way round. Either would be half." } }
+              { type: "line", speaker: "thought", text: { ko: "다리만 낫거나, 마음만 놓이거나. 어느 쪽도 반쪽이다.", en: "Healed legs and a heavy heart, or the other way around. Either would be half." } }
             ]
           }
         ]
@@ -422,15 +426,15 @@
           {
             id: "c",
             lens: 3,
-            text: { ko: "인자라… 머리 둘 곳도 없다던 그 사람이.", en: "The Son of Man… the one who said he has nowhere to lay his head." },
+            text: { ko: "인자라… 머리 둘 곳도 없다던 그 사람이.", en: "The Son of Man… the one who said he has nowhere to rest his head." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "집 한 칸 없는 사람이, 하나님의 권한을 말한다.", en: "A man without a roof of his own, speaking of God's authority." } }
+              { type: "line", speaker: "thought", text: { ko: "집 한 칸 없는 사람이, 하나님의 권한을 말한다.", en: "A man without a home of his own, speaking of God's authority." } }
             ]
           },
           {
             id: "d",
             lens: 2,
-            text: { ko: "정확한 말을 기억해 두자. 아침의 시편 옆에 적게.", en: "Remember the exact words, to write them beside this morning's psalm." },
+            text: { ko: "정확한 말을 기억해 두자. 아침의 시편 옆에 적게.", en: "Remember the exact words, and write them beside this morning's psalm." },
             reaction: [
               { type: "line", text: { ko: "므나헴은 그 말을 속으로 한 자 한 자 되새긴다.", en: "Menahem goes over the words in his head, one by one." } }
             ]
@@ -551,10 +555,10 @@
           { type: "line", text: { ko: "므나헴은 그 주장을 누구보다 정확히 알아들었다.", en: "Menahem understood that claim more precisely than anyone there." } },
           { type: "line", text: { ko: "하나님만 하실 수 있는 말을, 한 사람이 자기 권한으로 했다.", en: "One man said, on his own authority, what only God can say." } },
           // Underline callback: what he marked at dawn.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 밑줄 그은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he underlined this morning was the Lord. Today a man spoke from that very place." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 밑줄 그은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he underlined this morning was the Lord. Today a man stood in that very place and spoke." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one mouth." } },
           { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 *병*에 밑줄을 그었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he underlined *diseases*. Today the man who healed a disease also claimed to forgive sins." } },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm gives to the Lord, a man did today." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
           // Variant by the last line he wrote (c10).
           { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "그는 마지막 줄에 *신성모독*이라고 적었다.", en: "On the last line he wrote: *blasphemy*." } },
           { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "같은 말이 마태복음 끝, 대제사장의 입에서 다시 나온다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "The same charge comes back at the end of Matthew, from the high priest: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
@@ -595,9 +599,12 @@
           { when: { choice: "c3", is: "c" }, type: "line", text: { ko: "그 동네는 그를 떠나보냈다. 그는 오늘 한 사람을 집으로 돌려보냈다.", en: "That town sent him away. Today he sent a man back home." } },
           // Callback: where his eyes went at c9.
           { when: { choice: "c9", is: "c" }, type: "line", text: { ko: "침상을 들고 멀어지던 뒷모습이 아직 눈에 선하다.", en: "He can still see the man's back as he walked away with his bed." } },
-          { when: { choice: "c9", is: "d" }, type: "line", text: { ko: "그를 들고 왔던 사람들이 빈손으로 그 뒤를 따라가던 모습이 떠오른다.", en: "He remembers the men who carried him there, following him home empty-handed." } },
-          // Underline callback for the word "diseases".
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 *병*에 그은 밑줄 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he underlined this morning, *diseases*, he now sees a face from today." } }
+          { when: { choice: "c9", is: "d" }, type: "line", text: { ko: "그를 들고 왔던 사람들이 빈손으로 그와 함께 걸어가던 모습이 떠오른다.", en: "He remembers the men who carried him there, walking home beside him empty-handed." } },
+          // Underline callback (scenario: the marked word returns in every ending), one line per c1 pick.
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지에 밑줄을 그었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he underlined who does it. Tonight what catches his eye is who it is done for." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning he saw only a dot between two words. Today he saw a man lying in between." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 *병*에 그은 밑줄 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he underlined this morning, *diseases*, he now sees a face from today." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 오늘 밤엔 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning reads tonight like one man's story." } }
         ],
         last: { ko: "나는 오늘 율법으로 그 사람을 판단했다. 그는 권한으로 그 사람을 일으켰다.", en: "Today I judged that man by the Law. He raised him up by his authority." }
       }

@@ -115,8 +115,8 @@
           {
             id: "d",
             text: {
-              ko: "“오늘 하루 품삯은 한 데나리온인데({{r:MT_20_2}}).”",
-              en: "“But today's wage is a whole denarius ({{r:MT_20_2}}).”"
+              ko: "“오늘 하루 품삯은 한 데나리온인데.” ({{r:MT_20_2}})",
+              en: "“But today's wage is a whole denarius.” ({{r:MT_20_2}})"
             },
             lens: 3,
             reaction: [
@@ -168,8 +168,8 @@
                 type: "line",
                 speaker: "asher",
                 text: {
-                  ko: "…다들 약속부터 하더라. 네 말이 제일 정직하다.",
-                  en: "…Everyone else started with promises. That's the most honest thing anyone's said."
+                  ko: "…솔직하네. 위로는 안 되지만.",
+                  en: "…Honest. Not very comforting, though."
                 }
               }
             ]
@@ -191,7 +191,7 @@
           },
           {
             id: "c",
-            text: { ko: "“그분이라면 할 수 있어. 폭풍도 잠재웠대.”", en: "“He can do it. They say he calmed a storm.”" },
+            text: { ko: "“그분이라면 하실 수 있어. 폭풍도 잠재우셨대.”", en: "“He can do it. They say he calmed a storm.”" },
             lens: 1,
             reaction: [
               {
@@ -270,7 +270,7 @@
               {
                 type: "line",
                 speaker: "asher",
-                text: { ko: "…그래. 차라리 그게 낫다.", en: "…Yeah. Honestly, that's better." }
+                text: { ko: "…그래. 아무도 모르지.", en: "…Yeah. Nobody does." }
               }
             ]
           }
@@ -299,7 +299,7 @@
               {
                 type: "line",
                 speaker: "partners",
-                text: { ko: "폭풍을 잠재웠다는 그분? …좋아, 가자.", en: "The one who calmed the storm? …All right, let's go." }
+                text: { ko: "폭풍을 잠재우셨다는 그분? …좋아, 가자.", en: "The one who calmed the storm? …All right, let's go." }
               }
             ]
           },
@@ -423,7 +423,7 @@
               {
                 type: "line",
                 speaker: "asher",
-                text: { ko: "놀러 가는 줄 알겠다.", en: "Anyone would think we're going on an outing." }
+                text: { ko: "놀러 가는 줄 알겠다.", en: "Anyone would think we're going on a picnic." }
               }
             ]
           }
@@ -499,8 +499,8 @@
         id: "cloak-lane",
         when: { flag: "item", is: "cloak" },
         text: {
-          ko: "요나가 갈색 겉옷을 아셀의 턱밑까지 끌어올린다. 쏟아지던 눈길이 조금 덜 닿는다.",
-          en: "Yonah pulls the brown cloak up to Asher's chin. The stares land a little less."
+          ko: "아셀이 갈색 겉옷을 턱밑까지 끌어올린다. 쏟아지던 눈길이 조금 덜 닿는다.",
+          en: "Asher pulls the brown cloak up to his chin. It blocks some of the stares."
         }
       },
       {
@@ -515,8 +515,8 @@
       {
         type: "line",
         text: {
-          ko: "서기관 므나헴이 젊은 제자와 함께 내려오다 길을 비켜선다. 요나도 얼굴은 아는 사람이다.",
-          en: "Menahem the scribe, coming down with a young student, steps aside to let them pass. Yonah knows him by sight."
+          ko: "앞서 골목을 내려가던 서기관 므나헴이 젊은 제자와 함께 길을 비켜선다. 회당에서 늘 보던 얼굴이다.",
+          en: "Ahead of them, Menahem the scribe and a young student, also heading down, step aside to let them pass. Yonah knows that face from the synagogue."
         }
       },
       {
@@ -534,7 +534,7 @@
           {
             id: "a",
             text: {
-              ko: "“우리는 그분께 가는 길이에요. 폭풍도 잠재운 분이요.”",
+              ko: "“우리는 그분께 가는 길이에요. 폭풍도 잠재우신 분이요.”",
               en: "“We're on our way to Jesus. The one who calmed the storm.”"
             },
             lens: 1,
@@ -860,7 +860,7 @@
         when: FAR,
         text: {
           ko: "아셀이 움직인다. 가장자리에서, 닿을 리 없는 요나의 손이 저도 모르게 뻗는다.",
-          en: "Asher moves. At the edge, Yonah's hand reaches out on its own, though it can't possibly reach."
+          en: "Asher moves. At the edge, Yonah's hand goes out on its own, though he is much too far away."
         }
       },
       {

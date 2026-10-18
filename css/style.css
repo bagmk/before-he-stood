@@ -365,6 +365,13 @@ body.is-last .veil {
   width: 100%;
   height: 100%;
   filter: drop-shadow(0 0.6vh 1.2vh rgba(0, 0, 0, 0.45));
+  /* The bust's cut edge fades out instead of ending in a hard line beside the panel. */
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
+}
+
+.figure.is-mirror svg {
+  transform: scaleX(-1);
 }
 
 .figure[data-slot="0"] {
@@ -584,7 +591,7 @@ body.is-last .veil {
 .pin {
   position: absolute;
   z-index: 18;
-  top: calc(var(--safe-top) + var(--header-h) + 48px);
+  top: calc(var(--safe-top) + var(--header-h) + 68px);
   right: var(--gutter-r);
   width: min(78%, 330px);
   padding: 0.8em 1.05em 0.85em;
@@ -799,6 +806,10 @@ body.is-last .veil {
 .plate__en {
   font-weight: 500;
   opacity: 0.9;
+}
+
+.plate__en--stack::before {
+  content: " \00B7  ";
 }
 
 .plate--jesus {
@@ -1230,7 +1241,9 @@ body.is-last .veil {
   border: 0;
   color: #4d340a;
   font-size: var(--fs-press);
+  background: radial-gradient(120% 140% at 50% 0%, var(--light-core), var(--light) 60%, #f6dfa6);
   backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .act.glow .en {
@@ -1787,6 +1800,12 @@ body.is-last .veil {
   background: var(--basalt-3);
 }
 
+/* Header controls sit on papyrus here, so give them a solid ground. */
+body[data-screen="final"] .iconbtn,
+body[data-screen="final"] .seg {
+  background: rgba(43, 40, 36, 0.9);
+}
+
 /* Gallery */
 
 .gallery-page {
@@ -2189,10 +2208,12 @@ body.is-last .veil {
     box-shadow: none;
   }
 
+  /* Busts stand over the outer ends of the centred panel (left and right thirds),
+     leaving the middle of the stage to the light. */
   .cast {
     --cast-h: 58vh;
-    --cast-x: 5vw;
-    --cast-sink: 5vh;
+    --cast-x: max(1vw, calc((100vw - var(--panel-w)) / 2 - 1vw));
+    --cast-sink: 6vh;
   }
 
   /* A focus ring that reads from across the room: light ring with a dark halo. */
@@ -2223,7 +2244,7 @@ body.is-last .veil {
   }
 
   .echo {
-    top: calc(var(--safe-top) + 12vh);
+    top: calc(var(--safe-top) + 22vh);
     left: 50%;
     right: auto;
     width: min(76vw, 130vh);
@@ -2264,17 +2285,28 @@ body.is-last .veil {
     align-self: center;
   }
 
-  /* Choices: a 2x2 grid of large numbered buttons. */
+  /* Choices: a 2x2 grid of large numbered buttons; long options stack in full-width rows. */
   .choices {
-    width: min(160vh, 94vw);
+    width: min(168vh, 95vw);
     align-self: center;
-    padding: 2.8vh 3vh 3vh;
+    padding: 2.6vh 3vh 3vh;
     border-radius: 1vh;
   }
 
   .choices__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.6vh;
+  }
+
+  .choices.is-stacked .choices__list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.2vh;
+  }
+
+  .choices.is-stacked .opt {
+    min-height: 0;
+    padding-top: 1.5vh;
+    padding-bottom: 1.6vh;
   }
 
   .opt {
@@ -2450,6 +2482,18 @@ body.is-last .veil {
 
   .routecard .plate {
     left: 2.4vw;
+    max-width: calc(100% - 4.8vw);
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .routecard .plate__en--stack {
+    display: block;
+    font-size: 0.82em;
+  }
+
+  .routecard .plate__en--stack::before {
+    content: none;
   }
 
   .routecard__title {
@@ -2467,17 +2511,28 @@ body.is-last .veil {
     font-size: calc(3vh * var(--text-scale));
   }
 
+  /* Final screen on 16:9: the verse on top, the three blanks in a row, the question beside
+     the hint and the button, the closing verses in three columns. Fits 1080p without scrolling. */
   .final-page {
     display: grid;
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "blanks blanks"
+      "hint hint"
+      "q next"
+      "closing closing";
     align-content: center;
-    gap: 3.4vh;
-    padding-top: calc(var(--safe-top) + 11vh);
+    column-gap: 4vw;
+    row-gap: 1.6vh;
+    padding-top: calc(var(--safe-top) + 8vh);
+    padding-bottom: calc(var(--safe-bottom) + 3vh);
   }
 
   .final-top {
+    grid-area: top;
     text-align: center;
-    gap: 1vh;
+    gap: 0.6vh;
   }
 
   .final-kicker {
@@ -2485,94 +2540,121 @@ body.is-last .veil {
   }
 
   .final-verse {
-    font-size: calc(8vh * var(--text-scale));
+    font-size: calc(6vh * var(--text-scale));
+    line-height: 1.25;
+  }
+
+  .final-verse .en {
+    font-size: 0.56em;
   }
 
   .final-verse__ref {
-    margin-top: 1vh;
-    font-size: 2.4vh;
+    margin-top: 0.6vh;
+    font-size: 2.3vh;
   }
 
   .blanks {
+    grid-area: blanks;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2vw;
-    padding: 3vh 0;
+    gap: 1.6vw;
+    padding: 1.4vh 0;
   }
 
   .blank {
-    font-size: calc(3vh * var(--text-scale));
-    line-height: 1.7;
-    padding: 1.6vh 1.4vw;
+    font-size: calc(2.8vh * var(--text-scale));
+    line-height: 1.55;
+    padding: 1vh 1.2vw;
   }
 
   .blank--mine {
     margin: 0;
-    padding: 1.6vh 1.4vw;
     border-radius: 1vh;
   }
 
   .blank .en {
-    font-size: calc(2.5vh * var(--text-scale));
+    font-size: calc(2.4vh * var(--text-scale));
+    line-height: 1.5;
   }
 
   .blank__input {
-    width: 100%;
-    max-width: none;
-    display: block;
-    min-height: 6.5vh;
-    margin: 0.8vh 0;
-    padding: 0.8vh 1.2vh;
+    width: 7.5em;
+    max-width: 72%;
+    min-height: 5.6vh;
+    margin: 0 0.3vw;
+    padding: 0.4vh 1vh;
     border-bottom-width: 0.4vh;
-    font-size: 1.05em;
+    border-radius: 0.8vh 0.8vh 0 0;
   }
 
   .blank__line {
     min-width: 4em;
   }
 
+  /* While typing, a slim ring is enough; the room-scale halo would cover the sentence. */
+  .blank__input:focus-visible {
+    outline: 0.4vh solid var(--galilee);
+    outline-offset: 0.2vh;
+    box-shadow: none;
+  }
+
   .blank__saved {
     font-size: 2.2vh;
   }
 
-  .final-mid {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 3vw;
+  .final-hint {
+    grid-area: hint;
+    margin: 0;
+    font-size: 2.4vh;
   }
 
-  .final-hint {
-    font-size: 2.4vh;
-    order: 2;
-    text-align: right;
+  .final-hint .en {
+    display: inline;
+  }
+
+  .final-hint .en::before {
+    content: " \00B7  ";
   }
 
   .final-q {
-    font-size: calc(3.4vh * var(--text-scale));
+    grid-area: q;
+    align-self: center;
+    font-size: calc(3.1vh * var(--text-scale));
+  }
+
+  .final-q .en {
+    font-size: 0.87em;
+  }
+
+  .final-page .final-next {
+    grid-area: next;
+    justify-self: end;
+    align-self: center;
+    width: auto;
+    min-width: 40vh;
+    min-height: 7.5vh;
   }
 
   .closing {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2.4vw;
-    padding: 2.6vh 2.4vw;
+    grid-area: closing;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 2vw;
+    padding: 1.6vh 2vw;
     border-radius: 1vh;
-    font-size: calc(2.6vh * var(--text-scale));
-    line-height: 1.55;
+    font-size: calc(2.4vh * var(--text-scale));
+    line-height: 1.45;
   }
 
   .closing__ref {
+    display: inline;
+    margin-left: 0.6em;
     font-size: 2.2vh;
-    margin-top: 0.6vh;
-  }
-
-  .final-page .btn--primary {
-    justify-self: end;
-    width: auto;
-    min-width: 40vh;
+    white-space: nowrap;
   }
 
   .gallery-page {
-    gap: 2.4vh;
-    padding-top: calc(var(--safe-top) + 11vh);
+    gap: 2vh;
+    padding-top: calc(var(--safe-top) + 9vh);
+    padding-bottom: calc(var(--safe-bottom) + 4vh);
   }
 
   .gallery-title {
@@ -2584,13 +2666,13 @@ body.is-last .veil {
   }
 
   .grid {
-    grid-template-columns: 18vw repeat(3, minmax(0, 1fr));
+    grid-template-columns: 13vw repeat(3, minmax(0, 1fr));
     gap: 1.2vh;
   }
 
   .grid__lens {
     font-size: 3vh;
-    padding: 1vh 0.5vw;
+    padding: 0.6vh 0.5vw;
   }
 
   .grid__lens .en {
@@ -2599,7 +2681,7 @@ body.is-last .veil {
 
   .grid__row {
     font-size: 3vh;
-    padding: 0 1vw;
+    padding: 0 0.6vw;
   }
 
   .grid__row .en {
@@ -2613,8 +2695,8 @@ body.is-last .veil {
   }
 
   .cell {
-    min-height: 15vh;
-    padding: 1.6vh 1.2vw;
+    min-height: 13.5vh;
+    padding: 1.4vh 1.2vw;
     border-radius: 1vh;
     font-size: calc(3.1vh * var(--text-scale));
   }
@@ -2629,13 +2711,18 @@ body.is-last .veil {
 
   .cell__yours {
     font-size: 2.2vh;
-    margin-top: 1vh;
+    margin-top: 0.8vh;
   }
 
   .gallery-actions {
-    grid-template-columns: repeat(2, minmax(0, 32vw));
+    grid-template-columns: repeat(2, minmax(0, 30vw));
     justify-content: end;
     gap: 1.6vw;
+    margin-top: 0;
+  }
+
+  .gallery-actions .btn {
+    min-height: 7.5vh;
   }
 
   .settings {

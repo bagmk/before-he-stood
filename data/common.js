@@ -28,13 +28,13 @@
         type: "line",
         text: {
           ko: "하지만 오늘 그가 할 첫마디는 아무도 예상하지 못했다.",
-          en: "But no one saw his first words today coming."
+          en: "But no one expected the first thing he would say today."
         }
       }
     ],
 
     routeSelect: {
-      prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Whose eyes will you see this day through?" }
+      prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" }
     },
 
     // Shown before the ending when the ending lens differs from the lens of the c10 pick.

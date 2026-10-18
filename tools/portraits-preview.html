@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portrait preview</title>
+<!--
+  Dev tool for js/portraits.js (owner: portrait agent).
+  Gallery: tools/portraits-preview.html
+           the lineup, then every portrait over a matching scene at TV size (1920x1080,
+           shown scaled) and phone size (390x844).
+  Lineup:  tools/portraits-preview.html?view=lineup
+           all characters on a neutral backdrop; fills the viewport (screenshot at 1920x1080).
+  Stage:   tools/portraits-preview.html?view=stage&id=menahem&bg=dawn_lamp
+           one portrait over a scene with a mock text panel; fills the viewport.
+           Options: &pose=lying|standing (asher)  &mirror=1  &pov=lying|standing|normal
+-->
+<style>
+  :root {
+    --page: #2a2724;
+    --ink: #ece4d3;
+    --muted: #a99f8e;
+    --rule: #403b35;
+    --papyrus-hi: #f6efdc;
+    --papyrus: #ede2c5;
+    --papyrus-lo: #dfd0ac;
+    --panel-ink: #2a2119;
+    --panel-ink-soft: #5a4b3a;
+    --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    --serif: "Gowun Batang", "Nanum Myeongjo", "AppleMyungjo", "Noto Serif KR", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--ink); }
+  body { font: 15px/1.45 var(--sans); }
+  header { padding: 20px 24px 6px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); max-width: 70ch; }
+  main { padding: 8px 24px 48px; display: grid; gap: 28px; }
+  section { border-top: 1px solid var(--rule); padding-top: 14px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  section h2 { flex: 0 0 100%; margin: 0; font-size: 15px; font-weight: 600; }
+  section h2 small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+  figure { margin: 0; }
+  figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* A stage mimics the game: scene art fills it, the portrait stands on the bottom edge,
+     a papyrus text panel covers the lower part. */
+  .stage { position: relative; overflow: hidden; background: #000; }
+  .stage .bg, .stage .bg svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage .fig { position: absolute; bottom: 0; aspect-ratio: 2 / 3; }
+  .stage .fig svg { display: block; width: 100%; height: 100%; }
+  .stage .fig.mirror { transform: scaleX(-1); }
+  .stage .panel { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 8px; color: var(--panel-ink);
+    background: linear-gradient(180deg, var(--papyrus-hi), var(--papyrus) 45%, var(--papyrus-lo));
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+  .stage .plate { position: absolute; top: 0; transform: translateY(-58%); border-radius: 4px; color: #fbf5e6; font-weight: 600;
+    white-space: nowrap; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35); }
+  .stage .plate span { font-weight: 500; opacity: 0.88; }
+  .stage .line { font-family: var(--serif); }
+  .stage .line .en { display: block; color: var(--panel-ink-soft); font-size: 0.9em; margin-top: 0.2em; }
+
+  /* TV: 16:9, read from across the room. */
+  .tv { width: 1920px; height: 1080px; }
+  .tv .fig { height: 94%; left: 60%; transform: translateX(-50%); }
+  .tv .fig.mirror { transform: translateX(-50%) scaleX(-1); }
+  .tv .panel { bottom: 2.6%; width: min(88%, 1480px); height: 29%; padding: 44px 56px; }
+  .tv .plate { left: 40px; padding: 8px 20px 10px; font-size: 34px; }
+  .tv .line { font-size: 42px; line-height: 1.5; }
+  /* Phone: portrait, 360-430 wide. */
+  .phone { width: 390px; height: 844px; }
+  .phone .fig { height: 66%; left: 50%; transform: translateX(-50%); }
+  .phone .fig.mirror { transform: translateX(-50%) scaleX(-1); }
+  .phone .panel { bottom: 14px; width: calc(100% - 32px); height: 30%; padding: 22px 18px; }
+  .phone .plate { left: 14px; padding: 5px 12px 6px; font-size: 13.5px; }
+  .phone .line { font-size: 17px; line-height: 1.7; }
+
+  .tv-wrap { width: 768px; height: 432px; overflow: hidden; }
+  .tv-wrap .tv { transform: scale(0.4); transform-origin: 0 0; }
+
+  /* Lineup: everyone on one neutral backdrop. */
+  .lineup { position: relative; width: 1920px; height: 1080px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 30%, #8a8378 0%, #6a645b 55%, #4b463f 100%); }
+  .lineup .row { position: absolute; left: 0; right: 0; display: flex; justify-content: center; }
+  .lineup .row1 { top: 18px; height: 486px; }
+  .lineup .row2 { top: 548px; height: 486px; }
+  .lineup .cell { position: relative; width: 324px; height: 100%; }
+  .lineup .cell svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .lineup .cell .tag { position: absolute; left: 0; right: 0; bottom: -40px; text-align: center; font-size: 19px; font-weight: 600; color: #f4ecdc;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+  .lineup .cell .tag small { display: block; font-size: 13px; font-weight: 500; color: #e2d7c2; }
+  .lineup .floor { position: absolute; left: 0; right: 0; height: 40px; background: rgba(28, 24, 20, 0.55); }
+
+  /* Single-view modes fill the viewport exactly (for screenshots). */
+  body.single { overflow: hidden; }
+  body.single header, body.single main { display: none; }
+  #single { position: fixed; inset: 0; }
+  #single > .stage, #single > .lineup { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Before He Stood: character portraits</h1>
+  <p>Every portrait from js/portraits.js, first together, then over a matching scene from js/art.js at TV size (1920 x 1080, shown at 40%) and phone size (390 x 844), with a mock text panel.</p>
+</header>
+<main id="gallery"></main>
+<div id="single" hidden></div>
+<script src="../data/characters.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/portraits.js"></script>
+<script>
+(function () {
+  var BHS = window.BHS || {};
+  var P = BHS.portraits, art = BHS.art, chars = BHS.characters || {};
+  var q = new URLSearchParams(location.search);
+
+  if (!P) {
+    document.getElementById("gallery").textContent = "js/portraits.js did not load.";
+    return;
+  }
+
+  // Which scene each portrait is checked against.
+  var PAIRS = [
+    { id: "menahem", bg: "dawn_lamp" },
+    { id: "hanan", bg: "dawn_lamp" },
+    { id: "yonah", bg: "shore_dawn" },
+    { id: "asher", bg: "asher_home", pose: "lying" },
+    { id: "asher", bg: "crowd", pose: "standing" },
+    { id: "mother", bg: "asher_home" },
+    { id: "brother", bg: "doorway_evening" },
+    { id: "neighbor", bg: "dawn_lamp" },
+    { id: "passerby", bg: "lane" },
+    { id: "partners", bg: "lane" },
+    { id: "scribes", bg: "crowd" },
+    { id: "menahem", bg: "lamp_night" },
+    { id: "yonah", bg: "crowd" }
+  ];
+  var LINEUP = [
+    ["menahem", "hanan", "yonah", { id: "asher", pose: "lying" }, { id: "asher", pose: "standing" }, "mother"],
+    ["brother", "neighbor", "passerby", "partners", "scribes"]
+  ];
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]; }); }
+  function name(id) { var ch = chars[id]; return ch ? ch.name : { ko: id, en: id }; }
+  function bgSvg(bg) { return art ? art.render(bg, { pov: q.get("pov") || undefined }) : ""; }
+
+  function stage(kind, p) {
+    var ch = chars[p.id] || {}, nm = name(p.id), role = ch.role || { ko: "", en: "" };
+    var fig = P.render(p.id, { pose: p.pose }) || "";
+    return '<div class="stage ' + kind + '"><div class="bg">' + bgSvg(p.bg) + '</div>' +
+      '<div class="fig' + (p.mirror ? " mirror" : "") + '">' + fig + "</div>" +
+      '<div class="panel"><div class="plate" style="background:' + esc(ch.color || "#3a3631") + '">' + esc(nm.ko) + ' <span>' + esc(nm.en) + "</span></div>" +
+      '<p class="line" style="margin:0">' + esc(role.ko) + '<span class="en">' + esc(role.en) + "</span></p></div></div>";
+  }
+
+  function lineup() {
+    var h = '<div class="lineup">';
+    LINEUP.forEach(function (row, r) {
+      h += '<div class="floor" style="top:' + (r ? 994 : 464) + 'px"></div><div class="row row' + (r + 1) + '">';
+      row.forEach(function (it) {
+        var id = typeof it === "string" ? it : it.id, pose = typeof it === "string" ? undefined : it.pose, nm = name(id);
+        h += '<div class="cell">' + (P.render(id, { pose: pose }) || "") + '<div class="tag">' + esc(nm.ko) + " " + esc(nm.en) +
+          (pose ? "<small>" + esc(pose) + "</small>" : "") + "</div></div>";
+      });
+      h += "</div>";
+    });
+    return h + "</div>";
+  }
+
+  var view = q.get("view");
+  if (view === "lineup" || view === "stage") {
+    document.body.classList.add("single");
+    var box = document.getElementById("single");
+    box.hidden = false;
+    if (view === "lineup") box.innerHTML = lineup();
+    else box.innerHTML = stage(q.get("kind") === "phone" ? "phone" : "tv",
+      { id: q.get("id") || "menahem", bg: q.get("bg") || "dawn_lamp", pose: q.get("pose") || undefined, mirror: q.get("mirror") === "1" });
+    if (view === "stage") {
+      // Fill the viewport whatever its size.
+      var st = box.firstChild;
+      st.classList.remove("tv", "phone");
+      st.classList.add(innerWidth > innerHeight ? "tv" : "phone");
+      st.style.width = "100vw";
+      st.style.height = "100vh";
+    }
+    return;
+  }
+
+  var html = '<section><h2>Lineup<small>' + P.ids.length + ' ids, facing ' + esc(P.facing ? P.facing.menahem : "?") + '</small></h2>' +
+    '<div style="width:960px;height:540px;overflow:hidden"><div style="transform:scale(.5);transform-origin:0 0">' + lineup() + "</div></div></section>";
+  PAIRS.forEach(function (p) {
+    var svg = P.render(p.id, { pose: p.pose }) || "";
+    html += "<section><h2>" + esc(p.id) + (p.pose ? " (" + esc(p.pose) + ")" : "") + " over " + esc(p.bg) +
+      "<small>" + (svg.length / 1024).toFixed(1) + " KB</small></h2>" +
+      '<figure><div class="tv-wrap">' + stage("tv", p) + "</div><figcaption>1920 x 1080 (40%)</figcaption></figure>" +
+      "<figure>" + stage("phone", p) + "<figcaption>390 x 844</figcaption></figure></section>";
+  });
+  document.getElementById("gallery").innerHTML = html;
+})();
+</script>
+</body>
+</html>

@@ -590,7 +590,7 @@
       return;
     }
     persist();
-    V.confirm({
+    V.ask({
       title: BHS.ui.confirmHomeTitle,
       body: BHS.ui.confirmHomeBody,
       yes: BHS.ui.confirmHomeYes,

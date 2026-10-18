@@ -147,6 +147,32 @@ function buildPlan(routes, args) {
   return plan;
 }
 
+// Normalized prefixes of texts that are centered by design: "sign" captions and the large ending line.
+function specialTexts(data) {
+  const out = new Set();
+  const add = (t) => {
+    if (!t) return;
+    for (const l of ['ko', 'en']) {
+      const r = norm(renderText(String(t[l] || '').split('{{var:')[0], l, data.scripture)).replace(/[\u201c\u201d"]/g, '').slice(0, 12);
+      if (r.length >= 4) out.add(r);
+    }
+  };
+  const visit = (v) => {
+    if (Array.isArray(v)) { v.forEach(visit); return; }
+    if (!isObj(v)) return;
+    if (v.type === 'line' && v.speaker === 'sign') add(v.text);
+    Object.values(v).forEach(visit);
+  };
+  visit(data.common && data.common.prologue);
+  for (const rid of ROUTE_IDS) {
+    const r = data.routes[rid];
+    if (!isObj(r)) continue;
+    visit(r);
+    if (isObj(r.endings)) Object.values(r.endings).forEach((e) => e && add(e.last));
+  }
+  return [...out];
+}
+
 function runLabel(p) {
   return `${p.rid}/${p.st.name}@${p.profile}${p.input === 'keyboard' ? '+kbd' : ''}${p.lang !== 'both' ? '(' + p.lang + ')' : ''}`;
 }
@@ -282,7 +308,9 @@ function initQa() {
     const sp = fontsIn(document.querySelector('[data-testid="speaker"]'));
     let panel = null;
     if (tb && vis(tb)) {
+      // The visual panel is the nearest ancestor with a background, but never a (near) full-screen container.
       for (let e = tb; e && e !== document.body; e = e.parentElement) {
+        if (e.getBoundingClientRect().height > 0.9 * H) break;
         const cs = getComputedStyle(e);
         const bg = cs.backgroundColor;
         if ((cs.backgroundImage && cs.backgroundImage !== 'none') || (bg && bg !== 'transparent' && !/rgba\(\d+, \d+, \d+, 0\)/.test(bg))) { panel = e; break; }
@@ -481,6 +509,16 @@ async function keyActivate(page, id, run, maxTabs = 60) {
   for (let i = 0; i <= maxTabs; i++) {
     const f = await page.evaluate(() => (document.activeElement ? document.activeElement.getAttribute('data-testid') : null));
     if (f === id) {
+      // SPEC 5.4: visible focus. The focused control needs an outline or a focus box-shadow.
+      if (run && !run.focusChecked.has(id)) {
+        run.focusChecked.add(id);
+        const ring = await page.evaluate(() => {
+          const cs = getComputedStyle(document.activeElement);
+          const outline = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+          return { outline, shadow: cs.boxShadow !== 'none' };
+        });
+        if (!ring.outline && !ring.shadow) run.warn(`keyboard: "${id}" has no visible focus indicator (SPEC 5.4)`, true);
+      }
       await page.keyboard.press('Enter');
       return true;
     }
@@ -527,9 +565,14 @@ function checkSnapshot(s, run, R) {
     run.fail(`horizontal overflow on screen "${s.screen}" (scrollWidth ${s.scrollWidth} > ${s.innerWidth})`, true);
   }
   for (const b of s.small) {
-    const k = `${run.profile}|${b.id}|${s.screen}`;
-    if (!R.small.has(k)) R.small.set(k, `${b.id} on "${s.screen}" is ${b.w}x${b.h} px${b.text ? ` ("${snip(b.text, 24)}")` : ''} (${where})`);
-    run.fail(`tap target smaller than 44x44: ${b.id} ${b.w}x${b.h} on "${s.screen}"`, true);
+    // SPEC 5.4 tap targets are a touch rule: FAIL on the phone profile, WARN on mouse/keyboard TV profiles.
+    const k = `${run.profile}|${b.id}`;
+    if (!R.small.has(k)) R.small.set(k, `[${run.profile}] ${b.id} is ${b.w}x${b.h} px${b.text ? ` ("${snip(b.text, 24)}")` : ''}, first on "${s.screen}" (${where})`);
+    const msg = `tap target smaller than 44x44: ${b.id} ${b.w}x${b.h} (first on "${s.screen}")`;
+    if (run.small.has(b.id)) continue;
+    run.small.add(b.id);
+    if (PROFILES[run.profile].tv) run.warn(msg, true);
+    else run.fail(msg, true);
   }
   if (s.leaks.length) run.fail(`unresolved or broken text on "${s.screen}": "${s.leaks[0]}"`, true);
   if (run.lang === 'both' && s.screen === 'play' && s.textbox && s.textbox.length > 6) {
@@ -552,16 +595,16 @@ function checkTv(s, run) {
   const playLike = s.screen === 'play' || s.screen === 'prologue' || s.screen === 'ending';
   if (playLike && s.textbox && tv.story[primary]) {
     const st = tv.story[primary];
-    m.storyMin = Math.min(m.storyMin, st.min);
-    if (st.min < prof.story - 0.25) run.fail(`TV: story text ${st.min.toFixed(1)} px < ${prof.story} px at ${tv.W}x${tv.H} ("${st.sample}")`, true);
-    if (run.lang === 'both' && tv.story.en) {
-      m.storyEnMin = Math.min(m.storyEnMin, tv.story.en.min);
-      if (tv.story.en.min < 2.2 * vh - 0.25) run.fail(`TV: English story line ${tv.story.en.min.toFixed(1)} px < 2.2vh (${(2.2 * vh).toFixed(1)} px)`, true);
-    }
-    if (tv.panel) {
+    if (st.min < m.storyMin) { m.storyMin = st.min; m.storySample = st.sample; }
+    if (run.lang === 'both' && tv.story.en && tv.story.en.min < m.storyEnMin) { m.storyEnMin = tv.story.en.min; m.storyEnSample = tv.story.en.sample; }
+    const special = run.special && run.special.some((x) => norm(s.textbox).includes(x));
+    if (tv.panel && special) {
+      const topPct = (tv.panel.top / tv.H) * 100;
+      if (topPct < m.specialTopMin) m.specialTopMin = topPct;
+    } else if (tv.panel) {
       const topPct = (tv.panel.top / tv.H) * 100;
       if (topPct < m.panelTopMin) { m.panelTopMin = topPct; m.panelTopText = s.textbox; }
-      if (tv.panel.top < 0.6 * tv.H - 2) run.fail(`TV: text panel top at ${topPct.toFixed(0)}% of the screen height covers the top 60% ("${snip(s.textbox, 40)}")`, true);
+      if (tv.panel.top < 0.6 * tv.H - 2 && !m.panelBad.some((x) => x.text === s.textbox)) m.panelBad.push({ pct: topPct, text: s.textbox });
       const centerOff = Math.abs((tv.panel.left + tv.panel.right) / 2 - tv.W / 2);
       if (centerOff > tv.W * 0.03) run.warn(`TV: text panel is not centered (center ${Math.round(centerOff)} px off)`, true);
       if (tv.panel.width > tv.W * 0.9) run.warn(`TV: text panel spans ${Math.round(tv.panel.width / tv.W * 100)}% of the width (SPEC 5.6: comfortable max width)`, true);
@@ -570,8 +613,7 @@ function checkTv(s, run) {
   }
   if (s.screen === 'play' && tv.options[primary]) {
     const op = tv.options[primary];
-    m.optionMin = Math.min(m.optionMin, op.min);
-    if (op.min < prof.option - 0.25) run.fail(`TV: option text ${op.min.toFixed(1)} px < ${prof.option} px at ${tv.W}x${tv.H} ("${op.sample}")`, true);
+    if (op.min < m.optionMin) { m.optionMin = op.min; m.optionSample = op.sample; }
     if (tv.choices.length === 4 && run.profile === 'tv1080') {
       const xs = new Set(tv.choices.map((c) => Math.round(c.x / 20)));
       const ys = new Set(tv.choices.map((c) => Math.round(c.y / 20)));
@@ -581,12 +623,36 @@ function checkTv(s, run) {
     }
   }
   for (const o of tv.offenders) {
+    const k = `${s.screen}|${o.id}|${o.r.join(',')}`;
+    if (m.offenderKeys.has(k)) continue;
+    m.offenderKeys.add(k);
     m.offenders++;
-    run.fail(`TV: ${o.id} lies outside the ${tv.W}x${tv.H} viewport [${o.r.join(', ')}] on "${s.screen}"${o.text ? ` ("${snip(o.text, 20)}")` : ''}`, true);
+    if (!m.offendersByScreen.has(s.screen)) m.offendersByScreen.set(s.screen, []);
+    m.offendersByScreen.get(s.screen).push(`${o.id} [${o.r.join(', ')}]${o.text ? ` "${snip(o.text, 18)}"` : ''}`);
   }
-  if (tv.scrollH > tv.H + 1) run.fail(`TV: page scrolls vertically on "${s.screen}" (scrollHeight ${tv.scrollH} > ${tv.H})`, true);
+  if (tv.scrollH > tv.H + 1 && !m.scrollScreens.has(s.screen)) {
+    m.scrollScreens.add(s.screen);
+    run.fail(`TV: page scrolls vertically on "${s.screen}" (scrollHeight ${tv.scrollH} > ${tv.H})`, true);
+  }
   if (tv.minAll && tv.minAll.fs < 2.2 * vh - 0.5) {
     run.warn(`TV: text below 2.2vh on "${s.screen}": ${tv.minAll.id} at ${tv.minAll.fs.toFixed(1)} px ("${snip(tv.minAll.t, 20)}") (SPEC 5.6: nothing below 2.2vh)`, true);
+  }
+}
+
+// Turns the per-screen TV measurements of a run into a few aggregated failure lines.
+function finalizeTv(run, prof) {
+  const m = run.tvm;
+  const [W, H] = [prof.viewport.width, prof.viewport.height];
+  if (m.storyMin < prof.tv.story - 0.25) run.fail(`TV: story text down to ${m.storyMin.toFixed(1)} px at ${W}x${H} (needs >= ${prof.tv.story} px; "${m.storySample}")`, true);
+  if (m.storyEnMin < 2.2 * H / 100 - 0.25) run.fail(`TV: English story line down to ${m.storyEnMin.toFixed(1)} px (< 2.2vh = ${(2.2 * H / 100).toFixed(1)} px; "${m.storyEnSample}")`, true);
+  if (m.optionMin < prof.tv.option - 0.25) run.fail(`TV: option text down to ${m.optionMin.toFixed(1)} px at ${W}x${H} (needs >= ${prof.tv.option} px; "${m.optionSample}")`, true);
+  if (m.panelBad.length) {
+    const worst = m.panelBad.reduce((a, b) => (b.pct < a.pct ? b : a));
+    const eg = m.panelBad.slice(0, 3).map((x) => `${x.pct.toFixed(0)}% "${snip(x.text, 28)}"`).join('; ');
+    run.fail(`TV: the text panel reaches above 60% of the screen height on ${m.panelBad.length} text screen(s); worst ${worst.pct.toFixed(0)}% ("${snip(worst.text, 40)}"); e.g. ${eg}`, true);
+  }
+  for (const [screen, list] of m.offendersByScreen) {
+    run.fail(`TV: ${list.length} element(s) outside the ${W}x${H} viewport on "${screen}": ${list.slice(0, 3).join('; ')}${list.length > 3 ? '; ...' : ''}`, true);
   }
 }
 
@@ -598,8 +664,12 @@ function newRun(p) {
     rid: p.rid, strategy: p.st.name, profile: p.profile, input: p.input, lang: p.lang, where: runLabel(p),
     picks: p.st.picks, made: {}, failures: [], warnings: [], notes: [], screens: new Set(), steps: 0, shots: [],
     expected: null, observed: null, title: '', result: 'PASS', ms: 0, last: { screen: '', beat: '', text: '' },
-    texts: [], dbgSource: null, keys: { ok: {}, fail: {} },
-    tvm: { storyMin: Infinity, storyEnMin: Infinity, optionMin: Infinity, panelTopMin: Infinity, panelTopText: '', offenders: 0 }
+    texts: [], dbgSource: null, keys: { ok: {}, fail: {} }, small: new Set(), special: p.special || null, focusChecked: new Set(),
+    tvm: {
+      storyMin: Infinity, storyEnMin: Infinity, optionMin: Infinity, panelTopMin: Infinity, panelTopText: '', specialTopMin: Infinity,
+      offenders: 0, offenderKeys: new Set(), offendersByScreen: new Map(), panelBad: [], scrollScreens: new Set(),
+      storySample: '', storyEnSample: '', optionSample: ''
+    }
   };
   run.fail = (m, once) => { if (!once || !run.failures.includes(m)) run.failures.push(m); };
   run.warn = (m, once) => { if (!once || !run.warnings.includes(m)) run.warnings.push(m); };
@@ -700,6 +770,11 @@ async function playRun(browser, R, cfg) {
             if (s.tv && (s.tv.light === 'soft' || s.tv.light === 'bright')) await takeShot(`tv-${rid}-verse-light`, tvShots);
           }
           if (tvShots && !did.cursor && s.textbox && !choiceVisible && firstShots) { did.cursor = true; await cursorCheck(page, run); }
+          if (!did.aria && s.textbox) {
+            did.aria = true;
+            const live = await page.evaluate(() => { const t = document.querySelector('[data-testid="textbox"]'); return t ? t.getAttribute('aria-live') || (t.closest('[aria-live]') ? 'inherited' : null) : null; });
+            if (!live) run.warn('the text box has no aria-live (SPEC 5.4)', true);
+          }
           if (prof.tv && !did.fsButton && s.tv) {
             did.fsButton = true;
             if (!s.tv.fullscreenButton) run.warn('TV: no visible fullscreen button during play (SPEC 5.6)', true);
@@ -823,6 +898,7 @@ async function playRun(browser, R, cfg) {
     if (route && JSON.stringify(route).includes('"pinThought"') && !sawThought) run.warn('the route pins a thought (fx pinThought) but data-testid="thought-bubble" never became visible', true);
     if (route && JSON.stringify(route).includes('"readReceipt"') && !sawReceipt) run.warn('the route uses fx readReceipt but data-testid="read-receipt" never became visible', true);
     if (done) transcriptCheck(run, data, rid, p);
+    if (prof.tv) finalizeTv(run, prof);
     if (kbd) {
       for (const k of REQUIRED_KEYS) if (!run.keys.ok[k]) run.fail(`keyboard: ${k} never advanced the story`, true);
       for (const k of ADVANCE_KEYS) if (run.keys.fail[k] && run.keys.ok[k]) run.warn(`keyboard: ${k} advanced on ${run.keys.ok[k]} screen(s) but not on ${run.keys.fail[k]}`, true);
@@ -1206,11 +1282,13 @@ function formatReport(R, ctx) {
   if (tvRuns.length) {
     L.push('');
     L.push('TV metrics (SPEC 5.6; thresholds 1080p story >= 36 px, options >= 30 px; 720p 24 / 20 px; panel top >= 60%)');
-    L.push('  ' + [pad('run', 28), pad('story min', 10), pad('en line min', 12), pad('option min', 11), pad('panel top min', 14), pad('outside viewport', 17), 'keys that advanced'].join(' '));
+    L.push('  ' + [pad('run', 28), pad('story min', 10), pad('en line min', 12), pad('option min', 11), pad('panel top min', 14), pad('sign/last top', 14), pad('outside viewport', 17), 'keys that advanced'].join(' '));
     for (const r of tvRuns) {
       const keys = r.input === 'keyboard' ? Object.keys(r.keys.ok).map((k) => `${k}x${r.keys.ok[k]}`).join(' ') : '-';
-      L.push('  ' + [pad(r.where, 28), pad(fmtPx(r.tvm.storyMin), 10), pad(fmtPx(r.tvm.storyEnMin), 12), pad(fmtPx(r.tvm.optionMin), 11), pad(Number.isFinite(r.tvm.panelTopMin) ? r.tvm.panelTopMin.toFixed(0) + '%' : '-', 14), pad(r.tvm.offenders, 17), keys].join(' '));
+      const pctOf = (x) => (Number.isFinite(x) ? x.toFixed(0) + '%' : '-');
+      L.push('  ' + [pad(r.where, 28), pad(fmtPx(r.tvm.storyMin), 10), pad(fmtPx(r.tvm.storyEnMin), 12), pad(fmtPx(r.tvm.optionMin), 11), pad(pctOf(r.tvm.panelTopMin), 14), pad(pctOf(r.tvm.specialTopMin), 14), pad(r.tvm.offenders, 17), keys].join(' '));
     }
+    L.push('  (sign captions and the large ending line are centered by design and exempt from the 60% rule; their top is listed for review)');
   }
   for (const r of R.runs) {
     if (!r.failures.length && !r.warnings.length && !r.notes.length) continue;
@@ -1309,6 +1387,8 @@ async function main() {
   ctx.pwVersion = pwInfo.version;
   ctx.pwFrom = pwInfo.from;
   fs.mkdirSync(args.shotDir, { recursive: true });
+  // Failure screenshots from earlier runs would be misleading; other screenshots are overwritten by name.
+  for (const f of fs.readdirSync(args.shotDir)) if (/^FAIL-.*\.png$/.test(f)) fs.rmSync(path.join(args.shotDir, f), { force: true });
   let srv;
   let browser;
   try {
@@ -1319,6 +1399,11 @@ async function main() {
     ctx.launchHow = launched.how;
     ctx.browserVersion = browser.version();
     const plan = buildPlan(routes, args);
+    // Writers may still be editing: reload the data before every run so the reference matches what the browser loads.
+    const freshData = () => {
+      const d = loadProject(root, new Report(), { partial: true }).data;
+      return isObj(d.routes) ? d : data;
+    };
     console.log(`playtest: serving ${root} at ${srv.url}; Chromium ${ctx.browserVersion}; ${plan.length} runs planned`);
     ctx.titleSmoke = await withTimeout(titleSmoke(browser, R, srv.url, args, data), 90000, () => ['FAIL title smoke test timed out after 90 s']);
     const firstOf = new Set();
@@ -1329,7 +1414,10 @@ async function main() {
       process.stdout.write(`  ${pad(label, 28)} ... `);
       const firstOfProfile = !firstOf.has(p.profile);
       firstOf.add(p.profile);
-      const cfg = { url: srv.url + 'index.html?test=1', data, args, p, firstOfProfile, settingsCheck: first };
+      const runData = freshData();
+      if (!isObj(runData.routes[p.rid])) { ctx.skipped.push(`${label} (route data failed to load)`); continue; }
+      p.special = specialTexts(runData);
+      const cfg = { url: srv.url + 'index.html?test=1', data: runData, args, p, firstOfProfile, settingsCheck: first };
       first = false;
       const run = await withTimeout(playRun(browser, R, cfg), args.runTimeout * 1000, () => {
         const r = newRun(p);
@@ -1351,9 +1439,17 @@ async function main() {
     else if (elapsedMin() > args.budgetMin) ctx.distLine = 'skipped (time budget used up)';
     else {
       const rid = routes.includes('scribe') ? 'scribe' : routes[0];
-      const p = { rid, st: makeStrategy(rid, 'a'), profile: 'tv1080', input: 'mouse', lang: 'both', shots: false };
+      const distData = freshData();
+      const p = { rid, st: makeStrategy(rid, 'a'), profile: 'tv1080', input: 'mouse', lang: 'both', shots: false, special: specialTexts(distData) };
       const label = `dist:${rid}/a@tv1080`;
-      const cfg = { url: pathToFileURL(distFile).href + '?test=1', data, args, p, fileMode: true, label };
+      const cfg = { url: pathToFileURL(distFile).href + '?test=1', data: distData, args, p, fileMode: true, label };
+      // A bundle older than its sources plays stale text (and will not match the reference transcript).
+      const builtAt = fs.statSync(distFile).mtimeMs;
+      const sources = ['index.html', 'css/style.css'].concat(...['data', 'data/routes', 'js'].map((d) => {
+        try { return fs.readdirSync(path.join(root, d)).filter((f) => /\.(js|css)$/.test(f)).map((f) => d + '/' + f); } catch (e) { return []; }
+      }));
+      const newer = sources.filter((f) => { try { return fs.statSync(path.join(root, f)).mtimeMs > builtAt + 1000; } catch (e) { return false; } });
+      if (newer.length) R.warn(`dist/before-he-stood.html is older than ${newer.slice(0, 4).join(', ')}${newer.length > 4 ? ` and ${newer.length - 4} more` : ''}; rebuild with node tools/build-single.mjs`);
       process.stdout.write(`  ${pad(label, 28)} ... `);
       const run = await withTimeout(playRun(browser, R, cfg), args.runTimeout * 1000, () => {
         const r = newRun(p);

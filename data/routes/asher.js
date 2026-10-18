@@ -155,7 +155,7 @@
           opt("a", "혹시 그 일 때문에 이렇게 된 걸까.", "What if that's why I ended up like this?", 2, [
             thought("이 질문은 네 해째 나를 따라다닌다. 대답은 한 번도 오지 않았다.", "This question has followed me for four years. No answer has ever come.")
           ]),
-          opt("b", "잘못한 것과 병든 것은 같은 이야기일까.", "Is doing wrong and getting sick the same story?", 2, [
+          opt("b", "잘못한 것과 병든 것은 같은 이야기일까.", "Is doing wrong the same story as getting sick?", 2, [
             thought("속 시원히 대답해 준 사람은 아직 없다.", "Nobody has ever given me a straight answer.")
           ]),
           opt("c", "그 잘못은 누가 용서해 줄 수 있지? 동생? 하나님?", "Who can forgive that? My brother? God?", 1, [
@@ -170,9 +170,8 @@
       // ---------- Morning: Yonah arrives ----------
       scene("asher_ceiling", "lying", "아침 · 아셀의 집", "Morning · Asher's house"),
       line("골목에서 누가 뛰어오는 소리. 발소리만 들어도 안다. 요나다.", "Someone is running up the lane. Asher knows that stride anywhere. Yonah."),
-      say("yonah", "아셀! 그분이 배로 돌아오셨어!", "Asher! He's back. His boat just came in!"),
-      verse("MT_9_1"),
-      say("yonah", "바닷가에 사람들이 벌써 모였어. 가자!", "There's already a crowd on the shore. Let's go!"),
+      // The boat is still on its way; it lands while the bed goes down the lane (as in the scribe and friend routes).
+      say("yonah", "아셀! 그분이 배로 돌아오신대! 바닷가에 벌써 사람들이 모이고 있어. 가자!", "Asher! Jesus is coming back by boat! People are already gathering on the shore. Let's go!"),
 
       // c4: whatever he says, the bed is lifted.
       {
@@ -213,6 +212,9 @@
         "몇 해 만의 하늘이다. 검은 현무암 담장 사이로, 눈이 시리게 파랗다.",
         "Sky, for the first time in years. Between the walls of black basalt, it's so blue it stings."
       ),
+      // SPEC 6.4 step 1: the boat lands while the bed goes down the lane (same moment in all three routes).
+      say("yonah", "배가 들어온다! 저기, 골목 끝에.", "The boat's coming in! Down there, at the end of the lane."),
+      { type: "verse", id: "lane-9-1", key: "MT_9_1" },
       {
         type: "line",
         id: "lane-passerby",
@@ -228,8 +230,8 @@
         "Two men step aside against the wall: Menahem, the scribe Asher used to see at the synagogue, and a young student."
       ),
       line(
-        "서기관의 눈이 침상에 머물다가, 잠깐 아셀의 눈과 마주친다. 둘 다 아무 말도 하지 않는다.",
-        "The scribe's eyes rest on the bed, then meet Asher's for a moment. Neither of them says a word."
+        "서기관이 침상을 힐끗 본다. 잠깐, 아셀과 눈이 마주친다. 둘 다 아무 말도 하지 않는다.",
+        "The scribe glances at the bed. For a moment, his eyes meet Asher's. Neither of them says a word."
       ),
 
       // c5: what he does with the passerby's words.
@@ -297,7 +299,7 @@
             thought("다들 내 얘기는 해도, 나한테 말을 거는 사람은 드물다.", "Everyone talks about me. Hardly anyone talks to me.")
           ]),
           opt("b", "내가 얼마나 무서운지 아시는 걸까.", "Does he know how scared I am?", 1, [
-            thought("말한 적도 없는데, 어떻게 아셨을까.", "I never said a word. How would he know?")
+            thought("말한 적도 없는데, 어떻게 아셨을까.", "I never said a word. How did he know?")
           ]),
           opt("c", "아이를 부르듯 부르셨어.", "He called me the way you'd call a child.", 3, [
             thought("어릴 적 저녁마다, 어머니가 문간에서 나를 부르던 것처럼.", "Like Mom calling me in from the doorway every evening when I was little.")
@@ -323,7 +325,8 @@
         prompt: t("내 죄가 사함을 받았다고 하셨다. 가장 먼저 든 생각은?", "He said my sins are forgiven. What's my first thought?"),
         options: [
           opt("a", "그럼 병이 내 잘못이었다는 뜻인가?", "So does that mean my illness was my fault?", 2, [
-            line("그 말 어디에도 ‘그래서’는 없었다.", "Nowhere in those words was there a “because.”")
+            // Asher's own noticing, not a narrator ruling (SPEC 7.2: narration neither confirms nor settles the cause).
+            thought("그 말 어디에도 ‘그래서’는 없었다.", "There was no “because” anywhere in what he said.")
           ]),
           opt("b", "정말 나에게 하시는 말씀인가.", "Is he really saying this to me?", 2, [
             thought("다른 누구도 아니라, 침상에 누운 사람에게. 그게 나다.", "Not to anyone else. To the man lying on the bed. That's me.")
@@ -371,7 +374,7 @@
         prompt: t("그 순간, 가장 먼저 든 생각은?", "In that moment, what's my first thought?"),
         options: [
           opt("a", "이분은 누구시길래.", "Who is he, to do this?", 1, [
-            thought("죄를 사하는 권능이 있다고 하셨다. 그리고 내 다리가 그 말을 들었다.", "He said he has authority to forgive sins. And my legs listened.")
+            thought("죄를 사하는 권능이 있다고 하셨다. 그리고 내 다리가 그분의 말을 들었다.", "He said he has authority to forgive sins. And my legs listened to him.")
           ]),
           opt("b", "일어나기 전에 먼저 하신 말이 있었다.", "Before I ever stood, he said something else first.", 2, [
             thought("다리보다 먼저 들은 말. 그 말이 아직 더 크게 울린다.", "The words I heard before my legs moved. They're still the loudest thing.")

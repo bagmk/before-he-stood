@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Fixture · Before He Stood</title>
+<link rel="stylesheet" href="../css/style.css">
+<!-- FIXTURE PAGE: plays the demo routes in tests/fixtures (every beat type and FX) instead of data/routes. -->
+<script>window.BHS_FORCE_FIXTURE = true;</script>
+</head>
+<body data-screen="title">
+<div id="app" class="app">
+  <div id="stage" class="stage" data-pov="normal" aria-hidden="true">
+    <div class="art" id="art">
+      <div class="art__sway">
+        <div class="art__layer" id="artA"></div>
+        <div class="art__layer" id="artB"></div>
+      </div>
+    </div>
+    <div class="veil" id="veil"></div>
+    <div class="light" id="light" data-level="off"></div>
+  </div>
+  <div class="cast" id="cast" aria-hidden="true"></div>
+  <div class="caption" id="caption" hidden></div>
+  <div class="echo" id="echo" hidden></div>
+  <div class="pin" id="pin" hidden></div>
+  <section class="play" id="play" hidden>
+    <button class="advance" id="advance" type="button" data-testid="advance" aria-label="다음 · Next"></button>
+    <div class="card" id="card" hidden></div>
+    <div class="dock" id="dock">
+      <div class="reply" id="reply" aria-live="polite"></div>
+      <div class="panel" id="panel">
+        <div class="plate" id="plate" hidden></div>
+        <div class="text" id="text" data-testid="textbox" aria-live="polite"></div>
+        <div class="ref" id="ref" hidden></div>
+        <span class="more" id="more" aria-hidden="true"></span>
+      </div>
+      <div class="choices" id="choices" hidden></div>
+      <div class="pressbox" id="pressbox" hidden></div>
+      <div class="actions" id="actions" hidden></div>
+    </div>
+  </section>
+  <main class="screen" id="screen"></main>
+  <header class="topbar" id="topbar" hidden></header>
+  <div class="settings" id="settings" hidden></div>
+  <div class="modal" id="modal" hidden></div>
+  <aside class="debug" id="debug" hidden></aside>
+</div>
+<script src="../data/meta.js"></script>
+<script src="../data/characters.js"></script>
+<script src="../data/scripture.js"></script>
+<script src="fixtures/scripture.js"></script>
+<script src="../data/common.js"></script>
+<script src="../data/ui-strings.js"></script>
+<script src="fixtures/routes.js"></script>
+<script src="../js/engine.js"></script>
+<script src="../js/art.js"></script>
+<script src="fixtures/art-stub.js"></script>
+<script src="../js/portraits.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

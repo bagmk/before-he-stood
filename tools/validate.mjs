@@ -119,7 +119,8 @@ const FOUR_KO = /네\s?명(?![령예단])|넷이서|네 사람이/;
 const FOUR_EN = /\bfour\s+(men|of them|friends|people|carriers|bearers)\b/i;
 // ko "roof".
 const ROOF_KO = /지붕/;
-const ROOF_EN = /\broof\b/i;
+// The idioms "a roof of his own" / "a roof over his head" (homelessness) are not Mark's roof.
+const ROOF_EN = /\broof\b(?!\s+(of\s+(his|her|their|my|your|one's)\s+own|over\s+\S+\s+head))/i;
 // Mark 2:7 wording: ko "hananim han bun oe-e", "nuga neunghi joe-reul saha".
 const MK27_KO = /하나님\s?한\s?분\s?외에|누가\s?능히\s?죄를\s?사하/;
 const MK27_EN = /\bbut god alone\b|\bwho can forgive sins but\b/i;
@@ -880,7 +881,8 @@ function storyChecks(t, cx, w) {
     if (MK27_KO.test(t.ko) || MK27_EN.test(t.en)) rep.warn('guard', w, `Mark 2:7 wording ("who can forgive sins but God alone") outside an Easter egg (SPEC 7.5)`);
     const bg = cx.bgNow ? cx.bgNow() : null;
     if ((bg === 'crowd' || bg === 'crowd_lying') && (ROOF_KO.test(t.ko) || ROOF_EN.test(t.en))) {
-      rep.warn('guard', w, `roof mentioned in the crowd scene outside an Easter egg (no house/roof in Matthew, SPEC 6.2/7.5): "${snip(t.ko)}"`);
+      const lang = ROOF_KO.test(t.ko) ? 'ko' : 'en';
+      rep.warn('guard', w, `roof mentioned in the crowd scene outside an Easter egg (no house/roof in Matthew, SPEC 6.2/7.5), ${lang}: "${snip(t[lang], 60)}"`);
     }
   }
   if (TALMUD.test(t.ko) || TALMUD.test(t.en)) rep.warn('guard', w, 'mentions the Talmud/Nedarim in story text (SPEC 7.9)');
@@ -892,7 +894,11 @@ function storyChecks(t, cx, w) {
   }
   for (const lang of ['ko', 'en']) {
     const hit = findTypedScripture(t[lang], lang, cx.scrIndex);
-    if (hit) rep.warn('quote', w, `looks like typed scripture wording from ${hit.key} (${lang}: "${hit.gram}"); use {{v:KEY}} or paraphrase (SPEC 3.2)`);
+    if (!hit) continue;
+    // Inside quotation marks it reads as a quotation (must be a token); otherwise it may be a paraphrase.
+    const quoted = /[\u201c"\u300c\u300e]|\u2018[^\u2019]*\u2019/.test(stripTokens(t[lang]));
+    if (quoted) rep.warn('quote', w, `quotes scripture wording from ${hit.key} inside quotation marks (${lang}: "${hit.gram}"); use {{v:KEY}} (SPEC 3.2)`);
+    else rep.info('quote', w, `shares scripture wording with ${hit.key} (${lang}: "${hit.gram}"); fine as an unquoted paraphrase, otherwise use {{v:KEY}} (SPEC 3.2)`);
   }
   if (cx.rid === 'asher' && /\bMother\b/.test(t.en)) rep.warn('voice', w, `Asher route uses "Mother" (SPEC 3.4: Asher says "Mom"): "${snip(t.en)}"`);
 }
@@ -1391,6 +1397,8 @@ function checkScripture(rep, data, spec, root) {
     rep.info('scripture', 'docs/scripture-sources.md', 'verification status: ' + Object.entries(tally).map(([k, v]) => `${k} ${v}`).join(', '));
     const mt9 = Object.keys(status).filter((k) => /^MT_9_/.test(k) && status[k] !== 'VERIFIED');
     if (mt9.length) rep.warn('scripture', 'docs/scripture-sources.md', `Matthew 9 keys not marked VERIFIED: ${mt9.join(', ')}`);
+    const other = Object.keys(status).filter((k) => !/^MT_9_/.test(k) && status[k] !== 'VERIFIED');
+    if (other.length) rep.info('scripture', 'docs/scripture-sources.md', `keys not marked VERIFIED: ${other.map((k) => `${k} (${status[k]})`).join(', ')}`);
   } catch (e) { /* no sources doc */ }
 }
 
@@ -2284,7 +2292,16 @@ function selfTest() {
   t('token counted at rendered length', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('가'.repeat(70) + '{{v:MT_9_5}}', 'x {{v:MT_9_5}}') }); return run(d).has('ERROR', 'length', /ko is \d+ chars/); });
   t('mechanics word -> WARN guard', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('진엔딩이다', 'This is the true ending.') }); return run(d).has('WARN', 'guard', /mechanics/); });
   t('four men -> WARN guard', () => { const d = clone(base); d.routes.friend.beats.push({ type: 'line', text: T('네 명이 든다', 'Four men lift it.') }); return run(d).has('WARN', 'guard', /four men/); });
-  t('typed scripture -> WARN quote', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('그가 네 모든 죄악을 사하시며 네 모든', 'who forgives all your iniquity, he said') }); return run(d).has('WARN', 'quote'); });
+  t('quoted scripture wording -> WARN quote', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('「그가 네 모든 죄악을 사하시며 네 모든」', '"who forgives all your iniquity," he said') }); return run(d).has('WARN', 'quote'); });
+  t('unquoted scripture wording -> INFO quote only', () => { const d = clone(base); d.routes.scribe.beats.push({ type: 'line', text: T('그가 네 모든 죄악을 사하시며 네 모든', 'he said he forgives all your iniquity, all of it') }); const rep = run(d); return rep.has('INFO', 'quote') && !rep.has('WARN', 'quote'); });
+  t('roof idiom is not flagged, Mark roof is', () => {
+    const d = clone(base);
+    const at = d.routes.scribe.beats.findIndex((x) => x.key === 'MT_9_5');
+    d.routes.scribe.beats.splice(at, 0, { type: 'line', text: T('가 집', 'A man without a roof of his own.') });
+    const ok1 = !run(d).has('WARN', 'guard', /roof/);
+    d.routes.scribe.beats.splice(at, 0, { type: 'line', text: T('가 지붕을 뚫는다', 'They dig through the roof.') });
+    return ok1 && run(d).has('WARN', 'guard', /roof/);
+  });
   t('skewed lenses -> ERROR dist', () => {
     const d = clone(base);
     d.routes.scribe.beats.filter((x) => x.type === 'choice' && x.id !== 'c10').forEach((c) => { c.options[3].lens = 1; });

@@ -526,7 +526,10 @@
   }
 
   function makeFigure(entry, key, markup) {
-    var fig = h("div", { class: "figure is-in", "data-slot": String(entry.slot), "data-key": key, "data-testid": "portrait-" + entry.id, "data-id": entry.id });
+    // Busts face inward: mirror the art when it faces away from the stage centre.
+    var facing = BHS.portraits && BHS.portraits.facing && BHS.portraits.facing[entry.id];
+    var mirror = (facing === "left" && entry.slot === 0) || (facing === "right" && entry.slot === 1);
+    var fig = h("div", { class: "figure is-in" + (mirror ? " is-mirror" : ""), "data-slot": String(entry.slot), "data-key": key, "data-testid": "portrait-" + entry.id, "data-id": entry.id });
     fig.innerHTML = namespaceSvg(markup, "p" + ++S.artSeq + "-");
     var svg = fig.querySelector("svg");
     if (svg) {
@@ -697,6 +700,7 @@
     updateStage(v, state);
     resetPlay();
     $("play").hidden = false;
+    renderActions(v.actions || [], step);
     var panel = $("panel");
     var text = $("text");
     var hush = !!(v.now && v.now.hush);
@@ -745,7 +749,6 @@
         panel.hidden = true;
     }
 
-    renderActions(v.actions || [], step);
     anchorCast();
 
     if (!panel.hidden) {
@@ -777,6 +780,10 @@
     box.appendChild(list);
     box.hidden = false;
     box.scrollTop = 0;
+    clear($("reply"));
+    // Long options (verse texts) would overflow a 2x2 grid; full-width rows wrap far less.
+    box.classList.remove("is-stacked");
+    if (box.scrollHeight > box.clientHeight + 2) box.classList.add("is-stacked");
   }
 
   function renderPress(step) {
@@ -799,7 +806,8 @@
   function renderActions(actions, step) {
     var bar = $("actions");
     clear(bar);
-    if (!actions.length || (step && (step.kind === "endingTitle" || step.kind === "last"))) {
+    // While a choice is open the gray buttons step aside so the options have the room.
+    if (!actions.length || (step && (step.kind === "endingTitle" || step.kind === "last" || step.kind === "choice"))) {
       bar.hidden = true;
       return;
     }
@@ -940,7 +948,17 @@
         ]),
         h("div", { class: "title-actions" }, actions),
         h("div", { class: "title-foot" }, [
-          h("a", { class: "teacher-link", href: teacherHref, "data-testid": "teacher-link" }, u("teacherLink").ko + " · " + u("teacherLink").en),
+          h(
+            "a",
+            {
+              class: "teacher-link",
+              href: teacherHref,
+              "data-testid": "teacher-link",
+              target: /^https?:/.test(teacherHref) ? "_blank" : null,
+              rel: /^https?:/.test(teacherHref) ? "noopener" : null
+            },
+            u("teacherLink").ko + " · " + u("teacherLink").en
+          ),
           // The English notice already carries the Korean credit, so "both" shows it alone.
           meta.bibleNotice ? h("p", { class: "fineprint", lang: S.lang === "ko" ? "ko" : "en" }, pick(meta.bibleNotice, S.lang === "ko" ? "ko" : "en")) : null
         ])
@@ -957,7 +975,7 @@
       var r = (meta.routes && meta.routes[id]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var ready = !!(BHS.routes && BHS.routes[id]);
-      var plateKids = langs().length === 1 ? [pick(r.name, langs()[0])] : [pick(r.name, "ko"), h("span", { class: "plate__en", lang: "en" }, " · " + pick(r.name, "en"))];
+      var plateKids = langs().length === 1 ? [pick(r.name, langs()[0])] : [pick(r.name, "ko"), h("span", { class: "plate__en plate__en--stack", lang: "en" }, pick(r.name, "en"))];
       var plate = h("span", { class: "plate", style: c.color ? "--plate:" + c.color : null }, plateKids);
       return h(
         "button",
@@ -1063,9 +1081,10 @@
     page("final-page", [
       h("div", { class: "final-top" }, [h("p", { class: "final-kicker" }, flat(u("finalHeading"))), verse]),
       h("ol", { class: "blanks" }, items),
-      h("div", { class: "final-mid" }, [fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null, fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null]),
+      fin.othersHint ? h("p", { class: "final-hint" }, bi(fin.othersHint)) : null,
+      fin.question ? h("p", { class: "final-q" }, bi(fin.question)) : null,
       closing,
-      btn("btn--primary", u("finalNext"), "final-next", o.onNext)
+      btn("btn--primary final-next", u("finalNext"), "final-next", o.onNext)
     ]);
   }
 
@@ -1099,7 +1118,7 @@
           append(cell, bi(title));
           if (o.current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
         } else {
-          cell.appendChild(doc.createTextNode(flat(u("galleryLocked"))));
+          append(cell, bi(u("galleryLocked")));
         }
         grid.appendChild(cell);
       });
@@ -1212,7 +1231,7 @@
     if (gear) gear.setAttribute("aria-expanded", "false");
   }
 
-  function confirmDialog(o) {
+  function askDialog(o) {
     var m = $("modal");
     clear(m);
     var titleId = "dlg-title";
@@ -1316,7 +1335,7 @@
     openSettings: openSettings,
     closeSettings: closeSettings,
     renderSettings: renderSettings,
-    confirm: confirmDialog,
+    ask: askDialog,
     closeModal: closeModal,
     isModalOpen: isModalOpen,
     showReply: showReply,
