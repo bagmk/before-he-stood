@@ -363,7 +363,7 @@
       stage: {
         bg: null,
         caption: null,
-        time: null,
+        time: "day",
         pov: "normal",
         light: "off",
         pinned: null,
@@ -548,7 +548,7 @@
         // A scene never touches the light level, and changes pov only when it sets one.
         st.stage.bg = beat.bg || null;
         st.stage.caption = beat.caption || null;
-        st.stage.time = TIMES[beat.time] ? beat.time : null;
+        st.stage.time = TIMES[beat.time] ? beat.time : "day";
         if (beat.pov && POVS[beat.pov]) st.stage.pov = beat.pov;
         st.stage.sceneSeq++;
         return false;
