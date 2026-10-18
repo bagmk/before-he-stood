@@ -55,7 +55,7 @@ dist/                 파일 하나로 된 게임
 - 보기에는 세 종류가 있어요: 그냥 이어지는 보기, `bad: "아이디"`(이야기가 잘리는 가지), `scold: { ... }`(꾸중 듣고 사라지는 보기).
 - 성경 구절은 문장에 직접 쓰지 않고 `{{v:KEY}}` 토큰이나 구절 장면으로 불러와요. 본문은 `data/scripture.js` 한 곳에만 있어요.
 - 고친 뒤 검사: `node tools/validate.mjs`
-- 단일 파일 다시 만들기: `node tools/build-single.mjs`
+- 단일 파일 다시 만들기: `node tools/build-single.mjs` (고친 뒤 올리기 전에 꼭 실행해요. `index.html`의 캐시 번호도 같이 바뀌어서, TV 브라우저가 예전 파일을 섞어 쓰지 않아요)
 - 자동 플레이 검사(선택): `node tools/playtest.mjs` (Playwright 필요)
 
 ## 출처

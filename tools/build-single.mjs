@@ -6,6 +6,7 @@
 // Google Fonts stay as an optional, non-blocking stylesheet link; everything else is inlined.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,38 @@ function safeScript(js) {
 function safeStyle(css) {
   return css.replace(/<\/(style)/gi, "<\\/$1");
 }
+
+// Local asset URLs carry a query without meaning for the file system ("js/ui.js?v=…").
+const stripQuery = (u) => u.replace(/[?#].*$/, "");
+
+// Cache-busting for the folder/GitHub Pages version: every local script and stylesheet URL in
+// index.html gets "?v=<hash of all local assets>". A browser that cached the previous release (GitHub
+// Pages serves files with a 10-minute max-age) then never mixes old and new scripts after an update.
+// Idempotent; the hash changes only when an asset changes.
+function stampIndex() {
+  const file = path.join(root, "index.html");
+  const src = fs.readFileSync(file, "utf8");
+  const urls = [];
+  src.replace(/<script\s+src="([^"]+)"><\/script>/gi, (t, u) => { if (!/^https?:/.test(u)) urls.push(stripQuery(u)); return t; });
+  src.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/gi, (t) => {
+    const u = (t.match(/href="([^"]+)"/i) || [])[1] || "";
+    if (u && !/^https?:/.test(u)) urls.push(stripQuery(u));
+    return t;
+  });
+  const hash = crypto.createHash("sha1");
+  for (const u of urls) {
+    const f = path.join(root, u);
+    if (fs.existsSync(f)) hash.update(u + "\n" + fs.readFileSync(f));
+  }
+  const v = hash.digest("hex").slice(0, 10);
+  const stamp = (u) => stripQuery(u) + "?v=" + v;
+  const out = src
+    .replace(/(<script\s+src=")([^"]+)("><\/script>)/gi, (t, a, u, b) => (/^https?:/.test(u) ? t : a + stamp(u) + b))
+    .replace(/<link\b[^>]*rel="stylesheet"[^>]*>/gi, (t) => t.replace(/href="([^"]+)"/i, (m, u) => (/^https?:/.test(u) ? m : 'href="' + stamp(u) + '"')));
+  if (out !== src) fs.writeFileSync(file, out);
+  return v;
+}
+const assetVersion = stampIndex();
 
 const html = read("index.html");
 
@@ -62,7 +95,7 @@ let css = "";
 head.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/gi, (tag) => {
   const href = (tag.match(/href="([^"]+)"/i) || [])[1] || "";
   if (/^https?:/.test(href)) return tag;
-  const file = path.join(root, href);
+  const file = path.join(root, stripQuery(href));
   if (fs.existsSync(file)) css += fs.readFileSync(file, "utf8") + "\n";
   else warnings.push("missing stylesheet " + href);
   return tag;
@@ -72,7 +105,8 @@ const metaDescription = (head.match(/<meta name="description"[^>]*>/i) || [""])[
 
 // Replace local script tags in the body with inline scripts, keeping the order of SPEC 2.
 const scriptOrder = [];
-body = body.replace(/<script\s+src="([^"]+)"><\/script>/gi, (tag, src) => {
+body = body.replace(/<script\s+src="([^"]+)"><\/script>/gi, (tag, url) => {
+  const src = /^https?:/.test(url) ? url : stripQuery(url);
   if (/^https?:/.test(src)) {
     warnings.push("external script dropped: " + src);
     return "";
@@ -162,5 +196,6 @@ for (const [file, bytes] of Object.entries(sizes)) {
   console.log(`${rel.startsWith("..") ? target : rel}  ${(bytes / 1024).toFixed(1)} KB`);
 }
 console.log("scripts inlined: " + scriptOrder.join(", "));
+console.log("index.html asset version: " + assetVersion);
 warnings.forEach((w) => console.log("WARN  " + w));
 process.exit(0);

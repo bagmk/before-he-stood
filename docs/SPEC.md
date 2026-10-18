@@ -317,6 +317,8 @@ Tablets and laptops in between should also look right.
 - `dist/before-he-stood.html` — one self-contained file (all CSS/JS/data inlined) that runs offline.
 - `dist/artifact.html` — same content as a body fragment for claude.ai artifacts: no doctype/html/head/body tags, `<title>` and `<style>` first, `<meta name="claude:viewport-fit-sides" content="cover">`, side gutters `max(16px, env(safe-area-inset-*))`, explicit body background, colors as tokens on `:root`, no external scripts, Google Fonts stylesheet allowed.
 
+The same command also stamps index.html: every local script and stylesheet URL gets `?v=<hash of all local assets>` (idempotent), so a browser that cached the previous release never mixes old and new files after an update (GitHub Pages serves files with a 10-minute max-age). Run it before every release.
+
 Both builds play exactly like index.html. The only thing they add is the marker `window.BHS.config = { build: "single" }` before the data scripts; there are no links to other pages.
 
 ### 5.8 Route cards, the snip card and the story trees
