@@ -2,6 +2,7 @@
 // Run: node tests/ui-extra.mjs [--shots]
 import path from "node:path";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -10,11 +11,17 @@ const shots = process.argv.includes("--shots");
 const shotDir = path.join(root, "qa/engine");
 fs.mkdirSync(shotDir, { recursive: true });
 
+// Playwright 1.56.1 lives outside the project (/tmp/pwqa); the browsers are preinstalled in /opt/pw-browsers.
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync("/opt/pw-browsers")) process.env.PLAYWRIGHT_BROWSERS_PATH = "/opt/pw-browsers";
 let chromium;
 try {
-  ({ chromium } = await import("playwright"));
+  ({ chromium } = createRequire(import.meta.url)("/tmp/pwqa/node_modules/playwright"));
 } catch {
-  ({ chromium } = await import("/opt/npm-tools/node_modules/playwright/index.mjs"));
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    ({ chromium } = await import("/opt/npm-tools/node_modules/playwright/index.mjs"));
+  }
 }
 
 const index = pathToFileURL(path.join(root, "index.html")).href;
@@ -45,7 +52,7 @@ const shot = async (page, name) => {
   if (shots) await page.screenshot({ path: path.join(shotDir, name + ".png") });
 };
 
-async function toStep(page, pred, max = 400) {
+async function toStep(page, pred, max = 400, picks = {}) {
   for (let i = 0; i < max; i++) {
     const s = await page.evaluate(() => {
       const g = window.BHS_DEBUG.game();
@@ -53,7 +60,7 @@ async function toStep(page, pred, max = 400) {
     });
     if (pred(s)) return s;
     const k = s.step && s.step.kind;
-    if (k === "choice") await page.click('[data-testid="choice-a"]');
+    if (k === "choice") await page.click(`[data-testid="choice-${picks[s.step.id] || "a"}"]`);
     else if (k === "press") await page.click('[data-testid="press"]');
     else await page.click('[data-testid="advance"]');
   }
@@ -158,10 +165,12 @@ try {
   {
     const { ctx, page, errors } = await open(browser, index + "?debug=1&test=1#friend");
     check(await page.isVisible("#debug pre"), "debug panel visible");
-    await page.selectOption('[data-testid="debug-select"]', "c6");
+    const ids = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="debug-select"] option')).map((o) => o.value));
+    check(ids.join(",") === "c1,c2,c3,c4", `debug jump lists the route's choices (${ids.join(",")})`);
+    await page.selectOption('[data-testid="debug-select"]', "c3");
     await page.click('[data-testid="debug-jump"]');
     const st = await state(page);
-    check(st.step === "choice" && st.stepId === "c6" && Object.keys(st.choices).length === 5, `debug jump lands on c6 (${st.stepId} ${JSON.stringify(st.choices)})`);
+    check(st.step === "choice" && st.stepId === "c3" && Object.keys(st.choices).length === 2 && !st.cut, `debug jump lands on c3 (${st.stepId} ${JSON.stringify(st.choices)})`);
     await shot(page, "tv-debug");
     await page.click('[data-testid="debug-autoplay"]');
     check((await state(page)).screen === "gallery", "debug auto-play reaches the gallery");
@@ -205,6 +214,43 @@ try {
     const { ctx, page, errors } = await open(browser, fixture + "?test=1#" + rid);
     await toStep(page, (s) => s.st.screen === "gallery", 600);
     check(errors.length === 0, `fixture ${rid}: console errors ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+
+  // 8b. A cut ending (scribe): the card names the cut, a reload during the cut ending resumes there,
+  //     the gallery marks the cut cell; then an Asher ending unlocks Asher's note in the cut column.
+  {
+    const { ctx, page, errors } = await open(browser, index + "?test=1#scribe");
+    const cut = await page.evaluate(() => {
+      for (const b of window.BHS.routes.scribe.beats) {
+        if (b.type !== "choice") continue;
+        const o = b.options.find((x) => x.cut === true);
+        if (o) return { [b.id]: o.id };
+      }
+      return {};
+    });
+    const card = await toStep(page, (x) => x.st.screen === "endingCard", 300, cut);
+    check(card.step && card.step.cut === true && card.st.cut === true && card.st.ending === "scribe-cut", `cut: the ending card is the cut card (${card.st.ending})`);
+    check((await page.getAttribute('[data-testid="ending-title"]', "data-cut")) === "true", "cut: card marked data-cut");
+    const title = await page.textContent('[data-testid="ending-title"]');
+    const meta = await page.evaluate(() => ({ label: window.BHS.meta.cut.label.ko, title: window.BHS.meta.endings.scribe.cut.ko }));
+    check(title.includes(meta.label) && title.includes(meta.title), `cut: the card shows "${meta.label}" and "${meta.title}"`);
+    check((await page.locator('[data-testid="thought-bubble"]').count()) === 0, "cut: no pinned thought on the card");
+    const s = await toStep(page, (x) => x.st.screen === "ending" && x.step && x.step.kind === "line", 50, cut);
+    await page.goto(index + "?test=1");
+    await page.waitForSelector('[data-testid="continue"]');
+    await page.click('[data-testid="continue"]');
+    const back = await state(page);
+    check(back.screen === "ending" && back.list === s.st.list && back.beatIndex === s.st.beatIndex && back.ending === "scribe-cut", `cut: continue restores the cut ending (${back.screen} ${back.list}#${back.beatIndex})`);
+    await toStep(page, (x) => x.st.screen === "gallery", 100, cut);
+    check((await page.getAttribute('[data-testid="gallery-cell-scribe-cut"]', "data-current")) === "true", "cut: the gallery highlights scribe-cut");
+    check((await page.getAttribute('[data-testid="gallery-cell-asher-cut"]', "data-state")) === "locked", "cut: Asher's note is locked before an Asher ending");
+    await page.goto(index + "?test=1#asher");
+    await toStep(page, (x) => x.st.screen === "gallery", 400);
+    check((await page.getAttribute('[data-testid="gallery-cell-asher-cut"]', "data-state")) === "note", "Asher's note shows after an Asher ending");
+    check((await page.getAttribute('[data-testid="gallery-cell-scribe-cut"]', "data-seen")) === "true", "the scribe cut stays seen");
+    await shot(page, "tv-gallery-v3");
+    check(errors.length === 0, "cut: console errors " + errors.join(" | "));
     await ctx.close();
   }
 

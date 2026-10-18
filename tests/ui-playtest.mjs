@@ -1,9 +1,10 @@
 // tests/ui-playtest.mjs - browser playtest of index.html with Playwright (Chromium).
 // Run: node tests/ui-playtest.mjs [--shots] [--sizes=phone,tv,hd] [--url=<file or http url>]
-// Plays every route end to end, one route keyboard-only, checks console errors and the QA hooks,
-// and with --shots saves screenshots to qa/engine/.
+// Plays every route end to end (scribe on a full path, friend on its cut path, asher), one route
+// keyboard-only, checks console errors and the QA hooks, and with --shots saves screenshots to qa/engine/.
 import path from "node:path";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -15,11 +16,17 @@ const args = Object.fromEntries(
   })
 );
 
+// Playwright 1.56.1 lives outside the project (/tmp/pwqa); the browsers are preinstalled in /opt/pw-browsers.
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync("/opt/pw-browsers")) process.env.PLAYWRIGHT_BROWSERS_PATH = "/opt/pw-browsers";
 let chromium;
 try {
-  ({ chromium } = await import("playwright"));
+  ({ chromium } = createRequire(import.meta.url)("/tmp/pwqa/node_modules/playwright"));
 } catch {
-  ({ chromium } = await import("/opt/npm-tools/node_modules/playwright/index.mjs"));
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    ({ chromium } = await import("/opt/npm-tools/node_modules/playwright/index.mjs"));
+  }
 }
 
 const SIZES = {
@@ -190,6 +197,8 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
   check(s.screen === "gallery", `${tag}: the ending should lead straight to the gallery, got ${s.screen}`);
   const ending = (s.st && s.st.ending) || "";
   check(ending.indexOf(routeId + "-") === 0, `${tag}: debug state names the ending (${ending})`);
+  if (opts.expectEnding) check(ending === routeId + "-" + opts.expectEnding, `${tag}: ending ${ending}, expected ${routeId}-${opts.expectEnding}`);
+  check((await page.locator('[data-testid^="gallery-cell-"]').count()) === 12, `${tag}: the gallery has 3 x 4 cells`);
   if (ending) {
     const cell = page.locator(`[data-testid="gallery-cell-${ending}"]`);
     check((await cell.getAttribute("data-seen")) === "true", `${tag}: gallery cell ${ending} marked seen`);
@@ -199,6 +208,7 @@ async function fullRoute(browser, sizeName, routeId, picker, opts = {}) {
   check(offers === 2, `${tag}: the gallery offers another character and the title screen`);
   await noHorizontalScroll(page, `${tag} gallery`);
   if (opts.galleryShot) await shot(page, `${sizeName}-gallery`);
+  if (opts.galleryChecks) await opts.galleryChecks(page, tag);
   if (sizeName !== "phone" && minStory < 1e9) {
     check(minStory >= vh * 0.036 - 0.5, `${tag}: story text ${minStory}px < 3.6vh`);
   }
@@ -283,7 +293,7 @@ async function keyboardOnly(browser, sizeName, routeId) {
   await page.keyboard.press("Enter");
   s = await snapshot(page);
   check(s.screen === "play" && s.st.routeId === routeId, `${tag}: Enter on a route card starts it`);
-  const pickKeys = ["1", "b", "3", "D", "2", "a", "4", "c", "1", "B"];
+  const pickKeys = ["1", "b", "3", "D"];
   let picks = 0;
   let escChecked = false;
   for (let i = 0; i < 1500 && s.screen !== "gallery"; i++) {
@@ -325,10 +335,29 @@ async function keyboardOnly(browser, sizeName, routeId) {
   }
   check(s.screen === "gallery", `${tag}: keyboard reaches the gallery (${s.screen})`);
   check(escChecked, `${tag}: an ending screen was shown`);
-  check(picks === 10, `${tag}: made ${picks} picks by keyboard`);
+  check(picks === 4, `${tag}: made ${picks} picks by keyboard`);
   check(errors.length === 0, `${tag}: console errors: ${errors.join(" | ")}`);
   notes.push(`${tag}: ended ${s.st.ending}`);
   await ctx.close();
+}
+
+// The friend route's cut option as a pick map ({ c2: "d" } on the current route), read from the page.
+async function cutPicks(routeId) {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(baseUrl + (baseUrl.includes("?") ? "&" : "?") + "test=1");
+  await page.waitForFunction(() => window.BHS && window.BHS.routes);
+  const map = await page.evaluate((rid) => {
+    const out = {};
+    (window.BHS.routes[rid].beats || []).forEach((b) => {
+      if (b.type !== "choice") return;
+      const o = (b.options || []).find((x) => x.cut === true);
+      if (o) out[b.id] = o.id;
+    });
+    return out;
+  }, routeId);
+  await ctx.close();
+  return map;
 }
 
 const browser = await chromium.launch();
@@ -336,7 +365,12 @@ try {
   for (const size of sizes) {
     await titleAndPrologue(browser, size);
     const isPhone = size === "phone";
-    await fullRoute(browser, size, "scribe", (st) => (st.id === "c1" ? "a" : "abcd"[(Number(st.id.slice(1)) + 1) % 4]), {
+    // scribe: a full path through the pinned thought (c2 b); friend: its cut option; asher: no cut.
+    const SCRIBE = { c1: "a", c2: "b", c3: "c", c4: "d" };
+    const ASHER = { c1: "d", c2: "c", c3: "b", c4: "a" };
+    const friendCut = await cutPicks("friend");
+    await fullRoute(browser, size, "scribe", (st) => SCRIBE[st.id], {
+      expectEnding: null,
       galleryShot: true,
       shots: {
         "choice": (s) => s.step && s.step.kind === "choice" && s.step.id === "c1",
@@ -347,14 +381,24 @@ try {
         "last-line": (s) => s.step && s.step.kind === "last"
       }
     });
-    await fullRoute(browser, size, "friend", (st) => "bcda"[Number(st.id.slice(1)) % 4], {
+    await fullRoute(browser, size, "friend", (st) => friendCut[st.id] || "a", {
+      expectEnding: "cut",
+      galleryChecks: async (page, tag) => {
+        const cell = await page.getAttribute('[data-testid="gallery-cell-friend-cut"]', "data-current");
+        check(cell === "true", `${tag}: the cut cell is highlighted after the cut ending`);
+        check((await page.getAttribute('[data-testid="gallery-cell-asher-cut"]', "data-state")) === "locked", `${tag}: Asher's note stays locked before an Asher ending`);
+      },
       shots: {
+        "cut-card": (s) => s.screen === "endingCard",
         "portrait": (s) => s.step && s.step.kind === "line" && s.stage && s.stage.speaking && s.stage.cast && s.stage.cast.length >= 1,
         "portrait-two": (s) => s.step && s.step.kind === "line" && s.stage && s.stage.speaking && s.stage.cast && s.stage.cast.length > 1,
         "sign": (s) => s.step && s.step.kind === "line" && s.step.speaker === "sign" && s.st.routeId === "friend"
       }
     });
-    await fullRoute(browser, size, "asher", (st) => "dcba"[Number(st.id.slice(1)) % 4], {
+    await fullRoute(browser, size, "asher", (st) => ASHER[st.id], {
+      galleryChecks: async (page, tag) => {
+        check((await page.getAttribute('[data-testid="gallery-cell-asher-cut"]', "data-state")) === "note", `${tag}: Asher's cut cell shows his note after an Asher ending`);
+      },
       shots: {
         "asher-actions": (s) => s.step && s.step.kind === "line" && s.stage && s.stage.actionsVisible && s.stage.pov === "lying",
         "asher-press": (s) => s.step && s.step.kind === "press" && s.step.action === "getup",

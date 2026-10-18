@@ -46,9 +46,12 @@ const LENSES = [1, 2, 3];
 // Cut endings (SPEC 4.5): these routes have exactly one cut option, in one of CUT_CHOICES; the others none.
 export const CUT_ROUTES = ['scribe', 'friend'];
 const CUT_CHOICES = ['c2', 'c3'];
-// Budgets (SPEC 3.3 / 8): screens per path, ending shares over the 256 paths.
-const SCREENS = { max: 32, warn: 30, target: [24, 30] };
-const SHARE = { cutMax: 0.25, warn: [0.20, 0.45], error: [0.15, 0.55] };
+// Budgets (SPEC 3.3 / 8). Screens: ERROR above 32 on any path; WARN when a path exceeds 31 (31 is
+// expected on a path that shows the mismatch line) or when the median non-cut path exceeds 30.
+// Ending shares over the 256 paths: cut <= 25%; each lens 20-50% of the non-cut paths (WARN outside),
+// 15-55% (ERROR outside).
+const SCREENS = { max: 32, warn: 31, medianMax: 30, target: [24, 30] };
+const SHARE = { cutMax: 0.25, warn: [0.20, 0.50], error: [0.15, 0.55] };
 // Ending lengths in screens (SPEC 4.5): lens endings 1-3 beats, cut endings 2-4 beats, each plus the last line.
 const ENDING_BEATS = { lens: [1, 3], cut: [2, 4] };
 const BEAT_TYPES = ['scene', 'line', 'verse', 'choice', 'fx', 'press'];
@@ -1782,7 +1785,7 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
     for (const l of LENSES) {
       const sh = share(l);
       if (sh < SHARE.error[0] || sh > SHARE.error[1]) rep.error('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (allowed 15-55%; SPEC 8: 20-50%)`);
-      else if (sh < SHARE.warn[0] || sh > SHARE.warn[1]) rep.warn('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (target 20-45%; SPEC 8: 20-50%)`);
+      else if (sh < SHARE.warn[0] - 1e-9 || sh > SHARE.warn[1] + 1e-9) rep.warn('dist', rid, `ending ${l} is ${pct(sh)} of the ${nonCut} non-cut paths (SPEC 8: 20-50%)`);
     }
     distLines.push(`${pad(rid, 7)} non-cut ${padL(nonCut, 3)}/${dist.total}: ① ${padL(pct(share(1)), 6)}  ② ${padL(pct(share(2)), 6)}  ③ ${padL(pct(share(3)), 6)}   ` +
       `cut ${padL(pct(cutShare), 6)}   mismatch ${padL(pct(nonCut ? dist.mismatch / nonCut : 0), 6)}   tie-break ${padL(pct(nonCut ? dist.ties / nonCut : 0), 6)}`);
@@ -1900,7 +1903,7 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
       if (!(has('MT_9_2B') || (has('MT_9_2B1') && has('MT_9_2B2')))) probs.push('first words (MT_9_2B or MT_9_2B1+2B2) not shown');
       if (!(has('MT_9_4') || (has('MT_9_4N') && has('MT_9_4Q')))) probs.push('9:4 (MT_9_4N + MT_9_4Q) not shown');
       for (const k of ['MT_9_5', 'MT_9_6A', 'MT_9_6N', 'MT_9_6B', 'MT_9_7', 'MT_9_8']) if (!has(k)) probs.push(`${k} not shown`);
-      if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown (WARN only)');
+      if (!has('MT_9_1')) probs.push('MT_9_1 (boat) not shown; optional in the short routes (INFO only)');
       if (rid === 'scribe' && !has('MT_9_3Q') && !has('MT_9_3')) probs.push('MT_9_3Q (scribes\' thought) not shown in the scribe route (WARN only)');
     }
     for (const pr of probs) {
@@ -1915,9 +1918,9 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
   const nPaths = res.length;
   const nonCutPaths = res.filter((r) => !r.cut).length;
   for (const [pr, labels] of orderProblems) {
-    const level = /WARN only/.test(pr) ? 'WARN' : 'ERROR';
+    const level = /INFO only/.test(pr) ? 'INFO' : /WARN only/.test(pr) ? 'WARN' : 'ERROR';
     const scope = /not shown/.test(pr) ? `${labels.length}/${nonCutPaths} non-cut paths` : `${labels.length}/${nPaths} paths`;
-    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(' (WARN only)', '')} on ${scope} (e.g. ${labels[0]})`);
+    rep.add(level, 'canon', rid, `crowd sequence (SPEC 6.4): ${pr.replace(/ \((WARN|INFO) only\)/, '')} on ${scope} (e.g. ${labels[0]})`);
   }
   for (const [k, n] of lightProblems) rep.warn('fx', rid, `${k} is shown without fx light "bright" on ${n}/${nPaths} paths (SPEC 4.5)`);
   if (rid !== 'scribe' && passerbyMissing.length) {
@@ -1930,7 +1933,8 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
   }
   if (overWarn.length) {
     const worst = overWarn.reduce((x, y) => (y.n > x.n ? y : x));
-    rep.warn('screens', rid, `${overWarn.length}/${nPaths} paths have ${SCREENS.warn + 1}-${SCREENS.max} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]}); worst ${worst.n} on ${worst.label}`);
+    const band = SCREENS.warn + 1 === SCREENS.max ? `${SCREENS.max}` : `${SCREENS.warn + 1}-${SCREENS.max}`;
+    rep.warn('screens', rid, `${overWarn.length}/${nPaths} paths have ${band} screens (SPEC 3.3: up to ${SCREENS.warn} expected, ${SCREENS.max} at most); worst ${worst.n} on ${worst.label}`);
   }
   // Ending lengths (SPEC 4.5): lens endings 1-3 beats, endings.cut 2-4 beats (plus the last line).
   for (const [k, el] of Object.entries(endingLen)) {
@@ -1971,8 +1975,10 @@ function routeStats(rep, data, rid, rcx, canon, engine) {
       timeLines.push(`${pad(rid, 7)} ${pad(`cut ${cutRes.length}`, 13)} screens min/median/max ${stat(cutRes, (r) => r.st.screens, 0)}   aloud ko ${stat(cutRes, (r) => r.mins.koAloud)} min   en ${stat(cutRes, (r) => r.mins.enAloud)} min`);
     }
     const medScreens = nc.length ? median(nc.map((r) => r.st.screens)) : 0;
-    if (nc.length && (medScreens < SCREENS.target[0] || medScreens > SCREENS.target[1])) {
-      rep.info('screens', rid, `median screens on non-cut paths is ${medScreens} (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
+    if (nc.length && medScreens > SCREENS.medianMax) {
+      rep.warn('screens', rid, `the typical (median) non-cut path has ${medScreens} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
+    } else if (nc.length && medScreens < SCREENS.target[0]) {
+      rep.info('screens', rid, `the typical (median) non-cut path has ${medScreens} screens (SPEC 3.3 target ${SCREENS.target[0]}-${SCREENS.target[1]})`);
     }
     summary = {
       medianScreens: medScreens,
@@ -2542,22 +2548,30 @@ function selfTest() {
     return run(d).has('ERROR', 'cut', /must have lens null/) && run(d2).has('ERROR', 'cut', /boolean true/);
   });
   t('missing endings.cut -> ERROR cut', () => { const d = clone(base); delete d.routes.friend.endings.cut; return run(d).has('ERROR', 'cut', /endings\.cut = \{ beats, last \}/); });
-  t('screens: 33 on some path -> ERROR, 31 -> WARN, 30 -> nothing', () => {
+  t('screens: 33 on a path -> ERROR, 32 -> WARN, 31 -> no path warning, median over 30 -> WARN', () => {
     const at = (extra) => { const d = clone(base); pad(d, 'asher', extra); return d; };
     const m0 = maxScreens(base, 'asher');
     const dE = at(33 - m0);
-    const dW = at(31 - m0);
-    const dOk = at(30 - m0);
+    const dW = at(32 - m0);
+    const d31 = at(31 - m0);
+    const d30 = at(30 - m0);
+    const med = (d) => median(Array.from({ length: PATH_COUNT }, (_, k) => {
+      const picks = [0, 1, 2, 3].map((i) => (k >> (2 * i)) & 3);
+      return readingStats(simulate(d.routes.asher, d, picksToChoices(picks)).out, d).screens;
+    }));
+    const r31 = run(d31, 'asher');
+    const medianOk = med(d31) > 30 ? r31.has('WARN', 'screens', /typical \(median\)/) : !r31.has('WARN', 'screens', /typical/);
     return maxScreens(dE, 'asher') === 33 && run(dE, 'asher').has('ERROR', 'screens', /exceed 32 screens/) &&
-      run(dW, 'asher').has('WARN', 'screens', /31-32 screens/) && !run(dW, 'asher').has('ERROR', 'screens') &&
-      !run(dOk, 'asher').has(null, 'screens', /exceed|31-32/);
+      run(dW, 'asher').has('WARN', 'screens', /paths have 32 screens/) && !run(dW, 'asher').has('ERROR', 'screens') &&
+      !r31.has(null, 'screens', /exceed|have 32/) && medianOk &&
+      !run(d30, 'asher').has('WARN', 'screens');
   });
   t('ending lengths: 4 beats in a lens ending or 1 in endings.cut -> WARN ending', () => {
     const d = clone(base);
     d.routes.scribe.endings['1'].beats.push({ type: 'line', text: T('가 1', 'One.') }, { type: 'line', text: T('가 2', 'Two.') }, { type: 'line', text: T('가 3', 'Three.') });
     d.routes.friend.endings.cut.beats.pop();
     const rep = run(d);
-    return rep.has('WARN', 'ending', /endings\.1.*shows 4 beat/) && rep.has('WARN', 'ending', /endings\.cut.*shows 1 beat/);
+    return rep.has('WARN', 'ending', /shows 4 beat.*scribe › endings\.1/) && rep.has('WARN', 'ending', /shows 1 beat.*friend › endings\.cut/);
   });
   t('skewed lenses -> ERROR dist', () => {
     const d = clone(base);
@@ -2698,8 +2712,9 @@ function selfTest() {
   });
   t('reference scoring: c4 counts double; ties go to the last lens; lastChoiceOf is the highest cN', () => {
     const r = base.routes.asher;
-    const a = computeLensFor(r, { c1: 'b', c2: 'b', c3: 'c', c4: 'a' });
-    const b = computeLensFor(r, { c1: 'a', c2: 'b', c3: 'c', c4: 'b' });
+    // asher fixture lenses: c1 [1,2,3,1], c2 [1,2,3,3], c3 [1,2,3,2], c4 [1,2,3,1]
+    const a = computeLensFor(r, { c1: 'b', c2: 'b', c3: 'b', c4: 'a' }); // {1:2, 2:3} -> 2, last 1: mismatch
+    const b = computeLensFor(r, { c1: 'a', c2: 'a', c3: 'c', c4: 'b' }); // {1:2, 2:2, 3:1} tie -> last lens 2
     const shuffled = { id: 'x', beats: clone(r.beats).filter((x) => x.type === 'choice').reverse() };
     return a.lens === 2 && a.mismatch && a.lastLens === 1 && b.lens === 2 && !b.mismatch && lastChoiceOf(shuffled) === 'c4';
   });

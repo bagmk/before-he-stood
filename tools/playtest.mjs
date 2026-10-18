@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /*
- * tools/playtest.mjs - end-to-end browser playtest for "Before He Stood".
- * Owner: QA agent. Node 22+, Playwright (npm package installed outside the project) + preinstalled Chromium.
+ * tools/playtest.mjs - end-to-end browser playtest for "Before He Stood" (SPEC version 3: short routes).
+ * Owner: engine + tools agent. Node 22+, Playwright (npm package installed outside the project) + preinstalled Chromium.
  *
  * Usage:
- *   node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,far]
+ *   node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,cut]
  *                           [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick]
  *                           [--root DIR] [--headed] [--no-dist] [--no-shots]
  *                           [--step-timeout MS] [--run-timeout S] [--budget-min N]
@@ -14,21 +14,26 @@
  * The module is looked up in $PLAYWRIGHT_MODULE, /tmp/pwqa/node_modules, ./node_modules and the global
  * npm root. PLAYWRIGHT_BROWSERS_PATH defaults to /opt/pw-browsers when that folder exists.
  *
+ * Strategies: a, b, c, d = the same option at every choice; r1, r2, r3 = seeded random picks; cut = the
+ * route's cut option (scribe, friend; option a elsewhere). A strategy that picks a cut option plays the
+ * cut ending (strategy d on the current routes, whose cut options are c2/d).
  * Run matrix (per route):
- *   phone  390x844, isMobile, touch, DPR 2: strategies a, d, b (reduced motion), r1, r2 (+ far on friend)
- *   tv1080 1920x1080, DPR 1, mouse: strategy a (TV screenshots qa/playtest/tv-*.png)
+ *   phone  390x844, isMobile, touch, DPR 2: strategies a, d, b (reduced motion), r1, r2, cut
+ *   tv1080 1920x1080, DPR 1, mouse: strategies a and cut (TV screenshots qa/playtest/tv-*.png)
  *   tv1080 keyboard only (Space/Enter/ArrowRight/PageDown/ArrowDown advance, 1-4 pick, Tab+Enter for
  *          page buttons, no mouse): strategy r3
  *   tv720  1280x720, DPR 1, mouse: strategy c, language ko (scribe) / en (friend) / both (asher)
  * Every run starts at the title, goes through the prologue, route select, every beat, the ending card
- * and the ending, and lands on the gallery (the ending marked seen and highlighted). Checks on every
- * screen: console/page errors, failed local requests, unresolved text, horizontal overflow, tap targets
- * >= 44 px. The shown text screens must match the SPEC reference sequence (tools/validate.mjs simulate)
- * one by one, and the ending lens must match SPEC 5.1. TV runs also check SPEC 5.6: story text >= 36 px
- * and options >= 30 px at 1080p (>= 24 / 20 px at 720p), nothing outside the viewport, and the text panel
- * below the top 60%. The first phone run also leaves and resumes on an ending screen, and keyboard runs
- * open and close the Esc menu there. Also plays one route from dist/before-he-stood.html via file://
- * when present.
+ * and the ending, and lands on the gallery (3 rows x 4 columns: lenses 1-3 + cut; the ending just seen
+ * marked and highlighted; Asher's cut cell shows its note after an Asher run, and stays locked otherwise).
+ * Checks on every screen: console/page errors, failed local requests, unresolved text, horizontal overflow,
+ * tap targets >= 44 px. The shown text screens must match the SPEC reference sequence (tools/validate.mjs
+ * simulate) one by one, and the ending (lens or cut) must match SPEC 5.1. TV runs also check SPEC 5.6:
+ * story text >= 36 px and options >= 30 px at 1080p (>= 24 / 20 px at 720p), nothing outside the viewport,
+ * and the text panel below the top 60%. Phone runs a and cut also leave and resume (mid-route, and on an
+ * ending screen; for cut, in the cut reaction and the cut ending), and keyboard runs open and close the
+ * Esc menu there. The title checks also seed a release 1.0 save and a stale save and expect both to be
+ * dropped without a "Continue". Also plays one route from dist/before-he-stood.html via file:// when present.
  *
  * Output: qa/reports/playtest.txt and screenshots in qa/playtest/.
  * Exit code: 0 = all checks passed, 1 = failures, 2 = skipped (index.html or Playwright missing).
@@ -41,7 +46,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startServer } from './serve.mjs';
 import {
-  loadProject, computeLensFor, simulate, renderText, Report, mulberry32, CHOICE_IDS, OPTION_IDS, ROUTE_IDS, isObj
+  loadProject, computeLensFor, simulate, renderText, Report, mulberry32, CHOICE_IDS, OPTION_IDS, ROUTE_IDS, isObj, isCutOption
 } from './validate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -55,6 +60,7 @@ const PROFILES = {
   tv720: { id: 'tv720', viewport: { width: 1280, height: 720 }, mobile: false, scale: 1, tv: { story: 24, option: 20 } }
 };
 const ADVANCE_KEYS = ['Space', 'Enter', 'ArrowRight', 'PageDown', 'ArrowDown'];
+const CHOICE_IDS_JS = CHOICE_IDS.join(',');
 const REQUIRED_KEYS = ['Space', 'Enter', 'ArrowRight'];
 
 // ---------------------------------------------------------------------------------------------
@@ -62,7 +68,7 @@ const REQUIRED_KEYS = ['Space', 'Enter', 'ArrowRight'];
 
 function parseArgs(argv) {
   const a = {
-    root: DEFAULT_ROOT, routes: null, strategies: ['a', 'd', 'b', 'r1', 'r2', 'far'], profiles: ['phone', 'tv1080', 'tv720'],
+    root: DEFAULT_ROOT, routes: null, strategies: ['a', 'd', 'b', 'r1', 'r2', 'cut'], profiles: ['phone', 'tv1080', 'tv720'],
     keyboard: true, quick: false, headed: false, dist: true, shots: true,
     stepTimeout: 5000, runTimeout: 150, budgetMin: 9.5
   };
@@ -113,39 +119,58 @@ function hashStr(s) {
   return h >>> 0;
 }
 
-function makeStrategy(rid, n) {
+// The route's cut option as { choice, option }, or null (Asher has none by design).
+function cutOptionOf(route) {
+  for (const b of (route && Array.isArray(route.beats) ? route.beats : [])) {
+    if (!isObj(b) || b.type !== 'choice' || !Array.isArray(b.options)) continue;
+    const o = b.options.find((x) => isCutOption(x));
+    if (o) return { choice: b.id, option: o.id };
+  }
+  return null;
+}
+
+function makeStrategy(rid, n, route) {
   const picks = {};
   if (/^[abcd]$/.test(n)) CHOICE_IDS.forEach((c) => { picks[c] = n; });
   else if (/^r\d+$/.test(n)) {
     const rng = mulberry32(hashStr(rid + ':' + n));
     CHOICE_IDS.forEach((c) => { picks[c] = OPTION_IDS[Math.floor(rng() * 4)]; });
-  } else if (n === 'far') {
-    if (rid !== 'friend') return null;
-    CHOICE_IDS.forEach((c) => { picks[c] = 'c'; });
-    picks.c6 = 'd';
+  } else if (n === 'cut') {
+    const cut = cutOptionOf(route);
+    if (!cut) return null;
+    CHOICE_IDS.forEach((c) => { picks[c] = 'a'; });
+    picks[cut.choice] = cut.option;
   } else return null;
   return { name: n, picks, reduced: n === 'b' };
 }
 
-function buildPlan(routes, args) {
+function buildPlan(routes, args, data) {
   const plan = [];
   const phoneStrats = args.quick ? ['a'] : args.strategies;
   for (const rid of routes) {
+    const route = data && data.routes ? data.routes[rid] : null;
     if (args.profiles.includes('phone')) {
       phoneStrats.forEach((n, i) => {
-        const st = makeStrategy(rid, n);
+        const st = makeStrategy(rid, n, route);
         if (st) plan.push({ rid, st, profile: 'phone', input: 'touch', lang: 'both', shots: i === 0 });
       });
     }
     if (args.profiles.includes('tv1080')) {
-      if (!args.quick) plan.push({ rid, st: makeStrategy(rid, 'a'), profile: 'tv1080', input: 'mouse', lang: 'both', shots: true });
-      if (args.keyboard) plan.push({ rid, st: makeStrategy(rid, 'r3'), profile: 'tv1080', input: 'keyboard', lang: 'both', shots: false });
+      if (!args.quick) plan.push({ rid, st: makeStrategy(rid, 'a', route), profile: 'tv1080', input: 'mouse', lang: 'both', shots: true });
+      const cut = !args.quick && args.strategies.includes('cut') ? makeStrategy(rid, 'cut', route) : null;
+      if (cut) plan.push({ rid, st: cut, profile: 'tv1080', input: 'mouse', lang: 'both', shots: true });
+      if (args.keyboard) plan.push({ rid, st: makeStrategy(rid, 'r3', route), profile: 'tv1080', input: 'keyboard', lang: 'both', shots: false });
     }
     if (args.profiles.includes('tv720') && !args.quick) {
-      plan.push({ rid, st: makeStrategy(rid, 'c'), profile: 'tv720', input: 'mouse', lang: { scribe: 'ko', friend: 'en', asher: 'both' }[rid] || 'both', shots: false });
+      plan.push({ rid, st: makeStrategy(rid, 'c', route), profile: 'tv720', input: 'mouse', lang: { scribe: 'ko', friend: 'en', asher: 'both' }[rid] || 'both', shots: false });
     }
   }
   return plan;
+}
+
+// The choice ids a strategy is actually asked (a cut option ends the route early).
+function askedChoices(data, rid, picks) {
+  return simulate(data.routes[rid], data, picks).out.filter((it) => it.kind === 'choice').map((it) => it.beat.id);
 }
 
 // Normalized prefixes of texts that are centered by design: "sign" captions and the large ending line.
@@ -692,6 +717,8 @@ async function playRun(browser, R, cfg) {
   const meta = data.meta || {};
   const common = data.common || {};
   const extras = !fileMode && strat.name === 'a';
+  // Leave-and-resume checks also run on the forced cut path: in the cut reaction and in the cut ending.
+  const resumes = !fileMode && (strat.name === 'a' || strat.name === 'cut');
   const shotTaken = new Set();
   const takeShot = async (name, enabled) => {
     if (!enabled || !args.shots || shotTaken.has(name)) return;
@@ -701,6 +728,8 @@ async function playRun(browser, R, cfg) {
   };
   const phoneShots = p.profile === 'phone' && p.shots && !fileMode;
   const tvShots = p.profile === 'tv1080' && p.shots && !fileMode;
+  // TV cut runs keep their own screenshot names (tv-<route>-cut-card.png, tv-gallery-cut.png).
+  const tvTag = strat.name === 'cut' ? '-cut' : '';
   const firstShots = cfg.firstOfProfile;
   const actionReplies = new Set();
   if (route && Array.isArray(route.actions)) route.actions.forEach((a) => (a.replies || []).forEach((t) => { if (t) { actionReplies.add(t.ko); actionReplies.add(t.en); } }));
@@ -818,6 +847,7 @@ async function playRun(browser, R, cfg) {
             }
             if (!acted) { run.fail(`${cid}: could not pick option ${pick}`); throw new Error('stop'); }
           } else if (s.ids.includes('press')) {
+            if (s.litActions.includes('getup')) did.getupPressed = true;
             if (kbd) {
               acted = 'key';
               const okKey = await keyAdvance(page, run, prev, args, ['Space', 'Enter', 'ArrowRight']);
@@ -827,9 +857,9 @@ async function playRun(browser, R, cfg) {
             } else acted = await tap(page, 'press', run, p.input);
           } else {
             if (rid === 'asher' && route && Array.isArray(route.actions) && !kbd) {
-              await grayActionCheck(page, run, s, choiceCount, tapped, actionReplies, p.input);
+              await grayActionCheck(page, run, s, choiceCount, tapped, actionReplies, p.input, !!did.getupPressed);
             }
-            if (extras && p.profile === 'phone' && !did.resume && choiceCount >= 2 && s.textbox) {
+            if (resumes && p.profile === 'phone' && !did.resume && choiceCount >= 2 && s.textbox) {
               did.resume = true;
               if (!(await resumeCheck(page, run, s, p.input))) throw new Error('stop');
               continue;
@@ -840,15 +870,15 @@ async function playRun(browser, R, cfg) {
         }
         case 'endingCard': {
           await takeShot(`phone-${rid}-4-ending-card`, phoneShots);
-          await takeShot(`tv-${rid}-ending-card`, tvShots);
-          endingChecks(s, run, route, meta, common, strat, rid);
+          await takeShot(`tv-${rid}${tvTag}-ending-card`, tvShots);
+          endingChecks(s, run, route, meta, common, strat, rid, data);
           acted = kbd ? 'key' : await tap(page, 'advance', run, p.input);
           break;
         }
         case 'ending':
           // The Esc menu and leave/resume must also work on ending screens (the save lasts until the gallery).
           if (kbd && !did.escEnding && s.textbox) { did.escEnding = true; await escMenuCheck(page, run, args); continue; }
-          if (extras && p.profile === 'phone' && !did.resumeEnding && s.textbox) {
+          if (resumes && p.profile === 'phone' && !did.resumeEnding && s.textbox) {
             did.resumeEnding = true;
             if (!(await resumeCheck(page, run, s, p.input))) throw new Error('stop');
             continue;
@@ -856,9 +886,10 @@ async function playRun(browser, R, cfg) {
           acted = kbd ? 'key' : await tap(page, 'advance', run, p.input);
           break;
         case 'gallery': {
-          await galleryChecks(page, run, rid);
+          await galleryChecks(page, run, rid, meta);
           await takeShot('phone-gallery', phoneShots && firstShots);
           await takeShot('tv-gallery', tvShots && firstShots);
+          await takeShot(`tv-gallery${tvTag}`, tvShots && !!tvTag && rid === 'scribe');
           done = true;
           acted = 'done';
           break;
@@ -895,8 +926,10 @@ async function playRun(browser, R, cfg) {
       } else stuck = 0;
     }
     if (!done && !run.failures.length) run.fail('did not reach the gallery within the step limit');
-    if (route && JSON.stringify(route).includes('"pinThought"') && !sawThought) run.warn('the route pins a thought (fx pinThought) but data-testid="thought-bubble" never became visible', true);
-    if (route && JSON.stringify(route).includes('"readReceipt"') && !sawReceipt) run.warn('the route uses fx readReceipt but data-testid="read-receipt" never became visible', true);
+    // Only FX on the path actually played count (the scribe pins its thought in some reactions only).
+    const pathFx = new Set(route ? simulate(route, data, run.made).out.filter((it) => it.kind === 'fx').map((it) => it.beat.fx) : []);
+    if (pathFx.has('pinThought') && !sawThought) run.warn('this path pins a thought (fx pinThought) but data-testid="thought-bubble" never became visible', true);
+    if (pathFx.has('readReceipt') && pathFx.has('pinThought') && !sawReceipt) run.warn('this path uses fx readReceipt but data-testid="read-receipt" never became visible', true);
     if (done) transcriptCheck(run, data, rid, p);
     if (prof.tv) finalizeTv(run, prof);
     if (kbd) {
@@ -947,27 +980,39 @@ async function keyAdvance(page, run, prev, args, keys) {
   return false;
 }
 
-function endingChecks(s, run, route, meta, common, strat, rid) {
+function endingChecks(s, run, route, meta, common, strat, rid, data) {
   const exp = computeLensFor(route, run.made);
   run.expected = exp;
-  run.observed = s.dbg ? s.dbg.lens : null;
+  run.observed = s.dbg ? (s.dbg.cut ? 'cut' : s.dbg.lens) : null;
   run.title = s.endingTitle;
-  if (s.dbg && s.dbg.lens != null && Number(s.dbg.lens) !== exp.lens) run.fail(`ending lens from debugState is ${s.dbg.lens}, SPEC 5.1 expects ${exp.lens} (scores ${JSON.stringify(exp.scores)}, c10 lens ${exp.c10Lens})`, true);
   if (!s.dbg) run.fail('debugState() not available (expected BHS.ui.debugState() or BHS_DEBUG.state())', true);
-  const want = meta.endings && meta.endings[rid] && meta.endings[rid][exp.lens];
-  if (want) {
-    const need = run.lang === 'en' ? [want.en] : run.lang === 'ko' ? [want.ko] : [want.ko, want.en];
-    if (need.some((x) => !s.endingTitle.includes(x))) run.fail(`ending card shows "${snip(s.endingTitle, 60)}", expected the title "${need.join('" / "')}" (lens ${exp.lens})`, true);
+  else if (exp.cut) {
+    if (!s.dbg.cut || s.dbg.lens != null) run.fail(`ending from debugState is ${s.dbg.cut ? 'cut' : 'lens ' + s.dbg.lens}, SPEC 4.5 expects the cut ending (a cut option was picked)`, true);
+    if (s.dbg.ending !== rid + '-cut') run.fail(`ending id from debugState is ${s.dbg.ending}, expected ${rid}-cut`, true);
+  } else {
+    if (s.dbg.cut) run.fail('debugState reports a cut ending, but no cut option was picked', true);
+    if (s.dbg.lens != null && Number(s.dbg.lens) !== exp.lens) run.fail(`ending lens from debugState is ${s.dbg.lens}, SPEC 5.1 expects ${exp.lens} (scores ${JSON.stringify(exp.scores)}, last-choice lens ${exp.lastLens})`, true);
+  }
+  // The card shows the lens label + title, or for a cut meta.cut.label + meta.endings[route].cut.
+  const titles = (meta.endings && meta.endings[rid]) || {};
+  const want = exp.cut ? titles.cut : titles[exp.lens];
+  const label = exp.cut ? meta.cut && meta.cut.label : meta.lenses && meta.lenses[exp.lens] && meta.lenses[exp.lens].label;
+  for (const t of [want, label]) {
+    if (!t) continue;
+    const need = run.lang === 'en' ? [t.en] : run.lang === 'ko' ? [t.ko] : [t.ko, t.en];
+    if (need.some((x) => !s.endingTitle.includes(x))) run.fail(`ending card shows "${snip(s.endingTitle, 70)}", expected "${need.join('" / "')}" (${exp.cut ? 'cut' : 'lens ' + exp.lens})`, true);
   }
   const mm = common.mismatchLine;
   if (mm) {
     const needle = norm(run.lang === 'en' ? mm.en : mm.ko).slice(0, 14);
     const saw = run.texts.some((t) => norm(t).includes(needle));
-    if (exp.mismatch && !saw) run.fail('the mismatch line was not shown although the ending lens differs from the c10 lens', true);
-    if (!exp.mismatch && saw) run.fail('the mismatch line was shown although the ending lens equals the c10 lens', true);
+    if (exp.mismatch && !saw) run.fail('the mismatch line was not shown although the ending lens differs from the last choice\'s lens', true);
+    if (!exp.mismatch && saw) run.fail(`the mismatch line was shown although ${exp.cut ? 'the route was cut' : 'the ending lens equals the last choice\'s lens'}`, true);
   }
+  // Only the choices this strategy is actually asked count (a cut ends the route early).
+  const asked = askedChoices(data, rid, strat.picks);
   const madeStr = CHOICE_IDS.map((c) => run.made[c] || '-').join('');
-  const wantStr = CHOICE_IDS.map((c) => strat.picks[c]).join('');
+  const wantStr = CHOICE_IDS.map((c) => (asked.includes(c) ? strat.picks[c] : '-')).join('');
   if (madeStr !== wantStr) run.fail(`picked ${madeStr} but the strategy asked for ${wantStr} (some choices were never shown?)`, true);
   if (s.dbg && s.dbg.choices) {
     const dbgStr = CHOICE_IDS.map((c) => s.dbg.choices[c] || '-').join('');
@@ -990,22 +1035,54 @@ function transcriptCheck(run, data, rid, p) {
   else if (j < got.length) run.fail(`transcript: ${got.length - j} extra text screen(s) after the reference ended (first "${snip(run.texts[j], 40)}")`, true);
 }
 
-async function galleryChecks(page, run, rid) {
-  const lens = run.expected ? run.expected.lens : null;
-  const cells = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="gallery-cell-"]')).map((el) => [el.getAttribute('data-testid'), el.getAttribute('data-seen'), el.getAttribute('data-current')]));
-  const map = new Map(cells.map((c) => [c[0], c[1]]));
-  for (const r of ROUTE_IDS) for (const l of [1, 2, 3]) if (!map.has(`gallery-cell-${r}-${l}`)) run.fail(`gallery: data-testid="gallery-cell-${r}-${l}" missing`, true);
-  if (lens != null) {
-    const want = `gallery-cell-${rid}-${lens}`;
-    const v = map.get(want);
-    if (v !== 'true') run.fail(`gallery: ${want} has data-seen="${v}", expected "true"`, true);
+// The gallery after a run (fresh browser profile): 3 rows x 4 columns (lenses 1-3 + cut), the ending just
+// seen marked and highlighted, every other ending locked; the cut column header shows meta.cut.label;
+// Asher's cut cell shows his cutNote (a note, data-state="note") once an Asher ending was seen.
+async function galleryChecks(page, run, rid, meta) {
+  const exp = run.expected;
+  const cells = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="gallery-cell-"]')).map((el) => ({
+    id: el.getAttribute('data-testid'), seen: el.getAttribute('data-seen'), current: el.getAttribute('data-current'), state: el.getAttribute('data-state'), text: (el.innerText || '').trim()
+  })));
+  const by = new Map(cells.map((c) => [c.id, c]));
+  const cols = [1, 2, 3, 'cut'];
+  for (const r of ROUTE_IDS) for (const l of cols) if (!by.has(`gallery-cell-${r}-${l}`)) run.fail(`gallery: data-testid="gallery-cell-${r}-${l}" missing`, true);
+  if (cells.length !== ROUTE_IDS.length * cols.length) run.fail(`gallery shows ${cells.length} cells, expected ${ROUTE_IDS.length * cols.length} (3 rows x 4 columns)`, true);
+  const head = await page.evaluate(() => { const h = document.querySelector('[data-testid="gallery-col-cut"]'); return h ? (h.innerText || '').trim() : null; });
+  const lab = meta.cut && meta.cut.label;
+  if (head == null) run.fail('gallery: the cut column header (data-testid="gallery-col-cut") is missing', true);
+  else if (lab) {
+    const need = run.lang === 'en' ? [lab.en] : run.lang === 'ko' ? [lab.ko] : [lab.ko, lab.en];
+    if (need.some((x) => !head.includes(x))) run.fail(`gallery: cut column header "${snip(head, 50)}" does not show meta.cut.label "${need.join(' / ')}"`, true);
+  }
+  if (exp) {
+    const want = `gallery-cell-${rid}-${exp.cut ? 'cut' : exp.lens}`;
+    const v = by.get(want);
+    if (!v || v.seen !== 'true') run.fail(`gallery: ${want} has data-seen="${v && v.seen}", expected "true"`, true);
     // The route ends straight on the gallery, with the ending just seen highlighted.
-    const current = cells.filter((c) => c[2] === 'true').map((c) => c[0]);
+    const current = cells.filter((c) => c.current === 'true').map((c) => c.id);
     if (current.length !== 1 || current[0] !== want) run.fail(`gallery: highlighted cell is ${current.join(', ') || 'none'}, expected ${want}`, true);
+    const others = cells.filter((c) => c.seen === 'true' && c.id !== want).map((c) => c.id);
+    if (others.length) run.note(`gallery shows other seen cells in a fresh browser profile: ${others.join(', ')}`);
+    // Asher's cut cell: a note once any Asher ending was seen, locked before.
+    const note = by.get('gallery-cell-asher-cut');
+    const nt = meta.endings && meta.endings.asher && meta.endings.asher.cutNote;
+    if (note) {
+      if (rid === 'asher') {
+        if (note.state !== 'note' || note.seen === 'true') run.fail(`gallery: after an Asher ending, gallery-cell-asher-cut should be a note (data-state="note", not seen), got state=${note.state} seen=${note.seen}`, true);
+        else if (nt) {
+          const need = run.lang === 'en' ? [nt.en] : run.lang === 'ko' ? [nt.ko] : [nt.ko, nt.en];
+          if (need.some((x) => !norm(note.text).includes(norm(x)))) run.fail(`gallery: Asher's cut cell shows "${snip(note.text, 60)}", expected the cutNote "${need.join(' / ')}"`, true);
+        }
+      } else if (note.state !== 'locked') run.fail(`gallery: gallery-cell-asher-cut is "${note.state}" although no Asher ending was seen`, true);
+    }
+    // The other cut cells stay locked unless their cut ending was seen.
+    for (const r of ROUTE_IDS.filter((x) => x !== 'asher')) {
+      const c = by.get(`gallery-cell-${r}-cut`);
+      const should = r === rid && exp.cut;
+      if (c && (c.seen === 'true') !== should) run.fail(`gallery: gallery-cell-${r}-cut has data-seen="${c.seen}", expected "${should}"`, true);
+    }
   } else run.fail('gallery reached without an ending card', true);
   for (const id of ['gallery-replay', 'gallery-home']) if (!(await visible(page, id))) run.fail(`gallery: data-testid="${id}" not visible after the ending`, true);
-  const seen = cells.filter((c) => c[1] === 'true').length;
-  if (seen !== 1) run.note(`gallery shows ${seen} seen cells in a fresh browser profile`);
 }
 
 // Header language buttons: the contract names lang-ko/en/both; the header may use hdr-lang-*.
@@ -1054,14 +1131,19 @@ async function settingsCheck(page, run, input) {
   }
 }
 
-async function grayActionCheck(page, run, s, choiceCount, tapped, replies, input) {
-  // Tap Asher's gray actions at a few moments before c9; they must not advance the story.
-  const plan = [[0, 'getup'], [3, 'getup'], [3, 'goout'], [6, 'getup']];
+async function grayActionCheck(page, run, s, choiceCount, tapped, replies, input, getupPressed) {
+  // Tap Asher's gray actions at a few moments before the getup press; they must not advance the story.
+  // They must be visible from the first beat (SPEC 4.5); later the route may hide them, so later taps
+  // happen only while they are shown.
+  const plan = [[0, 'getup'], [0, 'goout'], [1, 'getup'], [2, 'getup']];
   for (const [at, id] of plan) {
     const key = at + ':' + id;
-    if (choiceCount !== at || tapped.has(key)) continue;
+    if (choiceCount !== at || tapped.has(key) || getupPressed) continue;
     tapped.add(key);
-    if (!s.ids.includes('action-' + id)) { run.fail(`gray action "${id}" not visible before c${at + 1} (SPEC 4.5: visible from the first beat)`, true); continue; }
+    if (!s.ids.includes('action-' + id)) {
+      if (at === 0) run.fail(`gray action "${id}" not visible before c1 (SPEC 4.5: visible from the first beat)`, true);
+      continue;
+    }
     const b = await snapOf(page, false);
     const counter = id === 'getup' ? 'getup_count' : 'goout_count';
     const before = b.dbg && b.dbg.vars ? Number(b.dbg.vars[counter] || 0) : null;
@@ -1077,7 +1159,7 @@ async function grayActionCheck(page, run, s, choiceCount, tapped, replies, input
     }
     if (![...replies].some((t) => t && a.bodyText.includes(t))) run.warn(`gray action "${id}": no reply text visible after the tap`, true);
   }
-  if (choiceCount >= 9 && s.ids.includes('action-getup') && !s.litActions.includes('getup')) {
+  if (getupPressed && s.ids.includes('action-getup') && !s.litActions.includes('getup')) {
     run.warn('gray action "getup" is still visible after the getup press (SPEC 4.5: hidden after the press on getup)', true);
   }
 }
@@ -1165,6 +1247,66 @@ async function fullscreenKeyCheck(page, run) {
 // ---------------------------------------------------------------------------------------------
 // Extra page checks
 
+// A save exactly as release 1.0 wrote it (10-choice routes, c1-c10 picks, old beat indexes, no fingerprint).
+const V1_SAVE = {
+  v: 1, at: 1760000000000, screen: 'play', routeId: 'scribe',
+  state: {
+    v: 1, routeId: 'scribe', segs: ['beats', '@ending'], seg: 0, stack: [{ list: 'beats', i: 57 }],
+    choices: { c1: 'a', c2: 'b', c3: 'c', c4: 'd', c5: 'a', c6: 'b', c7: 'c', c8: 'd', c9: 'a' }, flags: { mark: 'he' }, vars: {},
+    picks: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9'], c10Lens: null,
+    stage: { bg: 'lamp_night', caption: null, time: 'day', pov: 'normal', light: 'off', pinned: null, actionsVisible: false, actionReplies: {}, actionCounts: {}, sceneSeq: 9, cast: [], speaking: null, castSeq: 4, risen: true },
+    pending: { hush: false, echo: null }, now: { hush: false, echo: null },
+    step: { kind: 'choice', id: 'c10', prompt: { ko: '기록장의 마지막 줄에 무엇을 적을까?', en: 'What do you write?' }, options: [] },
+    at: { list: 'beats', index: 56 }, ending: null, steps: 140, done: false
+  }
+};
+
+// Saves that no longer fit the data must be dropped silently: no "Continue", the key removed, no errors.
+async function staleSaveChecks(page, base, out) {
+  const url = base + 'index.html?test=1';
+  await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+  await page.evaluate((v1) => {
+    localStorage.setItem('bhs.v1.save', JSON.stringify(v1));
+    localStorage.setItem('bhs.v1.gallery', JSON.stringify(['scribe-1', 'friend-9', 'scribe-c7', 42]));
+  }, V1_SAVE);
+  await page.reload({ waitUntil: 'load' });
+  if (!(await waitScreen(page, 'title', 8000))) { out.push('FAIL title did not appear with a release 1.0 save stored'); return; }
+  const cont = await visible(page, 'continue');
+  const left = await page.evaluate(() => localStorage.getItem('bhs.v1.save'));
+  out.push(!cont && left === null ? 'ok   a release 1.0 save (10 choices) is dropped: no Continue, key removed' : `FAIL release 1.0 save: Continue ${cont ? 'offered' : 'hidden'}, key ${left === null ? 'removed' : 'kept'}`);
+  await tap(page, 'gallery-open', null, 'touch');
+  if (await waitScreen(page, 'gallery', 3000)) {
+    const g = await page.evaluate(() => ({
+      seen: Array.from(document.querySelectorAll('[data-seen="true"]')).map((e) => e.getAttribute('data-testid')),
+      note: (document.querySelector('[data-testid="gallery-cell-asher-cut"]') || {}).getAttribute ? document.querySelector('[data-testid="gallery-cell-asher-cut"]').getAttribute('data-state') : null
+    }));
+    out.push(g.seen.join(',') === 'gallery-cell-scribe-1' && g.note === 'locked' ? 'ok   seen endings from 1.0 stay valid; unknown ids are ignored' : `FAIL gallery with 1.0 records shows seen ${g.seen.join(', ') || 'none'}, asher note ${g.note}`);
+  } else out.push('FAIL gallery did not open with 1.0 records stored');
+  // A save of the current version whose route fingerprint no longer matches (the route was edited).
+  await page.evaluate(() => { localStorage.clear(); });
+  await page.goto(url + '#scribe', { waitUntil: 'load', timeout: 20000 });
+  if (!(await waitScreen(page, 'play', 5000))) { out.push('FAIL #scribe did not open the play screen'); return; }
+  await tap(page, 'advance', null, 'touch');
+  await sleep(150);
+  const saved = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('bhs.v1.save')); } catch (e) { return null; } });
+  if (!saved || !saved.state || !saved.state.fp) { out.push(`FAIL a running game stores no route fingerprint in its save (${saved ? Object.keys(saved.state || {}).length + ' state keys' : 'no save'})`); return; }
+  await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+  await waitScreen(page, 'title', 8000);
+  const ok = await visible(page, 'continue');
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('bhs.v1.save'));
+    s.state.fp = 'r0stale';
+    s.fp = 'r0stale';
+    localStorage.setItem('bhs.v1.save', JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: 'load' });
+  await waitScreen(page, 'title', 8000);
+  const cont2 = await visible(page, 'continue');
+  const left2 = await page.evaluate(() => localStorage.getItem('bhs.v1.save'));
+  out.push(ok && !cont2 && left2 === null ? 'ok   a save carries the route fingerprint; a stale fingerprint is dropped without a Continue' : `FAIL fingerprint check: fresh save Continue ${ok}, stale save Continue ${cont2}, key ${left2 === null ? 'removed' : 'kept'}`);
+  await page.evaluate(() => { localStorage.clear(); });
+}
+
 async function titleSmoke(browser, R, base, args, data) {
   const out = [];
   const { context, page, log } = await newPage(browser, R, { profile: 'phone', stepTimeout: args.stepTimeout });
@@ -1174,7 +1316,7 @@ async function titleSmoke(browser, R, base, args, data) {
     await tap(page, 'gallery-open', null, 'touch');
     if (await waitScreen(page, 'gallery', 3000)) {
       const n = await page.locator('[data-testid^="gallery-cell-"]').count();
-      out.push(n === 9 ? 'ok   gallery opens from the title with 9 cells' : `FAIL gallery from title shows ${n} cells (expected 9)`);
+      out.push(n === 12 ? 'ok   gallery opens from the title with 12 cells (3 characters x lenses 1-3 + cut)' : `FAIL gallery from title shows ${n} cells (expected 12)`);
       const back = (await visible(page, 'gallery-home')) ? 'gallery-home' : (await visible(page, 'home')) ? 'home' : null;
       if (back) {
         await tap(page, back, null, 'touch');
@@ -1194,6 +1336,10 @@ async function titleSmoke(browser, R, base, args, data) {
     await sleep(400);
     const dbgVisible = await page.evaluate(() => { const d = document.getElementById('debug'); return !!(d && window.__qa.vis(d)); });
     out.push(dbgVisible ? 'ok   ?debug=1 shows the debug panel' : 'WARN ?debug=1 did not show a visible #debug panel');
+    const jumpIds = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="debug-select"] option')).map((o) => o.value).join(','));
+    out.push(jumpIds === CHOICE_IDS_JS ? `ok   the debug jump list offers ${jumpIds}` : `FAIL the debug jump list offers "${jumpIds}", expected ${CHOICE_IDS_JS}`);
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+    await staleSaveChecks(page, base, out);
   } catch (e) {
     out.push(`FAIL title smoke test threw: ${snip(e.message, 160)}`);
   } finally {
@@ -1226,11 +1372,11 @@ function formatReport(R, ctx) {
   if (ctx.skipped.length) L.push(`Skipped: ${ctx.skipped.join('; ')}`);
   L.push('');
   L.push('Runs');
-  L.push('  ' + [pad('route/strategy@profile', 28), pad('picks', 11), pad('expected', 14), pad('observed', 9), pad('ending card', 30), pad('steps', 6), pad('time', 7), 'result'].join(' '));
+  L.push('  ' + [pad('route/strategy@profile', 28), pad('picks', 6), pad('expected', 14), pad('observed', 9), pad('ending card', 30), pad('steps', 6), pad('time', 7), 'result'].join(' '));
   for (const r of R.runs) {
     const picks = CHOICE_IDS.map((c) => r.made[c] || '-').join('');
-    const exp = r.expected ? `${r.expected.lens}${r.expected.mismatch ? ' (mismatch)' : ''}` : '-';
-    L.push('  ' + [pad(r.where, 28), pad(picks, 11), pad(exp, 14), pad(r.observed == null ? '-' : r.observed, 9), pad(snip(r.title, 28), 30), pad(r.steps, 6), pad((r.ms / 1000).toFixed(1) + 's', 7), r.result].join(' '));
+    const exp = r.expected ? (r.expected.cut ? 'cut' : `${r.expected.lens}${r.expected.mismatch ? ' (mismatch)' : ''}`) : '-';
+    L.push('  ' + [pad(r.where, 28), pad(picks, 6), pad(exp, 14), pad(r.observed == null ? '-' : r.observed, 9), pad(snip(r.title, 28), 30), pad(r.steps, 6), pad((r.ms / 1000).toFixed(1) + 's', 7), r.result].join(' '));
   }
   const tvRuns = R.runs.filter((r) => PROFILES[r.profile] && PROFILES[r.profile].tv);
   if (tvRuns.length) {
@@ -1299,7 +1445,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || args.bad) {
     if (args.bad) console.error(`Unknown argument: ${args.bad}`);
-    console.log('Usage: node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,far] [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick] [--root DIR] [--headed] [--no-dist] [--no-shots] [--step-timeout MS] [--run-timeout S] [--budget-min N]');
+    console.log('Usage: node tools/playtest.mjs [--route scribe,friend,asher] [--strategies a,d,b,r1,r2,cut] [--profiles phone,tv1080,tv720] [--no-keyboard] [--quick] [--root DIR] [--headed] [--no-dist] [--no-shots] [--step-timeout MS] [--run-timeout S] [--budget-min N]');
     process.exit(args.bad ? 2 : 0);
   }
   const root = args.root;
@@ -1347,7 +1493,7 @@ async function main() {
     browser = launched.browser;
     ctx.launchHow = launched.how;
     ctx.browserVersion = browser.version();
-    const plan = buildPlan(routes, args);
+    const plan = buildPlan(routes, args, data);
     // Writers may still be editing: reload the data before every run so the reference matches what the browser loads.
     const freshData = () => {
       const d = loadProject(root, new Report(), { partial: true }).data;
@@ -1386,7 +1532,7 @@ async function main() {
     else {
       const rid = routes.includes('scribe') ? 'scribe' : routes[0];
       const distData = freshData();
-      const p = { rid, st: makeStrategy(rid, 'a'), profile: 'tv1080', input: 'mouse', lang: 'both', shots: false, special: specialTexts(distData) };
+      const p = { rid, st: makeStrategy(rid, 'a', distData.routes[rid]), profile: 'tv1080', input: 'mouse', lang: 'both', shots: false, special: specialTexts(distData) };
       const label = `dist:${rid}/a@tv1080`;
       const cfg = { url: pathToFileURL(distFile).href + '?test=1', data: distData, args, p, fileMode: true, label };
       // A bundle older than its sources plays stale text (and will not match the reference transcript).

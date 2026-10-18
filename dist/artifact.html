@@ -1314,6 +1314,18 @@ body.is-last .veil {
   animation: fade-in 1s 1.4s ease both;
 }
 
+/* A cut ending (the route stopped midway): the same card, quieter. No glowing numeral; the mark is
+   an ellipsis in limestone and the label is muted, so it never reads as a failure or a fourth lens. */
+.card--cut .card__num {
+  color: var(--limestone-dim);
+  text-shadow: none;
+  letter-spacing: 0.12em;
+}
+
+.card--cut .card__lens {
+  color: var(--limestone);
+}
+
 /* ------------------------------------------------------------------ page screens */
 
 .screen {
@@ -1626,12 +1638,19 @@ body.is-last .veil {
   opacity: 0.55;
 }
 
-/* Gallery */
+/* Gallery: rows = characters, columns = the three lenses plus the "cut" column (SPEC 4.5).
+   Phone: four equal columns; each character's name runs across the row above its four cells.
+   Wider layouts (tablet portrait, TV) add a name column on the left. */
 
 .gallery-page {
   gap: 16px;
   padding-top: calc(var(--safe-top) + var(--header-h) + 12px);
   background: rgba(22, 20, 17, 0.94);
+}
+
+.gallery-head {
+  display: grid;
+  gap: 10px;
 }
 
 .gallery-title {
@@ -1655,21 +1674,27 @@ body.is-last .veil {
   word-break: keep-all;
 }
 
+.grid-wrap {
+  min-width: 0;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: 58px repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .grid__corner {
-  min-height: 1px;
+  display: none;
 }
 
 .grid__lens {
-  padding: 6px 2px 4px;
+  align-self: end;
+  padding: 4px 2px 2px;
   text-align: center;
   font: 600 13px/1.3 var(--sans);
   color: var(--amber-soft);
+  word-break: keep-all;
 }
 
 .grid__lens .en {
@@ -1678,41 +1703,77 @@ body.is-last .veil {
   color: var(--limestone-dim);
 }
 
+.grid__label {
+  display: block;
+}
+
+/* Narrow columns: balanced lines instead of a lone last word. */
+.grid__lens,
+.grid__desc,
+.cell {
+  text-wrap: balance;
+}
+
+/* The cut column reads as a different kind of column: muted heading, a short note under it. */
+.grid__lens--cut {
+  color: var(--limestone);
+}
+
+.grid__mark {
+  color: var(--limestone-dim);
+}
+
+.grid__desc {
+  display: block;
+  margin-top: 3px;
+  font: 400 11px/1.35 var(--sans);
+  color: var(--limestone-dim);
+}
+
+.grid__desc .en {
+  font-size: 10.5px;
+  opacity: 0.9;
+}
+
 .grid__row {
+  grid-column: 1 / -1;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 4px 0;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
   font: 600 13px/1.3 var(--sans);
   color: var(--limestone);
   word-break: keep-all;
 }
 
-.grid__row .en {
+.grid__name .en {
+  display: inline;
+  margin-left: 0.5em;
   font-weight: 500;
   font-size: 11px;
   color: var(--limestone-dim);
 }
 
 .grid__swatch {
+  flex: none;
   display: block;
   width: 18px;
   height: 4px;
   border-radius: 2px;
-  margin-bottom: 6px;
   background: var(--plate, var(--basalt-3));
 }
 
 .cell {
   position: relative;
-  min-height: 92px;
-  padding: 10px 8px;
+  min-height: 84px;
+  padding: 9px 5px;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  font: 700 calc(13.5px * var(--text-scale)) / 1.45 var(--serif);
+  font: 700 calc(13px * var(--text-scale)) / 1.4 var(--serif);
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
@@ -1724,22 +1785,36 @@ body.is-last .veil {
   line-height: 1.35;
 }
 
-.cell[data-seen="true"] {
+.cell[data-state="seen"] {
   color: var(--ink);
   background-color: var(--papyrus);
   background-image: var(--paper-grain), linear-gradient(180deg, var(--papyrus-hi), var(--papyrus-lo));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.cell[data-seen="true"] .en {
+.cell[data-state="seen"] .en {
   color: var(--ink-soft);
 }
 
-.cell[data-seen="false"] {
+.cell[data-state="locked"],
+.cell[data-state="none"] {
   color: #8a8376;
   background: rgba(58, 54, 49, 0.45);
   border: 1px dashed rgba(235, 227, 207, 0.2);
   font: 500 12.5px/1.3 var(--sans);
+}
+
+/* Asher's cut cell: a note, not an ending. No paper, no frame of an ending; an italic remark. */
+.cell[data-state="note"] {
+  color: var(--limestone);
+  background: transparent;
+  border: 1px dotted rgba(235, 227, 207, 0.38);
+  font: italic 400 calc(12.5px * var(--text-scale)) / 1.45 var(--serif);
+}
+
+.cell[data-state="note"] .en {
+  color: var(--limestone-dim);
+  font-style: italic;
 }
 
 .cell[data-current="true"] {
@@ -1951,6 +2026,30 @@ body.is-last .veil {
 @media (min-width: 700px) and (orientation: portrait) {
   .app {
     max-width: 760px;
+  }
+  .grid {
+    grid-template-columns: 112px repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .grid__corner {
+    display: block;
+  }
+  .grid__row {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    margin-top: 0;
+    font-size: 15px;
+  }
+  .grid__name .en {
+    display: block;
+    margin-left: 0;
+    font-size: 12.5px;
+  }
+  .cell {
+    min-height: 104px;
+    font-size: calc(15px * var(--text-scale));
   }
   :root {
     --fs-story: 21px;
@@ -2387,78 +2486,128 @@ body.is-last .veil {
     font-size: calc(3vh * var(--text-scale));
   }
 
+  /* Gallery on a 16:9 screen: title and buttons share the top row, the 3 x 4 grid fills the rest
+     (rows = characters with a name column, columns = lenses 1-3 + cut). Fits 1280x720 and 1920x1080
+     in both languages with the "just now" label. */
   .gallery-page {
-    gap: 2vh;
-    padding-top: calc(var(--safe-top) + 9vh);
-    padding-bottom: calc(var(--safe-bottom) + 4vh);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head actions"
+      "grid grid";
+    align-content: start;
+    column-gap: 3vw;
+    row-gap: 2.6vh;
+    padding: calc(var(--safe-top) + 9vh) 4vw calc(var(--safe-bottom) + 3vh);
+  }
+
+  .gallery-head {
+    grid-area: head;
+    gap: 1vh;
+    align-self: center;
   }
 
   .gallery-title {
-    font-size: calc(5vh * var(--text-scale));
+    font-size: calc(4.4vh * var(--text-scale));
   }
 
   .gallery-intro {
-    font-size: 2.4vh;
+    font-size: 2.3vh;
+    line-height: 1.45;
+  }
+
+  .grid-wrap {
+    grid-area: grid;
   }
 
   .grid {
-    grid-template-columns: 13vw repeat(3, minmax(0, 1fr));
+    grid-template-columns: 10vw repeat(4, minmax(0, 1fr));
     gap: 1.2vh;
   }
 
+  .grid__corner {
+    display: block;
+  }
+
   .grid__lens {
-    font-size: 3vh;
-    padding: 0.6vh 0.5vw;
+    font-size: 2.8vh;
+    padding: 0.4vh 0.5vw 0.6vh;
   }
 
   .grid__lens .en {
-    font-size: 2.3vh;
+    font-size: 2.25vh;
+  }
+
+  .grid__desc {
+    margin-top: 0.5vh;
+    font-size: 2.2vh;
+  }
+
+  .grid__desc .en {
+    font-size: 2.2vh;
   }
 
   .grid__row {
-    font-size: 3vh;
-    padding: 0 0.6vw;
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1vh;
+    margin-top: 0;
+    padding: 0 0.4vw;
+    font-size: 2.8vh;
   }
 
-  .grid__row .en {
-    font-size: 2.3vh;
+  .grid__name .en {
+    display: block;
+    margin-left: 0;
+    font-size: 2.25vh;
   }
 
   .grid__swatch {
     width: 4vh;
     height: 0.6vh;
-    margin-bottom: 1.2vh;
   }
 
   .cell {
-    min-height: 13.5vh;
-    padding: 1.4vh 1.2vw;
+    min-height: 11vh;
+    padding: 1.2vh 1vw;
     border-radius: 1vh;
-    font-size: calc(3.1vh * var(--text-scale));
+    font-size: calc(2.7vh * var(--text-scale));
   }
 
   .cell .en {
-    font-size: calc(2.4vh * var(--text-scale));
+    font-size: calc(2.25vh * var(--text-scale));
   }
 
-  .cell[data-seen="false"] {
+  .cell[data-state="locked"],
+  .cell[data-state="none"] {
     font-size: 2.4vh;
+  }
+
+  .cell[data-state="note"] {
+    font-size: calc(2.45vh * var(--text-scale));
+  }
+
+  .cell[data-state="note"] .en {
+    font-size: calc(2.2vh * var(--text-scale));
   }
 
   .cell__yours {
     font-size: 2.2vh;
-    margin-top: 0.8vh;
+    margin-top: 0.6vh;
   }
 
   .gallery-actions {
-    grid-template-columns: repeat(2, minmax(0, 30vw));
-    justify-content: end;
-    gap: 1.6vw;
+    grid-area: actions;
+    align-self: center;
+    grid-template-columns: repeat(2, minmax(0, 24vw));
+    gap: 1.4vw;
     margin-top: 0;
   }
 
   .gallery-actions .btn {
-    min-height: 7.5vh;
+    min-height: 7vh;
   }
 
   .settings {
@@ -2612,7 +2761,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   var BHS = (window.BHS = window.BHS || {});
 
   BHS.meta = {
-    version: "1.0.0",
+    // 2.0.0: short routes (4 choices, cut endings), no final screen, no teacher page.
+    version: "2.0.0",
 
     title: { ko: "그가 일어나기 전", en: "Before He Stood" },
     subtitle: { ko: "그날, 가버나움 · 마태복음 9:1–8", en: "Capernaum, That Day · Matthew 9:1–8" },
@@ -2693,22 +2843,32 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       }
     },
 
+    // The fourth gallery column: routes that stop midway (SPEC v3 §3).
+    cut: {
+      label: { ko: "중간에 끝남", en: "Cut short" },
+      desc: { ko: "끝까지 가지 않은 길", en: "a path that stopped midway" }
+    },
+
     // Canonical ending titles. Route files must not redefine these.
     endings: {
       scribe: {
         1: { ko: "누가 말했는가", en: "Who Spoke" },
         2: { ko: "다시 읽는 시편", en: "The Psalm, Read Again" },
-        3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" }
+        3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" },
+        cut: { ko: "끝까지 듣지 않은 사람", en: "The One Who Left Early" }
       },
       friend: {
         1: { ko: "우리가 구했던 것보다", en: "More Than We Asked For" },
         2: { ko: "첫마디도 기억한다", en: "I Remember the First Words" },
-        3: { ko: "집까지 같이", en: "All the Way Home" }
+        3: { ko: "집까지 같이", en: "All the Way Home" },
+        cut: { ko: "멀리서 들은 사람", en: "Heard from Afar" }
       },
       asher: {
         1: { ko: "그분은 누구신가", en: "Who Is He?" },
         2: { ko: "나에게 하신 말씀", en: "Words Spoken to Me" },
-        3: { ko: "집으로", en: "Home" }
+        3: { ko: "집으로", en: "Home" },
+        // Asher has no cut ending by design: he cannot walk away. Shown in the gallery once his route is finished.
+        cutNote: { ko: "없음 · 아셀은 걸어서 떠날 수 없었다", en: "None · Asher couldn't walk away" }
       }
     }
   };
@@ -3112,23 +3272,21 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   BHS.common = {
     prologue: [
       { type: "scene", bg: "black" },
-      { type: "line", speaker: "sign", text: { ko: "― 두루마리 펴는 소리 ―", en: "— a scroll unrolling —" } },
-      { type: "line", speaker: "sign", text: { ko: "― 돌길 위 발소리 ―", en: "— footsteps on a stone lane —" } },
-      { type: "line", speaker: "sign", text: { ko: "― 바닥에 끌리는 침상 ―", en: "— a bed scraping across the floor —" } },
+      {
+        type: "line",
+        speaker: "sign",
+        text: {
+          ko: "― 두루마리 펴는 소리. 돌길 위 발소리. 바닥에 끌리는 침상. ―",
+          en: "— A scroll unrolling. Footsteps on a stone lane. A bed scraping the floor. —"
+        }
+      },
       { type: "scene", bg: "shore_dawn", caption: { ko: "갈릴리 바다 · 가버나움", en: "Sea of Galilee · Capernaum" } },
       { type: "line", text: { ko: "가버나움. 예수라는 사람이 배를 타고 돌아온다.", en: "Capernaum. A man named Jesus is coming back by boat." } },
       {
         type: "line",
         text: {
-          ko: "바다 위 폭풍이 그의 말 한마디에 잠잠해졌다는 소문이 그보다 먼저 도착했다.",
-          en: "A rumor got here before he did: a storm on the sea went still at a single word from him."
-        }
-      },
-      {
-        type: "line",
-        text: {
-          ko: "건너편 마을에서 귀신들이 쫓겨났다는 소문도 함께.",
-          en: "Another rumor came with it: across the lake, demons were driven out."
+          ko: "폭풍이 그의 말 한마디에 잠잠해졌다는 소문이 그보다 먼저 도착했다.",
+          en: "A rumor got here before he did: a storm went still at a single word from him."
         }
       },
       {
@@ -3144,10 +3302,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" }
     },
 
-    // Shown before the ending when the ending lens differs from the lens of the c10 pick.
+    // Shown before the ending when the ending lens differs from the lens of the last (double-weight) pick.
     mismatchLine: {
-      ko: "마지막 말은 다른 데로 가려 했다. 그런데 하루 종일 네 눈이 머문 곳은 따로 있었다.",
-      en: "Your last words leaned one way. But all day, your eyes kept resting somewhere else."
+      ko: "마지막 말은 다른 데로 가려 했다. 그런데 네 눈이 계속 머문 곳은 따로 있었다.",
+      en: "Your last words leaned one way. But your eyes kept resting somewhere else."
     }
   };
 })();
@@ -3214,8 +3372,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
     // Gallery
     galleryTitle: T("엔딩 모음", "Endings"),
-    galleryIntro: T("세로는 인물, 가로는 세 가지 눈이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters, columns are the three lenses. Only endings seen on this device appear."),
+    galleryIntro: T("세로는 인물, 가로는 세 가지 눈과 중간에 끝난 길이에요. 이 기기에서 본 엔딩만 보여요.", "Rows are characters; columns are the three lenses and the path cut short. Only endings seen on this device appear."),
     galleryLocked: T("아직", "Not yet"),
+    galleryCut: T("중간에 끝남", "Cut short"),
     galleryYours: T("방금 본 엔딩", "Just now"),
     galleryReplay: T("다른 인물로 하기", "Play another character"),
     galleryHome: T("처음 화면", "Title screen"),
@@ -3247,9 +3406,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 </script>
 <script>/* data/routes/scribe.js */
 /* Scribe route: Menahem, "The Line I Read This Morning". Owner: scribe writer.
-   Schema: docs/SPEC.md section 4.5. Story: docs/scenario-v2.md (scribe route).
-   Every player-facing string is a T object { ko, en }. Scripture appears only as
-   verse beats or {{v:KEY}} / {{r:KEY}} tokens. Jesus speaks only through verse beats. */
+   Short version (docs/SPEC-v3-short.md, which overrides docs/SPEC.md on choice counts,
+   endings, balance and screen budget). Schema: docs/SPEC.md section 4.5.
+   Shape: dawn (c1) -> the lane -> the crowd, fixed sequence of SPEC 6.4 (c2, c3) -> c4 (double).
+   c2 option d is the cut option: Menahem leaves before the answer and endings.cut plays.
+   Every player-facing string is a T object { ko, en }. Scripture appears only as verse beats
+   or {{v:KEY}} / {{r:KEY}} tokens. Jesus speaks only through scripture keys. */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
   BHS.routes = BHS.routes || {};
@@ -3268,19 +3430,23 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     };
   }
 
+  // Pins his unspoken thought (Matt 9:3) and his c2 pick. Placed first in each non-cut c2
+  // reaction so the bubble is seen unread for one screen before the read receipt at 9:4.
+  function pinThought() {
+    return { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q", "choice:c2"] };
+  }
+
   BHS.routes.scribe = {
     id: "scribe",
     actions: [],
 
     beats: [
       // ---------------------------------------------------------------
-      // DAWN: Menahem's room, Psalm 103 with Hanan (c1, c2)
+      // DAWN: Menahem's room, Psalm 103:3 with Hanan (c1 sets the noted word)
       // ---------------------------------------------------------------
       { id: "dawn", type: "scene", bg: "dawn_lamp", caption: { ko: "새벽 · 므나헴의 방", en: "Dawn · Menahem's room" } },
-      // His notes sit by the lamp from the start: he writes there, never on the sacred scroll (lead decision).
-      { type: "line", text: { ko: "등잔불이 흔들린다. 므나헴이 잉크 묻은 손가락으로 두루마리를 편다. 곁에는 기록장이 펼쳐져 있다.", en: "The oil lamp flickers. Menahem unrolls the scroll with ink-stained fingers. His notes lie open beside it." } },
-      { type: "line", text: { ko: "새벽마다 그는 같은 고백으로 하루를 연다. {{v:DT_6_4}}", en: "Every dawn he begins the day with the same words: {{v:DT_6_4}}" } },
-      { type: "line", text: { ko: "맞은편에서 제자 하난이 두루마리를 들여다본다. 오늘 읽을 곳은 시편 103편이다.", en: "Across from him, his student Hanan leans over the scroll. Today's reading is Psalm 103." } },
+      // He writes in his notes, never on the scroll (lead decision).
+      { type: "line", text: { ko: "등잔불 아래, 므나헴이 잉크 묻은 손가락으로 시편 두루마리를 편다. 맞은편엔 제자 하난, 두루마리 곁엔 그의 기록장.", en: "By the oil lamp, Menahem unrolls the scroll of Psalms with ink-stained fingers. Across from him, his student Hanan. Beside the scroll, his notes." } },
       { type: "verse", key: "PS_103_3" },
       { type: "line", speaker: "hanan", text: { ko: "선생님, 누가 용서하시고, 누가 고치시는 거예요?", en: "Teacher, who forgives? And who heals?" } },
       {
@@ -3294,8 +3460,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "subject" },
             text: { ko: "“주님이시다. 주어를 분명히 해라.”", en: "“The Lord. Be clear about the subject.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가*를 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } },
-              { type: "line", speaker: "hanan", text: { ko: "다 주님이 하시는 일이군요.", en: "So it's all the Lord's doing." } }
+              { type: "line", text: { ko: "므나헴은 첫 낱말 *그가*를 기록장에 옮겨 적는다.", en: "Menahem copies the first word, *who*, into his notes." } }
             ]
           },
           {
@@ -3304,8 +3469,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "order" },
             text: { ko: "“용서가 먼저, 치유가 그다음에 나오는구나.”", en: "“So forgiving is named first, and healing after.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 기록장에 *사하시며*와 *고치시며*를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } },
-              { type: "line", speaker: "hanan", text: { ko: "그렇게 읽으니 새롭네요.", en: "I've never read it that way." } }
+              { type: "line", text: { ko: "므나헴은 기록장에 *사하시며*와 *고치시며*를 나란히 적고, 그 사이에 작은 점을 찍는다.", en: "In his notes, Menahem writes *forgives* and *heals* side by side, with a small dot between them." } }
             ]
           },
           {
@@ -3314,8 +3478,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "sick" },
             text: { ko: "“아픈 사람에게 이 구절은 어떻게 들릴까.”", en: "“I wonder how this line sounds to someone who is sick.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 *병*이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } },
-              { type: "line", speaker: "hanan", text: { ko: "위로가 되겠죠. 아니면 더 아프거나요.", en: "It might comfort them. Or hurt even more." } }
+              { type: "line", text: { ko: "므나헴은 *병*이라는 말을 기록장에 적는다.", en: "Menahem writes the word *diseases* in his notes." } }
             ]
           },
           {
@@ -3324,294 +3487,109 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             set: { underline: "whole" },
             text: { ko: "“설명하기 전에 시 전체를 읽자.”", en: "“Before I explain, let's read the whole psalm.”" },
             reaction: [
-              { type: "line", text: { ko: "므나헴은 아무것도 적지 않고, 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem writes nothing down. He rolls the scroll back to the psalm's first verse." } },
-              { type: "line", speaker: "hanan", text: { ko: "처음부터요?", en: "From the very top?" } }
-            ]
-          }
-        ]
-      },
-      { type: "line", speaker: "hanan", text: { ko: "하나 더 여쭤볼게요. 선지자도 죄를 사할 수 있나요? 나단은 다윗에게 이렇게 말했잖아요.", en: "May I ask one more thing? Can a prophet forgive sins? Nathan told David this:" } },
-      { type: "verse", key: "SA2_12_13B" },
-      {
-        type: "choice",
-        id: "c2",
-        prompt: { ko: "하난에게 어떻게 답할까?", en: "How to answer Hanan?" },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "“나단은 하나님의 용서를 전했을 뿐이다. 스스로 사하지 않았다.”", en: "“Nathan delivered God's forgiveness. He didn't forgive on his own.”" },
-            reaction: [
-              { type: "line", speaker: "hanan", text: { ko: "전하는 것과 사하는 것은 다르군요.", en: "So passing it on isn't the same as forgiving." } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 1,
-            text: { ko: "“그 선을 넘어 하나님의 이름을 모독하면 돌로 치라고 했다.”", en: "“Cross that line—blaspheme God's name—and the Law calls for stoning.”" },
-            reaction: [
-              { type: "line", text: { ko: "하난이 침을 삼킨다.", en: "Hanan swallows." } },
-              // Reference kept here, not on the option button (lead note: no bare refs in options).
-              { type: "line", speaker: "thought", text: { ko: "무거운 율법이다({{r:LV_24_16A}}). 그러니 더 조심해야 한다.", en: "A heavy law ({{r:LV_24_16A}}). All the more reason to be careful." } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 2,
-            text: { ko: "“다윗은 그 한마디를 듣고 어떤 마음이었을까.”", en: "“I wonder what David felt when he heard those words.”" },
-            reaction: [
-              { type: "line", speaker: "hanan", text: { ko: "살았다 싶었겠죠. 아니면 울었거나요.", en: "I bet he felt he could breathe again. Or maybe he wept." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 3,
-            text: { ko: "“속죄는 성전에서 받는데, 못 걷는 사람은 거기까지 어떻게 가지?”", en: "“Atonement happens at the temple. How does a man who can't walk get there?”" },
-            reaction: [
-              { type: "line", speaker: "hanan", text: { ko: "…그건 생각해 본 적이 없어요.", en: "…I've never thought about that." } }
+              { type: "line", text: { ko: "므나헴은 아무것도 적지 않고, 두루마리를 시편의 첫 절로 되감는다.", en: "Menahem writes nothing down. He rolls the scroll back to the psalm's first verse." } }
             ]
           }
         ]
       },
 
       // ---------------------------------------------------------------
-      // MORNING: the neighbor at the door with the rumor (c3)
-      // ---------------------------------------------------------------
-      // Same background; only the time chip moves on to morning (SPEC 6.2 timeline).
-      { type: "scene", bg: "dawn_lamp", caption: { ko: "아침 · 므나헴의 방", en: "Morning · Menahem's room" } },
-      { id: "knock", type: "line", speaker: "sign", text: { ko: "― 문 두드리는 소리 ―", en: "— a knock at the door —" } },
-      { type: "line", speaker: "neighbor", text: { ko: "서기관님, 들으셨어요? 예수라는 사람이 배 타고 돌아온대요!", en: "Have you heard, sir? That man Jesus is coming back by boat!" } },
-      { type: "line", speaker: "neighbor", text: { ko: "바다에서 폭풍이 그 사람 말 한마디에 잠잠해졌대요. 건너편에선 귀신들이 쫓겨났고요.", en: "They say a storm on the sea went still at one word from him. And across the lake, demons were driven out." } },
-      { type: "line", speaker: "neighbor", text: { ko: "그런데 그 동네 사람들은 떠나 달라고 빌었대요.", en: "But the people over there begged him to leave." } },
-      // The exact words of Matt 8:20 via token, so c8 c ("the Son of Man… nowhere to lay his head") has its setup.
-      { type: "line", speaker: "neighbor", text: { ko: "따라가겠다던 서기관한테는 이렇게 말했다더라고요. {{v:MT_8_20Q}}", en: "He told a scribe who offered to follow him: {{v:MT_8_20Q}}" } },
-      {
-        type: "choice",
-        id: "c3",
-        prompt: { ko: "소문에 뭐라고 답할까?", en: "How to answer the rumor?" },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "“이적만으로는 알 수 없다. 무엇을 가르치는지 봐야 한다.”", en: "“Signs alone don't settle it. We have to see what he teaches.”" },
-            reaction: [
-              { type: "line", speaker: "neighbor", text: { ko: "역시 서기관님이세요. 그래도 보러는 가실 거죠?", en: "Spoken like a scribe. But you're still going to go look, right?" } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 2,
-            text: { ko: "“바람과 바다를 말로? 시편은 그 일을 하나님께 돌리는데.”", en: "“Wind and sea, with a word? The psalm credits that to God.”" },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "{{v:PS_107_29}} 그 일을 사람이 했다고?", en: "{{v:PS_107_29}} And a man did that?" } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 3,
-            text: { ko: "“그 동네는 왜 그를 내보냈을까.”", en: "“Why would that town send him away?”" },
-            reaction: [
-              { type: "line", speaker: "neighbor", text: { ko: "돼지 떼를 잃었대요. 귀신 들렸던 두 사람이 놓여났는데도요.", en: "They lost a whole herd of pigs, I hear. Even though the two men with demons were set free." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 3,
-            text: { ko: "“직접 가서 보겠다. 그가 사람들을 어떻게 대하는지.”", en: "“I'll go and see for myself how he treats people.”" },
-            reaction: [
-              { type: "line", speaker: "hanan", text: { ko: "저도 따라가겠습니다, 선생님.", en: "I'm coming with you, Teacher." } }
-            ]
-          }
-        ]
-      },
-      { type: "line", text: { ko: "므나헴은 기록장을 챙겨 집을 나선다. 하난이 뒤를 따른다.", en: "Menahem takes his notes and heads out. Hanan follows." } },
-
-      // ---------------------------------------------------------------
-      // LATE MORNING: walking down with Hanan, then THE LANE (c4)
-      // SPEC 6.3: they step aside, eyes meet, nobody speaks to anybody.
+      // LATE MORNING: the rumor, the walk down, THE LANE (SPEC 6.3, no choice)
+      // They step aside, his eyes meet Asher's, nobody speaks to anybody.
       // ---------------------------------------------------------------
       { id: "lane", type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
-      { type: "line", text: { ko: "검은 현무암 집들 사이로, 골목이 바닷가를 향해 내려간다.", en: "Between black basalt houses, the lane slopes down toward the shore." } },
-      { type: "line", text: { ko: "골목 끝으로 바다가 보인다. 배 한 척이 물가에 닿는다.", en: "At the bottom of the lane the sea opens up. A boat is coming in to shore." } },
-      { type: "verse", key: "MT_9_1" },
-      { type: "line", speaker: "hanan", text: { ko: "선생님, 그 사람이 정말 폭풍을 잠잠하게 했을까요?", en: "Teacher, do you think he really calmed a storm?" } },
-      { type: "line", speaker: "menahem", text: { ko: "보면 알겠지. 눈으로 보고, 말씀으로 달아 보자.", en: "We'll see. Watch with your eyes, and weigh it by the Word." } },
-      { type: "line", text: { ko: "그때 위쪽에서 발소리가 내려온다. 사람들이 침상에 누운 사람을 들고 온다.", en: "Then footsteps come down from above. Some men are carrying a man on a bed." } },
-      // Same order as the friend and asher routes: passerby, step aside, glance, eyes meet.
+      { type: "line", text: { ko: "예수라는 사람의 배가 돌아온다는 소문. 므나헴과 하난도 현무암 골목을 따라 바닷가로 내려간다. 뒤에서 사람들이 침상 하나를 들고 온다.", en: "Word comes that this Jesus is back by boat. Menahem and Hanan head down the basalt lane to the shore. Behind them, some men carry a man on a bed." } },
       { type: "line", speaker: "passerby", text: { ko: "고통 뒤에 무슨 사연이 있는지 누가 알겠어. 저 사람은 무슨 잘못을 했기에 저렇게 됐을까.", en: "Who knows what's behind suffering like that. What did he do to end up like that?" } },
-      { type: "line", text: { ko: "므나헴과 하난은 벽 쪽으로 비켜선다. 침상이 지나갈 만큼만.", en: "Menahem and Hanan step back against the wall, just enough for the bed to pass." } },
-      { type: "line", text: { ko: "므나헴은 침상을 힐끗 본다. 누운 사람은 아셀이다. 잠깐, 두 사람의 눈이 마주친다.", en: "Menahem glances at the bed. The man lying there is Asher. For a moment, their eyes meet." } },
-      { type: "line", text: { ko: "누구도 므나헴에게 말을 걸지 않고, 므나헴도 말이 없다.", en: "No one says a word to Menahem, and he says nothing either." } },
-      {
-        type: "choice",
-        id: "c4",
-        prompt: { ko: "침상이 곁을 지나간다. 그 짧은 순간에…", en: "The bed goes right past him. In that moment…" },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "저 사람을 고친다면, 오늘 저 선생이 누구인지 드러나겠군.", en: "If he heals that man, we'll know today who this teacher really is." },
-            reaction: [
-              { type: "line", text: { ko: "그의 눈은 침상 위의 사람을 지나, 길 아래쪽을 향한다.", en: "His eyes pass over the man on the bed and go on down the lane." } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 2,
-            text: { ko: "혹시 죄의 징계일까. 시편의 미련한 자들처럼.", en: "Could it be discipline for sin, like the fools in the psalm?" },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "시편 한 구절이 떠오른다. {{v:PS_107_17}}", en: "A line from the psalms comes to mind. {{v:PS_107_17}}" } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 2,
-            text: { ko: "병의 이유를 우리가 알 수 있나. 욥의 친구들도 틀렸다.", en: "Can we even know why a man is sick? Job's friends got it wrong." },
-            reaction: [
-              // Reference moved off the option; anchored to God's rebuke, which is what Job 42:7 says.
-              { type: "line", speaker: "thought", text: { ko: "그들은 친구를 위로하러 와서, 친구를 정죄했다. 하나님은 그들을 책망하셨다({{r:JB_42_7}}).", en: "They came to comfort their friend and ended up condemning him. Then God rebuked them ({{r:JB_42_7}})." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 3,
-            text: { ko: "길을 비켜 주고, 손짓으로 옆 사람들도 비켜서게 한다.", en: "He makes room, and with a wave of his hand gets the people beside him to step back too." },
-            reaction: [
-              { type: "line", text: { ko: "좁은 골목에, 침상이 지나갈 자리가 조금 넓어진다.", en: "In the narrow lane, there's a little more room for the bed." } }
-            ]
-          }
-        ]
-      },
-      // Callback: c2 d asked how a man who cannot walk reaches the temple.
-      { when: { choice: "c2", is: "d" }, type: "line", speaker: "thought", text: { ko: "못 걷는 사람이 성전까지 어떻게 가느냐고 아침에 물었지. 저렇게, 남의 손에 들려서 가는구나.", en: "This morning I asked how a man who can't walk gets to the temple. Like that: carried by other people's hands." } },
-      { type: "line", text: { ko: "침상은 골목 아래 무리 속으로 사라진다. 두 사람도 그 뒤를 따라 내려간다.", en: "The bed disappears into the crowd below. The two of them follow it down." } },
+      { type: "line", text: { ko: "두 사람은 벽 쪽으로 비켜선다. 므나헴은 침상을 힐끗 본다. 잠깐, 침상 위의 아셀과 눈이 마주친다. 누구도 서로 말을 걸지 않는다.", en: "The two of them step back against the wall. Menahem glances at the bed, and for a moment his eyes meet Asher's. No one says a word to anyone." } },
 
       // ---------------------------------------------------------------
-      // AROUND NOON: THE CROWD, fixed sequence of SPEC 6.4 (c5, c6)
-      // Menahem says nothing aloud from here until he leaves.
+      // AROUND NOON: THE CROWD, fixed sequence of SPEC 6.4 (c2 after 9:3, c3 after 9:5, c4 after 9:8)
+      // Menahem says nothing aloud the whole time.
       // ---------------------------------------------------------------
       { id: "crowd", type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가 공터", en: "Around noon · Open ground by the shore" } },
       { type: "fx", fx: "light", level: "soft" },
-      { type: "line", text: { ko: "바닷가 공터가 사람들로 가득하다. 므나헴은 서기관 몇 사람과 함께 앞쪽에 선다.", en: "The open ground by the shore is packed. Menahem stands near the front with a few other scribes." } },
-      { type: "line", text: { ko: "무리 한가운데에 예수라는 사람이 있다.", en: "At the center of the crowd is this Jesus." } },
-      { type: "line", text: { ko: "골목에서 본 그 침상이 무리 사이를 지나온다. 사람들이 침상을 그 앞에 내려놓는다.", en: "The bed from the lane comes through the crowd. The men set it down in front of him." } },
+      { type: "verse", key: "MT_9_1" },
+      { type: "line", text: { ko: "므나헴은 서기관 몇 사람과 함께 맨 앞에 선다. 골목의 그 침상이 무리 사이로 들어온다.", en: "Menahem stands at the front with a few other scribes. The bed from the lane comes through the crowd." } },
       { type: "verse", key: "MT_9_2A" },
 
-      // The first words: the world goes quiet, the light rises, the morning's psalm returns.
+      // The first words: the light rises, the world goes quiet, the morning's psalm returns.
       { id: "first-words", type: "fx", fx: "light", level: "bright" },
       { type: "fx", fx: "hush" },
       { type: "verse", key: "MT_9_2B" },
-      // One echo per underline value so the line right after each echo is always shown with it.
+      // One echo per noted word, so each thought line below is always shown with its echo.
       { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 옮겨 적은 주어가 번진다. 사하시는 분은 주님이시다.", en: "The subject I copied into my notes this morning bleeds through. The one who forgives is the Lord." } },
+      { when: { flag: "underline", is: "subject" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *그가*. 사하시는 분은 주님이시다.", en: "The word in my notes from this morning: *who*. The one who forgives is the Lord." } },
       { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 찍어 둔 작은 점이 떠오른다. 용서가 먼저, 치유는 그다음.", en: "The little dot in my notes from this morning comes back. Forgiving first, healing after." } },
+      { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 찍어 둔 작은 점. 용서가 먼저, 치유는 그다음.", en: "The little dot in my notes from this morning. Forgiving first, healing after." } },
       { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *병*이라는 말이 번진다. 저 침상 위의 사람에게로.", en: "The word I wrote in my notes this morning, *diseases*, bleeds toward the man on the bed." } },
+      { when: { flag: "underline", is: "sick" }, type: "line", speaker: "thought", text: { ko: "아침에 기록장에 적은 *병*이라는 말이, 저 침상 위의 사람에게로 번진다.", en: "The word I wrote in my notes this morning, *diseases*, spreads toward the man on the bed." } },
       { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-      { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning rises over the moment." } },
+      { when: { flag: "underline", is: "whole" }, type: "line", speaker: "thought", text: { ko: "아침에 처음부터 다시 읽은 시 한 편이, 통째로 겹쳐 온다.", en: "The whole psalm I read from the top this morning rises over the moment." } },
       { type: "fx", fx: "light", level: "soft" },
 
       // Matt 9:3, shown as Menahem's own unspoken thought.
-      { type: "line", text: { ko: "막을 새도 없이 생각 하나가 떠오른다. 곁의 서기관들도 굳어 있다.", en: "Before he can stop it, a thought rises in him. The scribes beside him have gone stiff." } },
       { id: "thought-9-3", type: "verse", key: "MT_9_3Q", speaker: "scribes" },
       {
         type: "choice",
-        id: "c5",
-        prompt: { ko: "그다음엔 무슨 생각이 들까?", en: "And after that, what comes to mind?" },
+        id: "c2",
+        prompt: { ko: "속으로만 한 생각이다. 아무도 듣지 못했다. 그다음엔?", en: "He only thought it. No one heard. What comes next?" },
         options: [
           {
             id: "a",
             lens: 1,
-            text: { ko: "넘어서는 안 될 선을 넘었다.", en: "He has crossed a line no one may cross." },
+            text: { ko: "하나님의 용서를 전하는 건가, 자기 권한으로 말하는 건가?", en: "Is he passing on God's forgiveness, or speaking on his own authority?" },
             reaction: [
-              { type: "line", text: { ko: "기록장을 쥔 손에 힘이 들어간다.", en: "His grip tightens on his notes." } }
+              pinThought(),
+              { type: "line", speaker: "thought", text: { ko: "말만 들어서는 모른다. 말한 사람이 누구냐에 달렸다.", en: "The words alone can't tell me. It depends on who is speaking." } }
             ]
           },
           {
             id: "b",
-            lens: 1,
-            text: { ko: "하나님의 용서를 전하는 건가, 자기 권한으로 말하는 건가?", en: "Is he passing on God's forgiveness, or speaking on his own authority?" },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "나단은 여호와께서 사하셨다고 전했다. 이 사람은 그 이름을 대지 않았다.", en: "Nathan said it was the Lord who forgave. This man never named the Lord." } }
-            ]
-          },
-          {
-            id: "c",
             lens: 2,
             text: { ko: "왜 고치기 전에 용서부터? 아침의 그 순서처럼.", en: "Why forgiveness before healing? Like the order this morning." },
             reaction: [
+              pinThought(),
               // Callback to the dot placed at c1 b.
               { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 두 낱말 사이에 찍은 점. 바로 그 자리다.", en: "The dot I put between those two words this morning. Right there." } },
               { when: { not: { flag: "underline", is: "order" } }, type: "line", speaker: "thought", text: { ko: "아침의 시편도 같은 순서로 말했다.", en: "This morning's psalm said it in the same order." } }
             ]
           },
           {
-            id: "d",
+            id: "c",
             lens: 3,
             text: { ko: "저 사람에게 직접 말하는구나. 아이를 부르듯이.", en: "He's speaking to the man himself—calling him son." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 침상 위의 그를 보며 생각만 했다. 이 사람은 그에게 말을 건다.", en: "In the lane, all I did was look at the man on the bed and think. This man speaks to him." } }
+              pinThought(),
+              // Callback to the lane, where he only looked.
+              { type: "line", speaker: "thought", text: { ko: "골목에서 나는 그를 보며 생각만 했다. 이 사람은 그에게 말을 건다.", en: "In the lane, all I did was look at him and think. This man speaks to him." } }
+            ]
+          },
+          {
+            // CUT (SPEC v3 section 3): after this reaction the engine skips the rest of the
+            // beats and plays endings.cut. No lens, no scoring, no mismatch line.
+            id: "d",
+            lens: null,
+            cut: true,
+            text: { ko: "더 들을 것도 없다. 자리를 뜨자.", en: "There's nothing more to hear. Time to leave." },
+            reaction: [
+              { type: "line", text: { ko: "므나헴은 몸을 돌려 무리를 빠져나간다. 하난은 머뭇거리다, 그 자리에 남는다.", en: "Menahem turns and makes his way out of the crowd. Hanan hesitates, then stays where he is." } },
+              { type: "fx", fx: "light", level: "off" }
             ]
           }
         ]
       },
-      { type: "fx", fx: "pinThought", items: ["verse:MT_9_3Q", "choice:c5"] },
-      { type: "line", text: { ko: "아무도 그 생각을 듣지 못했다. 그는 입 밖에 내지 않았다.", en: "No one heard that thought. He never said it out loud." } },
 
-      // Matt 9:4: the unspoken thought is answered.
+      // Matt 9:4: the thought no one heard is answered. Read receipt on the pinned bubble.
       { id: "read-receipt", type: "fx", fx: "readReceipt" },
       { type: "verse", key: "MT_9_4N" },
       { type: "verse", key: "MT_9_4Q" },
-      { type: "line", text: { ko: "하난이 므나헴을 돌아본다. 므나헴의 입술은 한 번도 움직이지 않았다.", en: "Hanan turns to look at Menahem. Menahem's lips never moved." } },
-      {
-        type: "choice",
-        id: "c6",
-        prompt: { ko: "소리 내지 않은 생각에 대답이 왔다.", en: "A thought he never spoke has been answered." },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "그래도 내 질문은 정당하다. 누가 죄를 사할 수 있는가.", en: "Still, my question is fair. Who can forgive sins?" },
-            reaction: [
-              { type: "line", text: { ko: "질문은 거두지 않는다. 다만 이제 예수라는 사람에게서 눈을 떼지 못한다.", en: "He doesn't take the question back. But now he can't take his eyes off this Jesus." } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 2,
-            text: { ko: "말하지 않은 생각을 어떻게 알았지? 마음은 하나님만 아시는데.", en: "How did he know a thought I never spoke? Only God knows the heart." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "성전을 봉헌하던 솔로몬의 기도가 떠오른다. {{v:KI1_8_39B}}", en: "Solomon's prayer at the temple's dedication comes back to me. {{v:KI1_8_39B}}" } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 2,
-            text: { ko: "악한 생각이라니. 나는 말씀을 지키려 했을 뿐인데.", en: "Evil? I was only trying to guard God's word." },
-            reaction: [
-              { type: "line", text: { ko: "새벽에 두루마리를 펼 때도 그 마음이었다. 그 마음이 지금 시험받는다.", en: "That was his heart at dawn, opening the scroll. Now that heart is being tested." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 3,
-            text: { ko: "침상 위 저 사람의 얼굴을 보기도 전에, 나는 판단부터 했구나.", en: "I judged before I had even looked at the face of the man on the bed." },
-            reaction: [
-              // Callback to what Menahem did in the lane (c4).
-              { when: { choice: "c4", is: "d" }, type: "line", speaker: "thought", text: { ko: "골목에서 길은 비켜 주었다. 그런데 얼굴은 제대로 보지 않았다.", en: "In the lane I made room for him. But I never really looked at his face." } },
-              { when: { choice: "c4", in: ["a", "b", "c"] }, type: "line", speaker: "thought", text: { ko: "골목에서 눈이 마주쳤었다. 그때도 내 생각은 다른 데 있었다.", en: "Our eyes met in the lane. Even then, my mind was somewhere else." } }
-            ]
-          }
-        ]
-      },
       { type: "fx", fx: "unpinThought" },
 
-      // Matt 9:5: the question (c7).
+      // Matt 9:5: the question (c3).
       { type: "verse", key: "MT_9_5" },
       {
         type: "choice",
-        id: "c7",
+        id: "c3",
         prompt: { ko: "어느 쪽이 쉬울까?", en: "Which is easier?" },
         options: [
           {
@@ -3635,7 +3613,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             lens: 2,
             text: { ko: "왜 둘을 묶지? 시편 103편도 둘을 묶었는데.", en: "Why tie the two together? Psalm 103 ties them too." },
             reaction: [
-              { type: "line", speaker: "thought", text: { ko: "한 문장 안에 둘이 다 있다. {{v:PS_103_3}}", en: "Both are in one sentence. {{v:PS_103_3}}" } }
+              // Callback: the psalm returns with the word he noted at dawn highlighted.
+              { type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
+              { type: "line", speaker: "thought", text: { ko: "아침의 그 한 문장 안에, 둘이 다 들어 있다.", en: "Both are there, inside this morning's one sentence." } }
             ]
           },
           {
@@ -3649,173 +3629,62 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         ]
       },
 
-      // Matt 9:6a: the claim (c8).
+      // Matt 9:6-9:8: the claim, the command, he rises, the crowd.
       { type: "verse", key: "MT_9_6A" },
-      {
-        type: "choice",
-        id: "c8",
-        prompt: { ko: "무엇을 마음에 붙잡을까?", en: "What does he hold on to?" },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "그 권한이 자기에게 있다고 말하는군.", en: "He's saying that authority is his." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "돌려 말하지도 않는다.", en: "He isn't hedging at all." } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 2,
-            text: { ko: "용서가 먼저, 치유는 그 증거. 순서에 이유가 있었다.", en: "Forgiveness first, healing as the proof. The order had a reason." },
-            reaction: [
-              // Callback to the dot placed at c1 b.
-              { when: { flag: "underline", is: "order" }, type: "line", speaker: "thought", text: { ko: "아침에 찍은 그 작은 점에, 이유가 있었다.", en: "That little dot from this morning meant something." } },
-              { when: { not: { flag: "underline", is: "order" } }, type: "line", speaker: "thought", text: { ko: "아침의 시편과 같은 순서다.", en: "The same order as this morning's psalm." } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 3,
-            text: { ko: "인자라… 머리 둘 곳도 없다던 그 사람이.", en: "The Son of Man… the one who said he has nowhere to rest his head." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "집 한 칸 없는 사람이, 하나님의 권한을 말한다.", en: "A man without a home of his own, speaking of God's authority." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 2,
-            text: { ko: "정확한 말을 기억해 두자. 기록장에 아침의 시편과 나란히 적게.", en: "Remember the exact words, to write them in my notes beside this morning's psalm." },
-            reaction: [
-              { type: "line", text: { ko: "므나헴은 그 말을 속으로 한 자 한 자 되새긴다.", en: "Menahem goes over the words in his head, one by one." } }
-            ]
-          }
-        ]
-      },
-
-      // Matt 9:6b-9:7: the command, and he rises (c9).
       { type: "verse", key: "MT_9_6N" },
       { type: "fx", fx: "light", level: "bright" },
       { type: "verse", key: "MT_9_6B" },
       { type: "fx", fx: "light", level: "soft" },
-      { type: "line", text: { ko: "아셀이 몸을 일으킨다. 자기를 싣고 왔던 침상을 든다.", en: "Asher pushes himself up. He picks up the bed that carried him here." } },
       { type: "verse", key: "MT_9_7" },
+      { type: "verse", key: "MT_9_8" },
+
+      // c4 (double weight): the last line of his notes tonight.
       {
         type: "choice",
-        id: "c9",
-        prompt: { ko: "그가 일어났다. 므나헴의 눈은 어디로 갈까?", en: "He is on his feet. Where do Menahem's eyes go?" },
+        id: "c4",
+        prompt: { ko: "오늘 밤, 기록장의 마지막 줄에 무엇을 적을까?", en: "Tonight, what goes on the last line of his notes?" },
         options: [
           {
             id: "a",
             lens: 1,
-            text: { ko: "예수라는 그 사람을 다시 본다.", en: "He looks at this Jesus again." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "소문 속의 사람이 아니다. 지금 여기 있는 사람이다.", en: "Not the man in the rumors. The man here, now." } }
-            ]
+            text: { ko: "“그 주장은 받아들일 수 없다. 신성모독.”", en: "“That claim cannot be accepted. Blasphemy.”" }
           },
           {
             id: "b",
             lens: 2,
-            text: { ko: "아침의 구절을 속으로 다시 읽는다.", en: "He silently reads the morning's verse again." },
-            reaction: [
-              // Callback: the psalm returns with the word he noted at dawn highlighted.
-              { type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-              { type: "line", speaker: "thought", text: { ko: "같은 문장이다. 그런데 오늘은 다르게 읽힌다.", en: "The same words. Today they read differently." } }
-            ]
+            text: { ko: "“말씀은 그대로다. 오늘 그 말씀이 한 사람의 입에서 나왔다.”", en: "“The Word stands as it was. Today it came from one man's mouth.”" }
           },
           {
             id: "c",
             lens: 3,
-            text: { ko: "그 사람의 걸음을 본다. 침상을 들고 집으로 간다.", en: "He watches the man walk, carrying his bed, heading home." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "아침엔 남의 손에 들려 왔던 사람이, 이제 자기 침상을 들고 간다.", en: "This morning other hands carried him. Now he carries his own bed." } }
-            ]
+            text: { ko: "“그는 권한으로 한 사람을 집에 보냈다. 나는 내 권한으로 오늘 무엇을 했나.”", en: "“He used that authority to send one man home. What did I do with mine today?”" }
           },
           {
             id: "d",
-            lens: 3,
-            text: { ko: "그를 데려온 사람들의 얼굴을 본다.", en: "He looks at the faces of the men who brought him." },
-            reaction: [
-              { type: "line", speaker: "thought", text: { ko: "땀에 젖은 얼굴들. 그가 본 그들의 믿음이 저 얼굴들이다.", en: "Faces wet with sweat. These are the faces of the faith he saw." } }
-            ]
+            lens: 1,
+            text: { ko: "“결론은 비워 둔다. 내일 다시 가겠다.”", en: "“Conclusion left blank. I will go again tomorrow.”" }
           }
         ]
       },
-
-      // Matt 9:8, then leaving the crowd.
-      { type: "verse", key: "MT_9_8" },
-      { type: "line", text: { ko: "무리가 흩어진다. 므나헴은 끝내 한마디도 하지 않았다. 하난도 묻지 않는다.", en: "The crowd breaks up. Menahem never said a word. Hanan doesn't ask." } },
-      { type: "fx", fx: "light", level: "off" },
-
-      // ---------------------------------------------------------------
-      // NIGHT: the last line of his notes (c10)
-      // ---------------------------------------------------------------
-      { id: "night", type: "scene", bg: "lamp_night", caption: { ko: "밤 · 므나헴의 방", en: "Night · Menahem's room" } },
-      { type: "line", text: { ko: "긴 하루가 저문다. 등잔불 아래 기록장이 펼쳐져 있다.", en: "The long day is over. His notes lie open under the oil lamp." } },
-      // Callback: c8 d memorized the exact words for this page.
-      { when: { choice: "c8", is: "d" }, type: "line", text: { ko: "기록장에 아침의 시편을 적고, 그 옆에 낮에 외워 둔 말을 한 자 한 자 옮겨 적는다.", en: "In his notes he writes out the morning's psalm, and beside it, one by one, the words he memorized at noon." } },
-      { type: "line", speaker: "hanan", text: { ko: "선생님, 오늘 일을 뭐라고 적으실 거예요?", en: "Teacher, what are you going to write about today?" } },
-      {
-        type: "choice",
-        id: "c10",
-        prompt: { ko: "기록장의 마지막 줄에 무엇을 적을까?", en: "What goes on the last line of his notes?" },
-        options: [
-          {
-            id: "a",
-            lens: 1,
-            text: { ko: "“그 주장은 받아들일 수 없다. 신성모독.”", en: "“That claim cannot be accepted. Blasphemy.”" },
-            reaction: [
-              { type: "line", text: { ko: "갈대 펜 끝이 그 단어 위에 오래 머문다.", en: "The tip of his reed pen rests on that word for a long time." } }
-            ]
-          },
-          {
-            id: "b",
-            lens: 2,
-            text: { ko: "“말씀은 그대로다. 오늘 그 말씀이 한 사람의 입에서 나왔다.”", en: "“The Word stands as it was. Today it came from one man's mouth.”" },
-            reaction: [
-              { type: "line", text: { ko: "다 적고 나서도, 그는 그 줄을 한참 들여다본다.", en: "Even after he finishes, he keeps looking at that line." } }
-            ]
-          },
-          {
-            id: "c",
-            lens: 3,
-            text: { ko: "“그는 권한으로 한 사람을 집에 보냈다. 나는 내 권한으로 오늘 무엇을 했나.”", en: "“He used that authority to send one man home. What did I do with mine today?”" },
-            reaction: [
-              { type: "line", text: { ko: "마지막 물음까지 적고, 그는 펜을 내려놓는다.", en: "He writes the question out to the end and sets down his pen." } }
-            ]
-          },
-          {
-            id: "d",
-            lens: 1,
-            text: { ko: "“결론은 비워 둔다. 내일 다시 가겠다.”", en: "“Conclusion left blank. I will go again tomorrow.”" },
-            reaction: [
-              { type: "line", text: { ko: "결론 칸은 비어 있다. 하난이 그 빈칸을 오래 본다.", en: "The space for a conclusion stays empty. Hanan looks at it for a long time." } }
-            ]
-          }
-        ]
-      }
+      // The crowd breaks up; the light leaves with the moment.
+      { type: "fx", fx: "light", level: "off" }
     ],
 
     endingPreface: [],
 
-    // Titles come from data/meta.js (BHS.meta.endings.scribe); none are defined here.
+    // Titles come from data/meta.js (BHS.meta.endings.scribe, including "cut"); none are defined here.
+    // Each lens ending: 1-2 short beats + last. The word he noted at dawn returns in every ending.
     endings: {
       // (1) Who? "Who Spoke"
       "1": {
         beats: [
-          { type: "line", text: { ko: "므나헴은 그 주장을 누구보다 정확히 알아들었다.", en: "Menahem understood that claim more precisely than anyone there." } },
-          { type: "line", text: { ko: "하나님만 하실 수 있는 말을, 한 사람이 자기 권한으로 했다.", en: "One man said, on his own authority, what only God can say." } },
-          // Callback: what he noted at dawn.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 기록장에 옮겨 적은 주어는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The subject he copied into his notes this morning was the Lord. Today a man stood in that very place and spoke." } },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one mouth." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 기록장에 *병*이라고 적었다. 오늘 그 병을 고친 사람이, 죄도 사한다고 했다.", en: "This morning he wrote *diseases* in his notes. Today the man who healed a disease also claimed to forgive sins." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 기록장에 적은 *그가*는 주님이셨다. 오늘 한 사람이 바로 그 자리에서 말했다.", en: "The word in his notes this morning, *who*, meant the Lord. Today a man stood in that very place and spoke." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 그는 용서와 치유 사이에 점을 찍었다. 오늘은 두 일이 한 사람의 입에서 나왔다.", en: "This morning he put a dot between forgiving and healing. Today both came from one man's mouth." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 그는 기록장에 *병*이라고 적었다. 오늘 한 사람이 죄를 사하는 권한을 말하고, 그 병까지 고쳤다.", en: "This morning he wrote *diseases* in his notes. Today a man claimed the authority to forgive sins, and healed the disease as well." } },
           { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 그는 시 전체를 처음부터 읽었다. 그 시가 주님께 돌린 일을, 오늘 한 사람이 했다.", en: "This morning he read the whole psalm from the top. What that psalm credits to the Lord, a man did today." } },
-          // Variant by the last line he wrote (c10).
-          { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "그는 마지막 줄에 *신성모독*이라고 적었다.", en: "On the last line he wrote: *blasphemy*." } },
-          { when: { choice: "c10", is: "a" }, type: "line", text: { ko: "같은 말이 마태복음 끝, 대제사장의 입에서 다시 나온다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "The same charge comes back at the end of Matthew, from the high priest: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
-          { when: { choice: "c10", is: "d" }, type: "line", text: { ko: "그는 결론 칸을 비워 두었다.", en: "He left the conclusion blank." } },
-          { when: { choice: "c10", is: "d" }, type: "line", text: { ko: "그는 누구인가. 그 질문이 내일도 그를 그 자리로 데려갈 것이다.", en: "Who is he? That question will take him back there tomorrow." } },
-          { when: { choice: "c10", in: ["b", "c"] }, type: "line", text: { ko: "기록장에는 다른 문장이 남았다. 그래도 밤늦도록 그를 붙든 물음은 하나다. 누가 말했는가.", en: "His notes say something else. But one question holds him late into the night: who spoke?" } }
+          // Variant by the line he will write (c4).
+          { when: { choice: "c4", is: "a" }, type: "line", text: { ko: "그가 적을 말, *신성모독*. 같은 말이 마태복음 끝, 대제사장의 입에서 다시 나온다. {{v:MT_26_65Q}} ({{r:MT_26_65}})", en: "The word he'll write: *blasphemy*. The same charge returns at the end of Matthew, from the high priest: {{v:MT_26_65Q}} ({{r:MT_26_65}})" } },
+          { when: { choice: "c4", is: "d" }, type: "line", text: { ko: "결론 칸은 비어 있다. 그는 누구인가. 그 질문이 내일도 그를 그 자리로 데려갈 것이다.", en: "The space for a conclusion stays empty. Who is he? That question will take him back there tomorrow." } }
         ],
         last: { ko: "하나님에 대해서는 네가 옳았다. 남은 질문은 그에 대한 것이다.", en: "About God, you were right. What's left is a question about him." }
       },
@@ -3823,20 +3692,17 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // (2) Why first? "The Psalm, Read Again"
       "2": {
         beats: [
-          { type: "line", text: { ko: "밤. 므나헴은 시편 103편을 다시 편다.", en: "Night. Menahem opens Psalm 103 again." } },
-          // Underline callback: the same highlight as at dawn and at the first words.
+          // The same highlight as at dawn and at the first words.
           { when: { flag: "underline", is: "subject" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "기록장에는 아침에 옮겨 적은 *그가*라는 말이 그대로 있다. 사하시는 분도, 고치시는 분도 주님이시다.", en: "The word he copied this morning, *who*, is still in his notes. The one who forgives and heals is the Lord." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침에 적은 *그가*가 다시 보인다. 사하시는 일도, 고치시는 일도 오늘 한 사람의 말로 일어났다.", en: "He sees this morning's word again: *who*. Forgiving and healing both happened today, at one man's word." } },
           { when: { flag: "underline", is: "order" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "기록장에는 아침에 찍은 작은 점이 그대로 있다. 용서, 그리고 치유.", en: "The little dot from this morning is still in his notes. Forgiving, then healing." } },
+          { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침에 찍은 작은 점이 다시 보인다. 오늘 두 일이 꼭 그 순서대로, 한 사람의 말로 일어났다.", en: "He sees this morning's little dot again. Today both things happened in exactly that order, at one man's word." } },
           { when: { flag: "underline", is: "sick" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "기록장에는 아침에 적은 *병*이라는 말이 그대로 있다.", en: "The word he wrote this morning, *diseases*, is still in his notes." } },
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 *병*이 다시 보인다. 오늘 그 병이 한 사람의 말로 나았다. 죄 사함의 말 다음에.", en: "He sees this morning's word again: *diseases*. Today a disease was healed at one man's word, right after the words of forgiveness." } },
           { when: { flag: "underline", is: "whole" }, type: "fx", fx: "echoVerse", key: "PS_103_3", highlight: underlineHighlight() },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침처럼, 그 시를 다시 처음부터 읽는다.", en: "As he did this morning, he reads the psalm again from the top." } },
-          { type: "line", text: { ko: "오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "Today both of those things happened, in that order, at one man's word." } },
-          // Callback: c6 c felt the rebuke about evil thoughts.
-          { when: { choice: "c6", is: "c" }, type: "line", text: { ko: "악한 생각이라는 말이 아직 아프다. 그래도 그는 두루마리를 덮지 않는다.", en: "The words about evil thoughts still sting. Even so, he doesn't roll up the scroll." } },
-          { type: "line", speaker: "thought", text: { ko: "아침엔 하난이 물었다. 누가 용서하시고, 누가 고치시느냐고. 오늘 밤엔 내가 묻는다.", en: "This morning Hanan asked who forgives and who heals. Tonight I'm the one asking." } }
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가 다시 들린다. 오늘 그 두 일이 그 순서대로, 한 사람의 말로 일어났다.", en: "The psalm he read from the top this morning comes back. Today its two works happened, in that order, at one man's word." } },
+          // Callback to Hanan's dawn question.
+          { type: "line", speaker: "thought", text: { ko: "아침엔 하난이 물었다. 누가 용서하시고, 누가 고치시느냐고. 이제는 내가 묻는다.", en: "This morning Hanan asked who forgives and who heals. Now I'm the one asking." } }
         ],
         last: { ko: "말씀은 바뀌지 않았다. 내 질문이 바뀌었다.", en: "The Word hasn't changed. My question has." }
       },
@@ -3844,20 +3710,26 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // (3) Where to? "A Man Carrying His Bed"
       "3": {
         beats: [
-          { type: "line", text: { ko: "그는 하나님만 가지신 권한을 말했다.", en: "He claimed an authority that belongs to God alone." } },
-          { type: "line", text: { ko: "그리고 그 권한으로 우리를 벌하지도, 무리를 모으지도 않았다. 한 사람을 집에 보냈다.", en: "And with it he didn't punish us or rally the crowd. He sent one man home." } },
-          // Callback: c3 c wondered why the town sent him away.
-          { when: { choice: "c3", is: "c" }, type: "line", text: { ko: "그 동네는 그를 떠나보냈다. 그는 오늘 한 사람을 집으로 돌려보냈다.", en: "That town sent him away. Today he sent a man back home." } },
-          // Callback: where his eyes went at c9.
-          { when: { choice: "c9", is: "c" }, type: "line", text: { ko: "침상을 들고 멀어지던 뒷모습이 아직 눈에 선하다.", en: "He can still see the man's back as he walked away with his bed." } },
-          { when: { choice: "c9", is: "d" }, type: "line", text: { ko: "그를 들고 왔던 사람들이 빈손으로 그와 함께 걸어가던 모습이 떠오른다.", en: "He remembers the men who carried him there, walking home beside him empty-handed." } },
-          // Callback (scenario: the word he noted at dawn returns in every ending), one line per c1 pick.
-          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지를 기록장에 적었다. 오늘 밤엔 누구에게 하시는지가 눈에 걸린다.", en: "This morning he wrote down who does it. Tonight what catches his eye is who it is done for." } },
+          { type: "line", text: { ko: "그는 하나님만 가지신 권한을 말했다. 그리고 그 권한으로 우리를 벌하지도, 무리를 모으지도 않았다. 한 사람을 집에 보냈다.", en: "He claimed an authority that belongs to God alone. And he didn't use it to punish us or to rally the crowd. He sent one man home." } },
+          { when: { flag: "underline", is: "subject" }, type: "line", text: { ko: "아침엔 누가 하시는지를 적었다. 이제는 누구에게 하시는지가 눈에 걸린다.", en: "This morning he wrote down who does it. Now what catches his eye is who it was done for." } },
           { when: { flag: "underline", is: "order" }, type: "line", text: { ko: "아침엔 두 낱말 사이의 점만 보았다. 오늘은 그 사이에 누워 있던 한 사람을 보았다.", en: "This morning he saw only a dot between two words. Today he saw a man lying in between." } },
-          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 기록장에 적은 *병*이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he wrote in his notes this morning, *diseases*, he now sees a face from today." } },
-          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 오늘 밤엔 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning reads tonight like one man's story." } }
+          { when: { flag: "underline", is: "sick" }, type: "line", text: { ko: "아침에 적은 *병*이라는 말 위로, 오늘 본 얼굴 하나가 겹친다.", en: "Over the word he wrote this morning, *diseases*, he now sees a face from today." } },
+          { when: { flag: "underline", is: "whole" }, type: "line", text: { ko: "아침에 처음부터 읽은 그 시가, 이제는 한 사람의 이야기로 읽힌다.", en: "The psalm he read from the top this morning now reads like one man's story." } }
         ],
         last: { ko: "나는 오늘 율법으로 그 사람을 판단했다. 그는 권한으로 그 사람을 일으켰다.", en: "Today I judged that man by the Law. He raised him up by his authority." }
+      },
+
+      // Cut ending (c2 d). The event does not change: the man still rises and goes home.
+      cut: {
+        beats: [
+          // The light already went off in the cut option's reaction (it plays in full before this).
+          { type: "scene", bg: "lane", caption: { ko: "정오 무렵 · 골목", en: "Around noon · The lane" } },
+          { type: "line", text: { ko: "누가 죄를 사할 수 있는가. 그 질문을 안고, 므나헴은 혼자 골목을 오른다. 등 뒤에서 함성이 터진다.", en: "Who can forgive sins? Carrying that question, Menahem climbs the lane alone. Behind him, the crowd breaks into a shout." } },
+          { type: "line", text: { ko: "그날 저녁, 끝까지 남아 있던 하난이 전한다. 골목의 그 사람이 일어나, 자기 침상을 들고 집으로 걸어갔다고.", en: "That evening Hanan, who stayed to the end, tells him: the man from the lane stood up, picked up his bed, and walked home." } },
+          // Hanan reports the answer Menahem left before hearing (Matt 9:6a, via token only).
+          { type: "line", speaker: "hanan", text: { ko: "예수라는 그 사람이, 일어나라고 하기 전에 이렇게 말했어요. {{v:MT_9_6A}}", en: "Jesus said this before he told the man to rise: {{v:MT_9_6A}}" } }
+        ],
+        last: { ko: "질문은 옳았다. 다만 그는 답이 보이기 전에 떠났다.", en: "His question was right. He just left before the answer was shown." }
       }
     },
 
@@ -3868,25 +3740,22 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 </script>
 <script>/* data/routes/friend.js */
 /*
- * Friend route: "A Corner of the Bed" (Yonah). Owner: friend writer.
- * Schema: docs/SPEC.md section 4.5. Story: docs/scenario-v2.md (friend route).
+ * Friend route (short, SPEC v3): "A Corner of the Bed" (Yonah). Owner: friend writer.
+ * Schema: docs/SPEC.md section 4.5 as amended by docs/SPEC-v3-short.md.
  *
- * Flags set in this route:
- * - item: "rope" | "cloak" | "water" | "food"  (c5; each item pays off later via `when`)
- * - far: true                                  (c6 option d; Yonah follows behind from then on)
+ * Shape: four choices c1-c4 (c4 counts double). No flags.
+ * - c1 (Asher's house): Yonah's answer to "What did I do wrong?"
+ * - c2 (THE LANE, SPEC 6.3): option d is the cut option (cut: true, lens: null). After its one
+ *   reaction beat the engine skips the rest of the route and plays endings.cut.
+ * - c3 (right after MT_9_2B) and c4 (right after MT_9_8) sit inside the fixed crowd sequence.
  *
- * Narration refers to Yonah in the third person. Second person (Korean informal
- * "you" / English "you") appears only in the two "hands" captions at Matthew 9:2,
- * the ending preface, ending narration and last lines, as in scenario-v2.
+ * Narration refers to Yonah in the third person. Second person appears only in the "hands"
+ * caption at Matthew 9:2, ending narration and last lines, as in scenario-v2.
  * Jesus speaks only through verse beats; the scribes' thought (9:3) is never shown here.
  */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
   BHS.routes = BHS.routes || {};
-
-  // Shorthand conditions used by several beats.
-  var FAR = { flag: "far", is: true };
-  var NEAR = { not: { flag: "far", is: true } };
 
   BHS.routes.friend = {
     id: "friend",
@@ -3896,213 +3765,37 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       { type: "scene", bg: "shore_dawn", caption: { ko: "새벽 · 바닷가", en: "Dawn · The shore" } },
       {
         type: "line",
-        text: {
-          ko: "요나는 밤새 젖은 그물을 손질한다. 손끝이 차다.",
-          en: "Yonah is mending a net still wet from the night. His fingertips are cold."
-        }
-      },
-      {
-        type: "line",
+        id: "shore-rumor",
         speaker: "partners",
         text: {
-          ko: "요나! 건너편에서 온 배가 그러는데, 그분이 돌아오신대! 폭풍도 말 한마디로 잠잠하게 하셨대!",
-          en: "Yonah! Men on a boat from across the lake say Jesus is coming back! They say he stilled a storm with one word!"
+          ko: "요나! 그분이 배로 돌아오신대! 폭풍도 말 한마디로 잠잠하게 하셨대!",
+          en: "Yonah! Jesus is coming back by boat! They say he stilled a storm with one word!"
         }
-      },
-      {
-        type: "line",
-        speaker: "thought",
-        text: {
-          ko: "어릴 적엔 아셀과 이 모래밭을 달리곤 했다. 늘 아셀이 이겼다.",
-          en: "When we were boys, Asher and I used to race on this sand. He always won."
-        }
-      },
-      {
-        type: "line",
-        speaker: "thought",
-        text: {
-          ko: "그 아셀이 걷지 못한 지, 네 해째다.",
-          en: "And now Asher hasn't walked in four years."
-        }
-      },
-      {
-        type: "choice",
-        id: "c1",
-        prompt: { ko: "그물을 잡은 손이 멈춘다. 가장 먼저 떠오른 것은?", en: "Yonah's hands stop on the net. What comes to him first?" },
-        options: [
-          {
-            id: "a",
-            text: { ko: "“폭풍을 말로? 그런 분이라면.”", en: "“A storm, with a word? If he's someone like that…”" },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "thought",
-                text: {
-                  ko: "바다가 그 말을 들었다면… 아셀의 다리도.",
-                  en: "If the sea listened to him… then maybe Asher's legs will too."
-                }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "“아셀!” 그물을 내려놓는다.", en: "“Asher!” Drop the net." },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "그물이 모래 위에 털썩 놓인다. 요나는 벌써 달리고 있다.",
-                  en: "The net lands in a heap on the sand. Yonah is already running."
-                }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: {
-              ko: "“가서 아무것도 안 바뀌면, 아셀이 또 무너질 텐데.”",
-              en: "“If we go and nothing changes, Asher will fall apart again.”"
-            },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                speaker: "thought",
-                text: {
-                  ko: "지난번 의원이 다녀간 뒤로, 아셀은 한 달 내내 웃지 않았다.",
-                  en: "After the last healer came and went, Asher didn't laugh for a whole month."
-                }
-              },
-              {
-                type: "line",
-                text: { ko: "그래도 요나는 그물을 내려놓는다.", en: "Still, Yonah sets down the net." }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: {
-              ko: "“오늘 하루 품삯은 한 데나리온인데.”",
-              en: "“But today's wage is a whole denarius.”"
-            },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "정직한 계산이다. 그래도 발은 아셀의 집 쪽으로 향한다.",
-                  en: "An honest calculation. Still, his feet turn toward Asher's house."
-                }
-              }
-            ]
-          }
-        ]
       },
 
       // ===== Morning: Asher's house =====
       { type: "scene", bg: "asher_home", caption: { ko: "아침 · 아셀의 집", en: "Morning · Asher's house" } },
       {
         type: "line",
+        id: "home-arrive",
         text: {
-          ko: "요나가 숨을 몰아쉬며 문을 들어선다. 아셀은 침상에 누워 있고, 동생은 문 앞에서 논다.",
-          en: "Yonah comes through the door, out of breath. Asher lies on his bed; his little brother plays by the doorway."
+          ko: "요나가 어릴 적 친구의 집에 뛰어든다. “아셀! 그분이 오신대. 같이 가자!”",
+          en: "Yonah bursts into his childhood friend's house. “Asher! Jesus is coming. Come with me!”"
         }
       },
       {
-        type: "line",
-        speaker: "asher",
-        text: { ko: "아침부터 숨이 넘어가네. 누가 쫓아와?", en: "Out of breath this early? Who's chasing you?" }
-      },
-      {
-        type: "line",
-        speaker: "yonah",
-        text: { ko: "그분이 돌아오신대. 같이 가자!", en: "Jesus is coming back. Come with me!" }
-      },
-      {
         type: "choice",
-        id: "c2",
+        id: "c1",
         prompt: {
-          ko: "아셀의 웃음기가 사라진다. “갔는데 아무것도 안 달라지면?”",
-          en: "The smile leaves Asher's face. “What if we go and nothing changes?”"
-        },
-        options: [
-          {
-            id: "a",
-            text: { ko: "“결과는 약속 못 해. 같이 갈 수는 있어.”", en: "“I can't promise how it ends. But I can go with you.”" },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: {
-                  ko: "…솔직하네. 위로는 안 되지만.",
-                  en: "…Honest. Not very comforting, though."
-                }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "“무엇 때문에 망설이는지 말해 줘.”", en: "“Tell me what's holding you back.”" },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: {
-                  ko: "사람들 눈. 그리고… 또 아무 일도 없을까 봐.",
-                  en: "People's eyes. And… that nothing will happen. Again."
-                }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: { ko: "“그분이라면 하실 수 있어. 폭풍도 잠재우셨대.”", en: "“He can do it. They say he calmed a storm.”" },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "바다는 말을 들었겠지. 내 다리는 고집이 세.", en: "Maybe the sea listened. My legs are stubborn." }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: {
-              ko: "“싫다고 해도 데려갈 거야. 그분은 꼭 만나 봐야 돼.”",
-              en: "“Even if you say no, I'm taking you. You need to meet him.”"
-            },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "협박이네. 넌 어릴 때부터 그랬어.", en: "That's a threat. You've been like this since we were kids." }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        type: "choice",
-        id: "c3",
-        prompt: {
-          ko: "아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
-          en: "Staring at the ceiling, Asher asks, “What did I do wrong to end up like this?”"
+          ko: "네 해째 걷지 못하는 아셀이 천장을 보며 묻는다. “내가 뭘 잘못해서 이렇게 된 걸까?”",
+          en: "Four years unable to walk, Asher stares at the ceiling. “What did I do wrong to end up like this?”"
         },
         options: [
           {
             id: "a",
             text: { ko: "“너 잘못 아니야.”", en: "“It's not your fault.”" },
             lens: 1,
-            reaction: [
-              { type: "line", speaker: "asher", text: { ko: "네가 그걸 어떻게 알아?", en: "How would you know?" } },
-              { type: "line", text: { ko: "요나는 대답하지 못한다.", en: "Yonah has no answer." } }
-            ]
+            reaction: [{ type: "line", speaker: "asher", text: { ko: "네가 그걸 어떻게 알아?", en: "How would you know?" } }]
           },
           {
             id: "b",
@@ -4112,11 +3805,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             },
             lens: 3,
             reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "…다들 이유부터 궁금해하던데.", en: "…Everyone else wants the reason first." }
-              }
+              { type: "line", speaker: "asher", text: { ko: "…다들 이유부터 궁금해하던데.", en: "…Everyone else wants the reason first." } }
             ]
           },
           {
@@ -4124,254 +3813,35 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             text: { ko: "“사람들이 너한테 그런 말을 했어?”", en: "“Did people say that to you?”" },
             lens: 2,
             reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "대놓고는 안 해. 눈으로 하지.", en: "Not out loud. They say it with their eyes." }
-              }
+              { type: "line", speaker: "asher", text: { ko: "대놓고는 안 해. 눈으로 하지.", en: "Not out loud. They say it with their eyes." } }
             ]
           },
           {
             id: "d",
             text: { ko: "“왜 이렇게 됐는지는 나도 몰라.”", en: "“I don't know why this happened either.”" },
             lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "…그래. 아무도 모르지.", en: "…Yeah. Nobody does." }
-              }
-            ]
+            reaction: [{ type: "line", speaker: "asher", text: { ko: "…그래. 아무도 모르지.", en: "…Yeah. Nobody does." } }]
           }
         ]
       },
       {
         type: "line",
+        id: "home-consent",
         speaker: "asher",
         text: { ko: "…좋아. 가 보자. 대신 떨어뜨리지 마.", en: "…Fine. Let's go. Just don't drop me." }
-      },
-
-      // ===== Gathering helpers =====
-      {
-        type: "choice",
-        id: "c4",
-        prompt: { ko: "가벼운 침상이라도 혼자서는 못 든다. 어떻게 할까?", en: "Even a light bed is too much for one person. What now?" },
-        options: [
-          {
-            id: "a",
-            text: {
-              ko: "그물 동료들에게 말한다. “오늘 품삯보다 큰일이 있어. 그분이 오신대.”",
-              en: "Tell the partners, “This is bigger than a day's wage. He's coming.”"
-            },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "partners",
-                text: { ko: "폭풍을 잠재우셨다는 그분? …좋아, 가자.", en: "The one who calmed the storm? …All right, let's go." }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "아셀이 덜 부끄럽도록, 그를 아는 얼굴들만 부른다.", en: "Call only faces Asher knows, so he feels less exposed." },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "낯선 손에 들려 가는 것보단 낫네.", en: "Better than being carried off by strangers." }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: { ko: "동료들에게 하루만 같이 들어 달라고 부탁한다.", en: "Ask the partners to help carry him, just for today." },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "아무도 품삯 이야기를 꺼내지 않는다. 다들 그물을 내려놓고 따라나선다.",
-                  en: "No one mentions the wage. They all set down their nets and come."
-                }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: { ko: "혼자 아셀을 업어 본다.", en: "Try to carry Asher piggyback, alone." },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "세 걸음 만에 주저앉는다. 결국 사람들이 모여든다.",
-                  en: "Three steps in, Yonah's knees buckle. In the end, people gather to help."
-                }
-              },
-              { type: "line", speaker: "asher", text: { ko: "…다음엔 처음부터 불러.", en: "…Next time, just call them first." } }
-            ]
-          }
-        ]
-      },
-
-      // ===== Packing =====
-      {
-        type: "choice",
-        id: "c5",
-        prompt: {
-          ko: "침상을 들면 손이 남지 않는다. 딱 하나만 챙길 수 있다.",
-          en: "With the bed to carry, there's room for only one thing. What will it be?"
-        },
-        options: [
-          {
-            id: "a",
-            text: { ko: "침상을 단단히 묶을 끈", en: "A rope to tie the bed securely" },
-            lens: null,
-            set: { item: "rope" },
-            reaction: [
-              {
-                type: "line",
-                text: { ko: "요나가 끈으로 침상 틀을 두 번 감아 묶는다.", en: "Yonah loops the rope twice around the frame and ties it off." }
-              },
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "이렇게 묶어 두면, 나 도망도 못 가겠네.", en: "Tied down like this, I can't even run away." }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "아셀의 낡은 갈색 겉옷", en: "Asher's worn brown wool cloak" },
-            lens: null,
-            set: { item: "cloak" },
-            reaction: [
-              {
-                type: "line",
-                text: { ko: "요나가 갈색 겉옷을 아셀의 무릎에 덮어 준다.", en: "Yonah spreads the brown cloak over Asher's knees." }
-              },
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "이거 덮으면, 좀 덜 보여.", en: "Under this, people see a little less of me." }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: { ko: "물을 가득 채운 물주머니", en: "A waterskin, filled to the top" },
-            lens: null,
-            set: { item: "water" },
-            reaction: [
-              {
-                type: "line",
-                text: { ko: "요나가 물주머니를 채워 허리에 찬다.", en: "Yonah fills the waterskin and ties it at his waist." }
-              },
-              {
-                type: "line",
-                speaker: "thought",
-                text: { ko: "해가 높아지면 아셀이 목마를 거다.", en: "Once the sun climbs, Asher will get thirsty." }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: { ko: "빵과 말린 생선 보따리", en: "A bundle of bread and dried fish" },
-            lens: null,
-            set: { item: "food" },
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "요나가 빵과 말린 생선을 보자기에 싸서 허리에 맨다.",
-                  en: "Yonah wraps bread and dried fish in a cloth and ties it at his waist."
-                }
-              },
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "놀러 가는 줄 알겠다.", en: "Anyone would think we're going on a picnic." }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        type: "line",
-        text: { ko: "“들자.” 요나의 말에 침상이 땅에서 뜬다.", en: "“Lift,” says Yonah, and the bed leaves the ground." }
-      },
-      {
-        type: "line",
-        id: "hands-lift",
-        text: {
-          ko: "귀퉁이를 잡은 손들. 그물에 튼 손, 굳은살 박인 손. 그 가운데 요나의 손이 있다.",
-          en: "Hands on the corners: chapped from nets, thick with calluses. Yonah's are among them."
-        }
       },
 
       // ===== Late morning: THE LANE (SPEC 6.3) =====
       { type: "scene", bg: "lane", caption: { ko: "늦은 아침 · 골목", en: "Late morning · The lane" } },
       {
         type: "line",
+        id: "lane-carry",
         text: {
-          ko: "검은 현무암 집들 사이로, 좁은 골목이 바다 쪽으로 기운다. 바닷바람이 분다.",
-          en: "Between houses of black basalt, a narrow lane slopes toward the sea. A breeze comes off the water."
-        }
-      },
-      {
-        type: "line",
-        text: {
-          ko: "골목 끝으로 바다가 보인다. 배 한 척이 뭍에 닿고 있다.",
-          en: "At the bottom of the lane, the sea opens up. A boat is coming ashore."
+          ko: "요나와 그물 동료들이 침상을 들고 골목을 내려간다. 골목 끝, 배 한 척이 뭍에 닿는다.",
+          en: "Yonah and his net partners carry the bed down the lane. At the bottom, a boat is coming ashore."
         }
       },
       { type: "verse", id: "lane-9-1", key: "MT_9_1" },
-      {
-        type: "line",
-        id: "rope-lane",
-        when: { flag: "item", is: "rope" },
-        text: {
-          ko: "내리막에서 침상이 한쪽으로 기운다. 묶어 둔 끈이 팽팽해지며 버틴다.",
-          en: "On the steep part, the bed tips to one side. The rope pulls taut and holds."
-        }
-      },
-      {
-        type: "line",
-        id: "water-lane",
-        when: { flag: "item", is: "water" },
-        text: {
-          ko: "해가 뜨겁다. 잠깐 쉬는 사이, 요나는 아셀에게 물을 먹이고 물주머니를 그의 발치에 둔다.",
-          en: "The sun is hot. During a short rest, Yonah gives Asher a drink and sets the waterskin by his feet."
-        }
-      },
-      {
-        type: "line",
-        id: "food-lane",
-        when: { flag: "item", is: "food" },
-        text: { ko: "빵 냄새에 아셀이 보따리를 힐끔거린다.", en: "At the smell of bread, Asher eyes the bundle." }
-      },
-      {
-        type: "line",
-        id: "food-lane-promise",
-        when: { flag: "item", is: "food" },
-        speaker: "yonah",
-        text: { ko: "돌아와서 같이 먹자.", en: "We'll eat when we're back." }
-      },
-      {
-        type: "line",
-        text: { ko: "사람들이 길을 비켜서며 침상을 쳐다본다.", en: "People step aside and stare at the bed." }
-      },
-      {
-        type: "line",
-        id: "cloak-lane",
-        when: { flag: "item", is: "cloak" },
-        text: {
-          ko: "아셀이 갈색 겉옷을 턱밑까지 끌어올린다. 쏟아지던 눈길이 조금 덜 닿는다.",
-          en: "Asher pulls the brown cloak up to his chin. It blocks some of the stares."
-        }
-      },
       {
         type: "line",
         id: "lane-passerby",
@@ -4383,21 +3853,15 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       },
       {
         type: "line",
+        id: "lane-menahem",
         text: {
-          ko: "앞서 골목을 내려가던 서기관 므나헴이 젊은 제자와 함께 길을 비켜선다. 회당에서 늘 보던 얼굴이다.",
-          en: "Ahead of them, Menahem the scribe and a young student, also heading down, step aside to let them pass. Yonah knows that face from the synagogue."
-        }
-      },
-      {
-        type: "line",
-        text: {
-          ko: "므나헴이 침상을 힐끗 본다. 잠깐, 아셀과 눈이 마주친다.",
-          en: "Menahem glances at the bed. For a moment, his eyes meet Asher's."
+          ko: "회당에서 보던 서기관 므나헴이 젊은 제자와 함께 길을 비켜선다. 잠깐, 그와 아셀의 눈이 마주친다.",
+          en: "Menahem, the scribe from the synagogue, steps aside with a young student. For a moment, his eyes meet Asher's."
         }
       },
       {
         type: "choice",
-        id: "c6",
+        id: "c2",
         prompt: { ko: "행인의 말이 침상 위에 떨어진다. 요나는 어떻게 할까?", en: "The passerby's words land on the bed. What does Yonah do?" },
         options: [
           {
@@ -4408,11 +3872,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             },
             lens: 1,
             reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "…이제 나를 폭풍이랑 비교하는 거야?", en: "…So now I'm being compared to a storm?" }
-              }
+              { type: "line", speaker: "asher", text: { ko: "…이제 나를 폭풍이랑 비교하는 거야?", en: "…So now I'm being compared to a storm?" } }
             ]
           },
           {
@@ -4420,11 +3880,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             text: { ko: "아셀에게 속삭인다. “신경 쓰지 마. 끝까지 간다.”", en: "Whisper to Asher, “Don't listen. We're going all the way.”" },
             lens: 2,
             reaction: [
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "…알았어. 근데 네 손이 떨려.", en: "…Okay. But your hands are shaking." }
-              }
+              { type: "line", speaker: "asher", text: { ko: "…알았어. 근데 네 손이 떨려.", en: "…Okay. But your hands are shaking." } }
             ]
           },
           {
@@ -4432,193 +3888,48 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             text: { ko: "“그걸 어떻게 아세요?” 행인 앞을 막아선다.", en: "“How would you know that?” Block the passerby's way." },
             lens: 3,
             reaction: [
-              { type: "line", text: { ko: "행인이 눈을 피하고 걸음을 서두른다.", en: "The passerby looks away and hurries off." } },
-              {
-                type: "line",
-                speaker: "asher",
-                text: { ko: "…고마워. 근데 침상은 똑바로 들어.", en: "…Thanks. But keep the bed level." }
-              }
+              { type: "line", speaker: "asher", text: { ko: "…고마워. 근데 침상은 똑바로 들어.", en: "…Thanks. But keep the bed level." } }
             ]
           },
           {
+            // Cut option (SPEC v3 section 3): the route ends after this reaction; endings.cut follows.
             id: "d",
             text: { ko: "침상을 내려놓는다. “…오늘은 안 되겠어.”", en: "Set the bed down. “…I can't do this today.”" },
             lens: null,
-            set: { far: true },
+            cut: true,
             reaction: [
               {
                 type: "line",
+                id: "cut-let-go",
                 text: {
-                  ko: "요나의 손이 귀퉁이에서 떨어진다. 동료들이 말없이 침상을 다시 든다.",
-                  en: "Yonah's hands come away from the corner. Without a word, the partners lift the bed again."
+                  ko: "요나가 귀퉁이를 놓는다. 동료들이 말없이 침상을 다시 들고 내려간다.",
+                  en: "Yonah lets go of his corner. Without a word, his partners lift the bed again and carry it on down."
                 }
-              },
-              {
-                type: "line",
-                text: { ko: "요나는 몇 걸음 떨어져, 그 뒤를 따라간다.", en: "Yonah follows behind, a few steps back." }
               }
             ]
           }
         ]
       },
 
-      // ===== Around noon: THE CROWD (SPEC 6.4) =====
+      // ===== Around noon: THE CROWD (SPEC 6.4, full sequence) =====
       { type: "scene", bg: "crowd", caption: { ko: "정오 무렵 · 바닷가 공터", en: "Around noon · Open ground by the shore" } },
       { type: "fx", fx: "light", level: "soft" },
       {
         type: "line",
+        id: "crowd-bed-down",
         text: {
-          ko: "바닷가 공터에 무리가 빽빽하다. 그 한가운데에 그분이 계신다.",
-          en: "The open ground by the shore is packed with people. Jesus is there, at the center."
+          ko: "마침내 침상이 그분 앞에 내려진다. 귀퉁이를 잡은 손들은 그물에 트고 굳은살이 박였다.",
+          en: "At last, the bed is set down in front of Jesus. The hands on its corners are chapped from nets, thick with calluses."
         }
-      },
-      {
-        type: "line",
-        id: "far-edge",
-        when: FAR,
-        text: {
-          ko: "요나는 무리 가장자리에서 멈춘다. 침상은 동료들의 손에 들려 앞으로 간다.",
-          en: "Yonah stops at the edge of the crowd. The bed moves on ahead in his partners' hands."
-        }
-      },
-      {
-        type: "choice",
-        id: "c7",
-        prompt: { ko: "무리가 너무 많다. 그분 앞까지 어떻게 갈까?", en: "The crowd is too thick. How will they get to him?" },
-        options: [
-          {
-            id: "a",
-            text: { ko: "“길 좀 비켜 주세요!” 앞으로 나아간다.", en: "“Make way, please!” Push forward." },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                text: { ko: "사람들이 조금씩 갈라진다. 침상이 그 틈으로 들어간다.", en: "Bit by bit, people part. The bed slips into the gap." }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "요나가 몇 걸음 나아가다 멈춘다. 그 틈으로 동료들이 침상을 들고 들어간다.",
-                  en: "Yonah pushes a few steps forward, then stops. His partners carry the bed into the gap."
-                }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "아셀에게 묻는다. “어디서 기다리면 편해?”", en: "Ask Asher, “Where would be easiest for you to wait?”" },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                speaker: "asher",
-                text: {
-                  ko: "맨 앞. 어차피 다 쳐다볼 거면, 빨리 끝내자.",
-                  en: "Right up front. If they're all going to stare anyway, let's get it over with."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                speaker: "asher",
-                text: { ko: "…넌 어디 있을 건데?", en: "…And where will you be?" }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: { ko: "사람들에게 함께 옮겨 달라고 청한다.", en: "Ask the people nearby to help pass the bed along." },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                text: {
-                  ko: "낯선 손들이 귀퉁이를 함께 잡는다. 침상이 무리 사이로 나아간다.",
-                  en: "Strangers' hands join on the corners. The bed moves forward through the crowd."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "낯선 손들이 귀퉁이를 함께 잡는다. 요나는 그 손들을 뒤에서 본다.",
-                  en: "Strangers' hands join on the corners. Yonah watches those hands from behind."
-                }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: { ko: "“지붕을 뚫을까?”", en: "“Should we go in through a roof?”" },
-            lens: null,
-            reaction: [
-              {
-                type: "line",
-                speaker: "partners",
-                text: { ko: "요나, 여긴 공터야. 지붕이 어디 있어.", en: "Yonah, we're out in the open. What roof?" }
-              },
-              {
-                type: "line",
-                id: "roof-easter-egg",
-                speaker: "sign",
-                text: {
-                  ko: "지붕을 뚫은 이야기는 마가복음에 나온다({{r:MK_2_4}}). 마태복음에서는 그냥 데려온다.",
-                  en: "The roof story is in Mark ({{r:MK_2_4}}). In Matthew, they simply bring him."
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        type: "line",
-        text: { ko: "마침내 침상이 그분 앞에 내려진다.", en: "At last, the bed is set down in front of Jesus." }
       },
       { type: "verse", id: "crowd-9-2a", key: "MT_9_2A" },
-      {
-        type: "line",
-        text: {
-          ko: "침상 귀퉁이를 잡았던 손들. 그물에 튼 손, 굳은살 박인 손.",
-          en: "The hands that held the corners of the bed: chapped from nets, thick with calluses."
-        }
-      },
-      {
-        type: "line",
-        id: "hands-near",
-        when: NEAR,
-        speaker: "sign",
-        text: { ko: "그 손들 가운데 네 손이 있다.", en: "Your hands are among them." }
-      },
-      {
-        type: "line",
-        id: "hands-far",
-        when: FAR,
-        speaker: "sign",
-        text: { ko: "그 손들 가운데 네 손은 없다.", en: "Your hands are not among them." }
-      },
+      { type: "line", id: "hands-yours", speaker: "sign", text: { ko: "그 손들 가운데 네 손이 있다.", en: "Your hands are among them." } },
       { type: "fx", fx: "light", level: "bright" },
       { type: "verse", id: "crowd-9-2b", key: "MT_9_2B" },
       { type: "fx", fx: "light", level: "soft" },
       {
-        type: "line",
-        when: NEAR,
-        text: { ko: "요나의 손은 아직 침상 끝을 잡고 있다.", en: "Yonah's hands are still gripping the end of the bed." }
-      },
-      {
-        type: "line",
-        when: FAR,
-        text: {
-          ko: "요나는 가장자리에서, 사람들 어깨 너머로 그 말을 듣는다.",
-          en: "From the edge, over people's shoulders, Yonah hears it."
-        }
-      },
-      {
         type: "choice",
-        id: "c8",
+        id: "c3",
         prompt: {
           ko: "기다리던 말이 아니다. 요나의 머릿속에 먼저 떠오른 것은?",
           en: "Not the words he was waiting for. What's the first thing in Yonah's mind?"
@@ -4661,18 +3972,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
             reaction: [
               {
                 type: "line",
-                when: NEAR,
                 text: {
                   ko: "아셀의 얼굴에서, 아침 내내 굳어 있던 무언가가 풀린다.",
                   en: "In Asher's face, something that was clenched all morning comes loose."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "어깨들 사이로 아셀의 얼굴이 보인다. 아침 내내 굳어 있던 무언가가 풀린다.",
-                  en: "Between shoulders, Yonah catches Asher's face. Something clenched all morning comes loose."
                 }
               }
             ]
@@ -4685,10 +3987,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               {
                 type: "line",
                 speaker: "thought",
-                text: {
-                  ko: "아셀은 아직 누워 있다. 그런데 아무도 자리를 뜨지 않는다.",
-                  en: "Asher is still lying there. But no one is leaving."
-                }
+                text: { ko: "아셀은 아직 누워 있다. 그런데 아무도 자리를 뜨지 않는다.", en: "Asher is still lying there. But no one is leaving." }
               }
             ]
           }
@@ -4708,10 +4007,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         type: "line",
         id: "no-one-spoke",
         speaker: "thought",
-        text: {
-          ko: "누구한테 하시는 말씀이지? 저 사람들은 아무 말도 안 했는데.",
-          en: "Who's he talking to? Those men didn't say a word."
-        }
+        text: { ko: "누구한테 하시는 말씀이지? 저 사람들은 아무 말도 안 했는데.", en: "Who's he talking to? Those men didn't say a word." }
       },
       { type: "verse", id: "crowd-9-5", key: "MT_9_5" },
       { type: "verse", id: "crowd-9-6a", key: "MT_9_6A" },
@@ -4719,167 +4015,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       { type: "fx", fx: "light", level: "bright" },
       { type: "verse", id: "crowd-9-6b", key: "MT_9_6B" },
       { type: "fx", fx: "light", level: "soft" },
-      {
-        type: "line",
-        when: NEAR,
-        text: { ko: "아셀이 움직인다. 요나의 손이 저도 모르게 뻗는다.", en: "Asher moves. Yonah's hand reaches out before he can think." }
-      },
-      {
-        type: "line",
-        when: FAR,
-        text: {
-          ko: "아셀이 움직인다. 가장자리에서, 닿을 리 없는 요나의 손이 저도 모르게 뻗는다.",
-          en: "Asher moves. At the edge, Yonah's hand goes out on its own, though he is much too far away."
-        }
-      },
-      {
-        type: "choice",
-        id: "c9",
-        prompt: { ko: "아셀이 몸을 일으킨다. 그 순간, 요나는?", en: "Asher begins to rise. In that moment, Yonah…" },
-        options: [
-          {
-            id: "a",
-            text: { ko: "그분을 본다. “누구시길래.”", en: "Look at Jesus. “Who *is* he?”" },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                speaker: "thought",
-                text: {
-                  ko: "폭풍에 말씀하셨다는 분이, 오늘 아셀에게 말씀하셨다.",
-                  en: "They say he spoke to a storm. Today he spoke to Asher."
-                }
-              }
-            ]
-          },
-          {
-            id: "b",
-            text: { ko: "“손 잡아 줄까?” 하고 묻는다.", en: "Ask, “Want my hand?”" },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                speaker: "asher",
-                text: { ko: "괜찮아. 네 손은 오늘 할 만큼 했어.", en: "I'm okay. Your hands have done enough today." }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "요나의 목소리는 무리 소리에 묻힌다. 그래도 아셀이 이쪽을 돌아본다.",
-                  en: "Yonah's voice is lost in the noise of the crowd. Still, Asher turns this way."
-                }
-              }
-            ]
-          },
-          {
-            id: "c",
-            text: { ko: "잡아당기지 않고, 손만 내민다.", en: "Hold out a hand, without pulling." },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                text: {
-                  ko: "아셀이 그 손을 잠깐 본다. 그리고 혼자 일어선다.",
-                  en: "Asher looks at the hand for a moment. Then he stands up on his own."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: { ko: "닿지 않는 거리다. 그래도 요나는 손을 거두지 않는다.", en: "It's too far to reach. Still, Yonah doesn't lower his hand." }
-              }
-            ]
-          },
-          {
-            id: "d",
-            text: { ko: "물러서서, 아셀이 자기 침상을 들게 한다.", en: "Step back and let Asher pick up his own bed." },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                text: {
-                  ko: "요나는 한 걸음 물러선다. 아셀이 자기 침상 쪽으로 몸을 굽힌다.",
-                  en: "Yonah steps back. Asher bends down toward his own bed."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "요나는 한 걸음 더 물러선다. 아셀이 걸어 나올 길을 비워 둔다.",
-                  en: "Yonah steps back further, leaving the way open for Asher to walk out."
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        type: "line",
-        id: "rope-rise",
-        when: { flag: "item", is: "rope" },
-        text: {
-          ko: "요나가 묶어 둔 끈이, 침상을 드는 아셀의 손잡이가 된다.",
-          en: "The rope Yonah tied becomes a handle as Asher lifts his bed."
-        }
-      },
-      {
-        type: "line",
-        id: "cloak-rise",
-        when: { flag: "item", is: "cloak" },
-        text: {
-          ko: "아셀이 덮고 있던 갈색 겉옷을 직접 집어 든다.",
-          en: "Asher picks up the brown cloak that covered him, with his own hands."
-        }
-      },
-      {
-        type: "line",
-        id: "water-rise",
-        when: { all: [{ flag: "item", is: "water" }, NEAR] },
-        text: {
-          ko: "요나는 발치의 물주머니를 얼른 치운다. 아셀의 걸음에 걸리지 않게.",
-          en: "Yonah quickly moves the waterskin from by his feet, out of Asher's way."
-        }
-      },
-      {
-        type: "line",
-        id: "water-rise-far",
-        when: { all: [{ flag: "item", is: "water" }, FAR] },
-        text: {
-          ko: "동료 하나가, 요나가 채워 온 물주머니를 아셀의 걸음 밖으로 치운다.",
-          en: "One of the partners moves the waterskin Yonah filled out of Asher's way."
-        }
-      },
       { type: "verse", id: "crowd-9-7", key: "MT_9_7" },
       { type: "verse", id: "crowd-9-8", key: "MT_9_8" },
-      { type: "fx", fx: "light", level: "off" },
-
-      // ===== Afternoon: the road home =====
-      { type: "scene", bg: "road_home", caption: { ko: "오후 · 집으로 가는 길", en: "Afternoon · The road home" } },
-      {
-        type: "line",
-        text: {
-          ko: "집으로 가는 길. 이번에는 소문이 그들보다 먼저 달린다.",
-          en: "The road home. This time, the news runs ahead of them."
-        }
-      },
-      {
-        type: "line",
-        id: "food-road",
-        when: { flag: "item", is: "food" },
-        text: {
-          ko: "요나의 허리춤에서 보따리가 흔들린다. 아직 풀지 않았다.",
-          en: "The bundle at Yonah's waist swings as he walks. It's still unopened."
-        }
-      },
       {
         type: "choice",
-        id: "c10",
-        prompt: { ko: "사람들이 몰려든다. “무슨 일이 있었어?”", en: "People crowd around them. “What happened?”" },
+        id: "c4",
+        prompt: { ko: "아는 얼굴들이 요나에게 몰려든다. “대체 무슨 일이야?”", en: "Familiar faces crowd around Yonah. “What on earth just happened?”" },
         options: [
           {
             id: "a",
@@ -4887,16 +4028,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               ko: "“그분이 죄를 사할 권능이 있다고 하셨어. 그게 무슨 뜻일까.”",
               en: "“He said he has authority to forgive sins. What could that mean?”"
             },
-            lens: 1,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "웅성거림이 커진다. 요나도 그 말을 속으로 다시 굴려 본다.",
-                  en: "The murmuring grows. Yonah is still turning the words over himself."
-                }
-              }
-            ]
+            lens: 1
           },
           {
             id: "b",
@@ -4904,13 +4036,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               ko: "“먼저 죄 사함을 말씀하셨어. 일어나라는 건 그다음이었어.”",
               en: "“He spoke of forgiveness of sins first. Telling him to get up came after.”"
             },
-            lens: 2,
-            reaction: [
-              {
-                type: "line",
-                text: { ko: "사람들은 다리 이야기를 더 듣고 싶어 한다.", en: "People want to hear more about the legs." }
-              }
-            ]
+            lens: 2
           },
           {
             id: "c",
@@ -4918,25 +4044,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               ko: "“못 걷던 애가 걷잖아! 우리가 데려갔다고!”",
               en: "“He couldn't walk, and look at him now! We're the ones who brought him!”"
             },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                when: NEAR,
-                text: {
-                  ko: "요나의 목소리가 길 끝까지 울린다. 아셀이 피식 웃는다.",
-                  en: "Yonah's voice carries to the end of the road. Asher snorts a laugh."
-                }
-              },
-              {
-                type: "line",
-                when: FAR,
-                text: {
-                  ko: "말해 놓고, 요나는 말끝을 흐린다. 마지막까지 든 손은 그의 손이 아니었다.",
-                  en: "Yonah trails off. The hands that carried him all the way weren't his."
-                }
-              }
-            ]
+            lens: 3
           },
           {
             id: "d",
@@ -4944,87 +4052,36 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
               ko: "“본인한테 물어봐. 그 자리에 누워 있던 사람이잖아.”",
               en: "“Ask him. He's the one who was lying there.”"
             },
-            lens: 3,
-            reaction: [
-              {
-                type: "line",
-                text: {
-                  ko: "눈길이 모두 아셀에게 쏠린다. 아셀이 잠깐 머뭇거리다 입을 연다.",
-                  en: "Every eye turns to Asher. He hesitates a moment, then starts to speak."
-                }
-              }
-            ]
+            lens: 3
           }
         ]
-      }
-    ],
-
-    // Played before any ending; only the "far" path (c6 option d) has lines here.
-    endingPreface: [
-      {
-        type: "line",
-        id: "far-preface-1",
-        when: FAR,
-        text: {
-          ko: "그분은 *그들의* 믿음을 보셨다. 그날 그 *그들* 안에 너는 없었다.",
-          en: "He saw *their* faith. That day, you were not one of *them*."
-        }
       },
-      {
-        type: "line",
-        id: "far-preface-2",
-        when: FAR,
-        text: {
-          ko: "그래도 아셀은 일어났고, 가장자리에 선 너를 지나며 웃었다.",
-          en: "Still, Asher rose, and as he passed you at the edge, he smiled."
-        }
-      }
+      // The moment is over; the light of his presence fades before the ending (SPEC 4.5).
+      { type: "fx", fx: "light", level: "off" }
     ],
 
-    // Titles come from data/meta.js (BHS.meta.endings.friend).
+    // Titles come from data/meta.js (BHS.meta.endings.friend, including "cut").
+    // Ending 2's beat states that Jesus gave no reason for the illness (SPEC 7.2); its last line
+    // echoes the ending title and the game title ("before he stood").
     endings: {
       "1": {
         beats: [
-          { type: "scene", bg: "doorway_evening", caption: { ko: "저녁 · 아셀의 집 앞", en: "Evening · Asher's doorway" } },
           {
             type: "line",
-            speaker: "thought",
+            id: "e1-default",
+            when: { not: { choice: "c1", is: "a" } },
             text: {
-              ko: "우리는 다리를 구하러 갔다. 그분은 하나님만 하실 수 있는 말을 하셨다.",
-              en: "We went to ask for his legs. He said what only God can say."
+              ko: "요나는 한 번도 물어본 적이 없었다. 누가 죄를 사할 수 있는지. 오늘 전까지는.",
+              en: "Yonah had never once asked who can forgive sins. Not until today."
             }
           },
           {
             type: "line",
+            id: "e1-callback-c1a",
+            when: { choice: "c1", is: "a" },
             text: {
-              ko: "요나는 한 번도 ‘누가 죄를 사할 수 있나’를 물어본 적이 없었다.",
-              en: "Yonah had never once asked who can forgive sins."
-            }
-          },
-          {
-            type: "line",
-            id: "e1-callback-c3a",
-            when: { choice: "c3", is: "a" },
-            text: {
-              ko: "아침에 “너 잘못 아니야”라고밖에 못 했던 일이 떠오른다.",
-              en: "He remembers this morning, when all he could say was “It's not your fault.”"
-            }
-          },
-          {
-            type: "line",
-            id: "e1-callback-c3d",
-            when: { choice: "c3", is: "d" },
-            text: {
-              ko: "아침에 “나도 몰라”라고밖에 못 했던 일이 떠오른다.",
-              en: "He remembers this morning, when all he could say was “I don't know either.”"
-            }
-          },
-          {
-            type: "line",
-            when: { choice: "c3", in: ["a", "d"] },
-            text: {
-              ko: "그 질문에 답할 수 있는 분이, 오늘 거기 계셨다.",
-              en: "Today, the one who could answer that question was there."
+              ko: "아침에 아셀이 물었다. “네가 그걸 어떻게 알아?” 그 질문에 답하실 수 있는 분이, 오늘 거기 계셨다.",
+              en: "This morning Asher asked, “How would you know?” Today, the one who could answer that was there."
             }
           }
         ],
@@ -5036,82 +4093,73 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
       "2": {
         beats: [
-          { type: "scene", bg: "road_home" },
           {
             type: "line",
-            text: { ko: "누군가 묻는다. “그러니까, 걸을 수 있게 됐다는 거지?”", en: "Someone asks, “So he can walk now, right?”" }
-          },
-          {
-            type: "line",
-            speaker: "yonah",
-            text: { ko: "맞아. 하지만 그게 첫 말씀은 아니었어.", en: "Yes. But that wasn't the first thing he said." }
-          },
-          { type: "verse", id: "e2-memory-9-2b1", key: "MT_9_2B1" },
-          {
-            type: "line",
+            id: "e2-first-words",
             text: {
-              ko: "그 말을 들을 때 아셀의 얼굴이 어땠는지, 요나는 기억한다.",
-              en: "Yonah remembers Asher's face when he heard those words."
+              ko: "그분은 아셀이 왜 아팠는지 한마디도 하지 않으셨다. 다리 이야기보다 먼저, 아셀에게 말을 거셨다.",
+              en: "Jesus never said a word about why Asher had been sick. Before anything about his legs, he spoke to Asher himself."
             }
           }
         ],
         last: {
-          ko: "그분은 다리보다 먼저, 아셀이 가장 무서워하던 질문에 답하셨다.",
-          en: "Before a word about his legs, Jesus answered the question Asher feared most."
+          ko: "다들 아셀이 걸은 것을 기억한다. 나는 그 전의 첫마디도 기억한다.",
+          en: "Everyone remembers that Asher walked. I remember the first words too, the ones before he stood."
         }
       },
 
       "3": {
         beats: [
-          { type: "scene", bg: "road_home" },
-          { type: "line", text: { ko: "아셀이 자기 침상을 들고 걷는다.", en: "Asher walks, carrying his own bed." } },
           {
             type: "line",
-            when: NEAR,
-            text: { ko: "요나는 처음으로 빈손으로 그 옆을 걷는다.", en: "For the first time, Yonah walks beside him with empty hands." }
-          },
-          {
-            type: "line",
-            when: FAR,
-            text: { ko: "요나는 이번에는 뒤가 아니라, 그 옆을 걷는다.", en: "This time Yonah walks not behind him, but beside him." }
-          },
-          {
-            type: "line",
-            id: "e3-c10c",
-            when: { choice: "c10", is: "c" },
+            id: "e3-beside",
             text: {
-              ko: "할 이야기가 너무 많아, 정작 곁에서 함께 걷는 걸 놓칠 뻔했다.",
-              en: "There was so much to tell that he almost missed simply walking beside him."
-            }
-          },
-          {
-            type: "line",
-            id: "e3-c10d",
-            when: { choice: "c10", is: "d" },
-            text: {
-              ko: "아침에는 그가 도착하도록 도왔다. 저녁에는 그가 말하도록 기다렸다.",
-              en: "In the morning, Yonah helped him get there. In the evening, he waited for him to speak."
-            }
-          },
-          {
-            type: "scene",
-            when: { flag: "item", is: "food" },
-            bg: "doorway_evening",
-            caption: { ko: "저녁 · 아셀의 집", en: "Evening · Asher's house" }
-          },
-          {
-            type: "line",
-            id: "e3-food",
-            when: { flag: "item", is: "food" },
-            text: {
-              ko: "그날 저녁, 그 보따리를 아셀의 집에서 같이 푼다.",
-              en: "That evening, they open the bundle together at Asher's house."
+              ko: "요나는 처음으로 빈손으로 아셀 옆을 걷는다. 어릴 적처럼, 나란히.",
+              en: "For the first time, Yonah walks beside Asher with empty hands. Side by side, like when they were boys."
             }
           }
         ],
         last: {
           ko: "너는 그를 여기까지 들고 왔다. 집까지는 그가 침상을 들고 갔다.",
           en: "You carried him this far. The rest of the way home, he carried the bed."
+        }
+      },
+
+      // Cut ending (c2 d). The event itself is unchanged: the others carry Asher on, and he
+      // comes back up the lane on his own feet.
+      cut: {
+        beats: [
+          {
+            type: "line",
+            id: "cut-alone",
+            text: {
+              ko: "요나는 골목에 그대로 서 있다. 침상이 무리 속으로 사라진다.",
+              en: "Yonah stays where he is in the lane. The bed disappears into the crowd."
+            }
+          },
+          {
+            type: "line",
+            id: "cut-shout",
+            speaker: "sign",
+            text: { ko: "― 골목 아래에서 터지는 함성 ―", en: "— A great shout from below —" }
+          },
+          {
+            type: "line",
+            id: "cut-walks-up",
+            text: {
+              ko: "한참 뒤, 누군가 골목을 걸어 올라온다. 자기 침상을 든 아셀이다.",
+              en: "Much later, someone comes walking up the lane. It's Asher, carrying his own bed."
+            }
+          },
+          {
+            type: "line",
+            id: "cut-smile",
+            text: { ko: "아셀이 요나를 지나며 웃는다.", en: "As he passes Yonah, Asher smiles at him." }
+          }
+        ],
+        last: {
+          ko: "그분은 *그들의* 믿음을 보셨다. 그날 침상을 든 손들 가운데 네 손은 없었다.",
+          en: "He saw *their* faith. That day, your hands were not among those that carried the bed."
         }
       }
     }
@@ -5120,7 +4168,11 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
 </script>
 <script>/* data/routes/asher.js */
-/* Asher route: "What Did He Call Me?" Owner: asher writer. Schema: docs/SPEC.md §4.5. */
+/* Asher route, short version: "What Did He Call Me?" Owner: asher writer.
+ * Schema: docs/SPEC.md §4.5. Shape, scoring and screen budget: docs/SPEC-v3-short.md (4 choices, c4 counts double).
+ * By design this route has NO cut option: Asher cannot walk away (meta.endings.asher.cutNote).
+ * Budget: 30 screens on every path, 31 when the mismatch line plays (hard max 32).
+ */
 (function () {
   var BHS = (window.BHS = window.BHS || {});
   BHS.routes = BHS.routes || {};
@@ -5135,14 +4187,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   function thought(ko, en) {
     return { type: "line", speaker: "thought", text: t(ko, en) };
   }
-  function say(speaker, ko, en) {
-    return { type: "line", speaker: speaker, text: t(ko, en) };
-  }
   function sign(ko, en) {
     return { type: "line", speaker: "sign", text: t(ko, en) };
   }
-  function verse(key) {
-    return { type: "verse", key: key };
+  function verse(key, id) {
+    var b = { type: "verse", key: key };
+    if (id) b.id = id;
+    return b;
   }
   function scene(bg, pov, ko, en, time) {
     var b = { type: "scene", bg: bg, pov: pov };
@@ -5163,10 +4214,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     beat.when = cond;
     return beat;
   }
-  function opt(id, ko, en, lens, reaction, set) {
-    var o = { id: id, text: t(ko, en), lens: lens, reaction: reaction || [] };
-    if (set) o.set = set;
-    return o;
+  function opt(id, ko, en, lens, reaction) {
+    return { id: id, text: t(ko, en), lens: lens, reaction: reaction || [] };
   }
 
   BHS.routes.asher = {
@@ -5193,7 +4242,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     ],
 
     beats: [
-      // ---------- Dawn at home (lying POV) ----------
+      // ---------- 1. Dawn at home (lying POV) ----------
       scene("asher_ceiling", "lying", "새벽 · 아셀의 집", "Dawn · Asher's house"),
       // Explicit for robustness; a no-op if the engine already shows them from the first beat.
       fx("actionsShow"),
@@ -5201,24 +4250,18 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         "들보와 갈대 지붕. 네 해째, 아셀이 아침마다 가장 먼저 보는 풍경이다.",
         "Wooden beams and a reed roof. For four years now, it's the first thing Asher sees every morning."
       ),
-      thought("천장의 금은 이제 눈 감고도 센다. 열한 개.", "I can count the cracks in the ceiling with my eyes shut. Eleven."),
-      line(
-        "아셀은 아침마다 시편으로 기도한다. 아픈 사람들이 오래 붙들어 온 기도들이다.",
-        "Every morning, Asher prays the Psalms, prayers that sick people have held on to for a long time."
-      ),
 
       // c1: the morning prayer. Options are the psalms themselves (tokens only).
       {
         type: "choice",
         id: "c1",
-        prompt: t("오늘은 어느 기도로 시작할까?", "Which prayer do I start with today?"),
+        prompt: t("아픈 사람들이 붙들어 온 시편들. 오늘은 어느 기도로 시작할까?", "Psalms that sick people have long held on to. Which prayer do I start with today?"),
         options: [
           opt("a", "{{v:PS_38_3B}}", "{{v:PS_38_3B}}", 2, [
             thought("이 기도는 내 마음을 너무 잘 안다. 그래서 가끔 무섭다.", "This prayer knows me a little too well. That's what scares me sometimes.")
           ]),
           opt("b", "{{v:PS_41_4Q}}", "{{v:PS_41_4Q}}", 3, [
-            thought("고쳐 달라는 대목에서, 눈이 자꾸 문 쪽으로 간다.", "When I get to the part about healing, my eyes keep drifting to the door."),
-            thought("저 문을 내 발로 나가 본 게 언제였더라.", "When did I last walk out that door on my own?")
+            thought("고쳐 달라는 대목에서, 눈이 자꾸 문 쪽으로 간다.", "When I get to the part about healing, my eyes keep drifting to the door.")
           ]),
           opt("c", "{{v:PS_22_1A}}", "{{v:PS_22_1A}}", 1, [
             thought("원망도 결국 하나님을 향해 하는 말이다.", "Even a complaint is still something you say to God.")
@@ -5229,114 +4272,29 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         ]
       },
 
-      // c2: the sounds of the house. Sets flag "sound" (returns at dusk and in ending 3).
-      line(
-        "누워 있어도 집 안팎의 소리는 다 들린다. 아셀은 소리만 듣고도 시간을 안다.",
-        "From his bed, Asher hears everything in and around the house. He can tell the time by sound alone."
-      ),
+      // ---------- 2. Morning: Yonah bursts in (the boat is still on its way) ----------
+      scene("asher_ceiling", "lying", "아침 · 아셀의 집", "Morning · Asher's house"),
+      // c2: whatever he answers, the bed is lifted (the sign below answers a, b, d; c has its own reaction).
       {
         type: "choice",
         id: "c2",
-        prompt: t("오늘 아침, 어느 소리에 귀를 기울일까?", "This morning, which sound do I listen to?"),
+        prompt: t("요나가 뛰어 들어온다. “그분이 배로 돌아오신대! 가자!” 뭐라고 하지?", "Yonah bursts in. “Jesus is coming back by boat! Let's go!” What do I say?"),
         options: [
-          opt("a", "어머니가 물 긷는 소리", "Mom drawing water", 3, [
-            thought(
-              "물동이 내려놓는 소리만 들어도, 오늘 어머니가 얼마나 지치셨는지 안다.",
-              "From the way she sets the jar down, I can tell how tired Mom is today."
-            )
-          ], { sound: "water" }),
-          opt("b", "바람에 실려 오는 옆집 할아버지의 아침 기도", "The morning prayer of the old man next door, drifting in on the breeze", 1, [
-            line("날마다 같은 기도다. {{v:DT_6_4}}", "Every day, the same prayer: {{v:DT_6_4}}"),
-            thought("오직 한 분. 기도를 들으시는 분도, 죄를 용서하시는 분도.", "Only one. He hears prayers, and he forgives sins.")
-          ], { sound: "prayer" }),
-          opt("c", "문 앞에서 노는 동생의 목소리", "My little brother's voice as he plays by the door", 3, [
-            line("동생이 문 앞에서 돌멩이를 던지며 숫자를 센다. 또 틀렸다.", "His little brother is tossing pebbles by the door, counting out loud. Wrong again."),
-            thought("고쳐 줄까 하다가, 그만둔다.", "I almost correct him. Then I don't.")
-          ], { sound: "brother" }),
-          opt("d", "우물가의 수군거림", "Whispers at the well", 2, [
-            line("우물가에서 누군가 아셀의 이름을 낮게 말한다.", "At the well, someone says Asher's name, low."),
-            thought("무슨 말인지는 안 들어도 안다.", "I don't need to hear the rest. I know how it goes.")
-          ], { sound: "whisper" })
+          opt("a", "가고 싶어. 근데 겁나.", "I want to go. But I'm scared.", 2),
+          opt("b", "그분이 어떤 분인데?", "Who is he, anyway?", 1),
+          // A refusal is answered by waiting, not by lifting him anyway: he consents before the lane.
+          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 2, [
+            thought("요나는 따지지 않는다. 그냥 기다린다. 한참 뒤, 결국 내가 고개를 끄덕인다.", "Yonah doesn't argue. He just waits. After a long while, I nod.")
+          ]),
+          opt("d", "내 겉옷 좀 줘. 그리고 가자.", "Hand me my cloak. Then let's go.", 3)
         ]
       },
 
-      // c3: one memory. A fault anyone could have; never linked to the illness.
-      line(
-        "문득 몇 해 전 일이 떠오른다. 동생에게 꼴도 보기 싫다고 소리쳤던 날.",
-        "Out of nowhere, a day from a few years back: the day he yelled at his little brother that he couldn't stand the sight of him."
-      ),
-      line(
-        "동생은 울며 뛰어나갔고, 아셀은 끝내 사과하지 못했다. 누구에게나 있을 법한 잘못이다.",
-        "The boy ran out crying, and Asher never apologized. It's the kind of wrong anyone might do."
-      ),
-      {
-        type: "choice",
-        id: "c3",
-        prompt: t("그 기억 끝에 드는 생각은?", "Where does that memory take me?"),
-        options: [
-          opt("a", "혹시 그 일 때문에 이렇게 된 걸까.", "What if that's why I ended up like this?", 2, [
-            thought("이 질문은 네 해째 나를 따라다닌다. 대답은 한 번도 오지 않았다.", "This question has followed me for four years. No answer has ever come.")
-          ]),
-          opt("b", "잘못한 것과 병든 것은 같은 이야기일까.", "Is doing wrong the same story as getting sick?", 2, [
-            thought("속 시원히 대답해 준 사람은 아직 없다.", "Nobody has ever given me a straight answer.")
-          ]),
-          opt("c", "그 잘못은 누가 용서해 줄 수 있지? 동생? 하나님?", "Who can forgive that? My brother? God?", 1, [
-            thought("둘 다에게, 아직 아무 말도 못 했다.", "I haven't said a word about it to either of them.")
-          ]),
-          opt("d", "오늘은 동생에게 먼저 말을 걸어 봐야겠다.", "Today, I'll talk to my brother first.", 3, [
-            thought("미안하다는 말은 짧은데, 왜 이렇게 안 나올까.", "“Sorry” is such a short word. Why won't it come out?")
-          ])
-        ]
-      },
-
-      // ---------- Morning: Yonah arrives ----------
-      scene("asher_ceiling", "lying", "아침 · 아셀의 집", "Morning · Asher's house"),
-      line("골목에서 누가 뛰어오는 소리. 발소리만 들어도 안다. 요나다.", "Someone is running up the lane. Asher knows that stride anywhere. Yonah."),
-      // The boat is still on its way; it lands while the bed goes down the lane (as in the scribe and friend routes).
-      say("yonah", "아셀! 그분이 배로 돌아오신대! 바닷가에 벌써 사람들이 모이고 있어. 가자!", "Asher! Jesus is coming back by boat! People are already gathering on the shore. Let's go!"),
-
-      // c4: whatever he says, the bed is lifted.
-      {
-        type: "choice",
-        id: "c4",
-        prompt: t("요나가 침상 옆에 섰다. 뭐라고 할까?", "Yonah is standing over my bed. What do I say?"),
-        options: [
-          opt("a", "가고 싶어. 근데 겁나.", "I want to go. But I'm scared.", 2, [
-            say("yonah", "나도 겁나. 그래도 가자.", "Me too. Let's go anyway.")
-          ]),
-          opt("b", "그분이 어떤 분인데? 들은 거 다 말해 줘.", "Who is he, anyway? Tell me everything you've heard.", 1, [
-            say("yonah", "바다에서 폭풍을 말 한마디로 잠재우셨대!", "They say he calmed a storm at sea with a single word!"),
-            say("asher", "그분이 너도 좀 잠잠하게 해 주시면 좋겠다.", "Then maybe he can calm you down, too.")
-          ]),
-          opt("c", "싫어. 이 꼴로 사람들 앞에 나가기 싫어.", "No. I'm not going out in front of people like this.", 3, [
-            say("yonah", "그럼 들고 갈 거야.", "Then we'll carry you."),
-            thought("요나는 어릴 때부터 이랬다.", "Yonah has been like this since we were kids.")
-          ]),
-          opt("d", "내 겉옷 좀 줘. 그리고 가자.", "Hand me my cloak. Then let's go.", 3, [
-            line("요나가 낡은 갈색 겉옷을 아셀에게 덮어 준다.", "Yonah tucks the worn brown cloak around him.")
-          ])
-        ]
-      },
-      line(
-        "그물 동료들이 들어와 요나와 함께 침상을 잡는다. 바닥이 멀어진다.",
-        "Yonah's net partners come in and take hold of the bed with him. The floor drops away."
-      ),
-      line(
-        "문간에서 물동이를 든 어머니와 마주친다. 어머니는 아무것도 묻지 않고 길을 비킨다.",
-        "At the doorway they meet his mother, carrying her water jar. She asks nothing. She just steps aside."
-      ),
-      sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you."),
-
-      // ---------- THE LANE (SPEC §6.3), carried POV ----------
+      // ---------- 3. THE LANE (SPEC §6.3), carried POV ----------
       scene("sky_carried", "lying", "늦은 아침 · 골목", "Late morning · The lane"),
       fx("actionReply", { action: "goout", text: t("나왔다. 내 발로 나온 건 아니지만.", "I'm out. Not on my own feet, but I'm out.") }),
-      line(
-        "몇 해 만의 하늘이다. 검은 현무암 담장 사이로, 눈이 시리게 파랗다.",
-        "Sky, for the first time in years. Between the walls of black basalt, it's so blue it stings."
-      ),
-      // SPEC 6.4 step 1: the boat lands while the bed goes down the lane (same moment in all three routes).
-      say("yonah", "배가 들어온다! 저기, 골목 끝에.", "The boat's coming in! Down there, at the end of the lane."),
-      { type: "verse", id: "lane-9-1", key: "MT_9_1" },
+      // Skipped after c2 c, whose reaction already shows the wait and his nod (keeps the screen count).
+      when({ not: { choice: "c2", is: "c" } }, sign("네가 망설여도, 사람들이 너를 든다.", "Even if you hesitate, people lift you.")),
       {
         type: "line",
         id: "lane-passerby",
@@ -5346,110 +4304,39 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
           "Who knows what's behind suffering like that. What did he do to end up like that?"
         )
       },
-      when({ choice: "c4", is: "d" }, line("아셀은 겉옷을 턱밑까지 끌어올린다.", "Asher pulls the cloak up to his chin.")),
       line(
-        "두 사람이 벽 쪽으로 비켜선다. 예전에 회당에서 보던 서기관 므나헴과, 젊은 제자다.",
-        "Two men step aside against the wall: Menahem, the scribe Asher used to see at the synagogue, and a young student."
-      ),
-      line(
-        "서기관이 침상을 힐끗 본다. 잠깐, 아셀과 눈이 마주친다. 둘 다 아무 말도 하지 않는다.",
-        "The scribe glances at the bed. For a moment, his eyes meet Asher's. Neither of them says a word."
+        "두 사람이 벽 쪽으로 비켜선다. 회당에서 보던 서기관 므나헴과 젊은 제자다. 잠깐, 서기관과 눈이 마주친다. 아무도 말하지 않는다.",
+        "Two men step aside: Menahem, a scribe Asher knows from the synagogue, and a young student. For a moment the scribe's eyes meet his. No one speaks."
       ),
 
-      // c5: what he does with the passerby's words.
-      {
-        type: "choice",
-        id: "c5",
-        prompt: t("침상이 골목을 내려간다. 무슨 생각이 들까?", "The bed moves on down the lane. What's on my mind?"),
-        options: [
-          opt("a", "내가 뭔가 했다는 뜻이겠지.", "Guess that means I did something.", 2, [
-            line("행인은 벌써 저만치 갔다. 그 사람의 짐작만 침상 위에 남는다.", "The passerby is already gone. Only his guess stays behind on the bed.")
-          ]),
-          opt("b", "저 사람은 내 삶을 몰라.", "He doesn't know my life.", 3, [
-            thought("우리 집 아침이 무슨 소리로 시작하는지도 모르면서.", "He doesn't even know what mornings sound like at my house.")
-          ]),
-          opt("c", "요나에게 묻는다. “방금 들었어?”", "Ask Yonah: “Did you hear that?”", 3, [
-            say("yonah", "들었어. 그래도 안 내려놔.", "I heard. I'm still not putting you down.")
-          ]),
-          opt("d", "하늘을 본다. “하늘이 이렇게 넓었나.”", "Look up. “Was the sky always this big?”", 1, [
-            thought("이 하늘 아래 어딘가에 그분이 와 계신다. 어떤 분일까.", "Somewhere under this sky, he has arrived. Who is he?")
-          ])
-        ]
-      },
-
-      // ---------- THE CROWD (SPEC §6.4), lying POV before Jesus ----------
-      scene("crowd_lying", "lying", "정오 무렵 · 바닷가 공터", "Around noon · Open ground by the shore"),
-      line("사람들 사이로 침상이 나아간다. 얼굴들이 사방에서 내려다본다.", "The bed pushes through the crowd. Faces stare down at him from every side."),
-      when({ choice: "c4", is: "c" }, thought("이래서 나오기 싫었던 거다.", "This is exactly why I didn't want to come.")),
-      when({ not: { choice: "c4", is: "c" } }, thought("쳐다보는 눈이 너무 많다.", "Too many eyes.")),
+      // ---------- 4. THE CROWD (SPEC §6.4), lying POV before Jesus ----------
+      // The scene itself sets the bed down before him (faces above, light); MT_9_2A narrates it.
+      scene("crowd_lying", "lying", "정오 무렵 · 그분 앞", "Around noon · Before Jesus"),
       fx("light", { level: "soft" }),
-      line("침상이 땅에 내려진다. 위에서 따뜻한 빛이 비친다.", "The bed is set down. A warm light falls from above."),
-      line("그분 앞이다. 무슨 말이든 해야 한다.", "He is lying in front of Jesus now. He has to say something."),
-
-      // c6: the words he prepared. Jesus speaks first; never framed as a missed chance.
-      {
-        type: "choice",
-        id: "c6",
-        prompt: t("입을 열려는 순간이다. 무슨 말을 하려 했지?", "I'm about to speak. What was I going to say?"),
-        options: [
-          opt("a", "저를 도와주세요.", "Please help me.", 3, [
-            thought("짧게. 이 한마디면 된다.", "Keep it short. That's all I need to say.")
-          ]),
-          opt("b", "걷고 싶습니다.", "I want to walk.", 3, [
-            thought("네 해 동안 삼켜 온 말이다.", "Four years of swallowing those words.")
-          ]),
-          opt("c", "저는 하나님께 버림받은 건가요?", "Has God abandoned me?", 2, [
-            thought("목소리가 떨리지 않기를.", "Please don't let my voice shake.")
-          ]),
-          opt("d", "당신은 누구십니까?", "Who are you?", 1, [
-            thought("누구신지도 모르고 여기까지 왔다.", "I came all this way without knowing who he is.")
-          ])
-        ]
-      },
       verse("MT_9_2A"),
       fx("light", { level: "bright" }),
-      { type: "verse", id: "first-words-1", key: "MT_9_2B1" },
-      sign("네가 준비한 말보다, 그분의 말이 먼저 왔다.", "His words came before the words you had ready."),
-
-      // c7: the pause after the first half of the first words. Route title moment.
-      {
-        type: "choice",
-        id: "c7",
-        prompt: t("나를 뭐라고 부르셨지?", "What did he just call me?"),
-        options: [
-          opt("a", "나에 대해 말하는 게 아니라, 나에게 말씀하신다.", "He isn't talking about me. He's talking to me.", 2, [
-            thought("다들 내 얘기는 해도, 나한테 말을 거는 사람은 드물다.", "Everyone talks about me. Hardly anyone talks to me.")
-          ]),
-          opt("b", "내가 얼마나 무서운지 아시는 걸까.", "Does he know how scared I am?", 1, [
-            thought("말한 적도 없는데, 어떻게 아셨을까.", "I never said a word. How did he know?")
-          ]),
-          opt("c", "아이를 부르듯 부르셨어.", "He called me the way you'd call a child.", 3, [
-            thought("어릴 적 저녁마다, 어머니가 문간에서 나를 부르던 것처럼.", "Like Mom calling me in from the doorway every evening when I was little.")
-          ]),
-          opt("d", "다음 말을 듣고 싶다.", "I want to hear what he says next.", 1, [
-            line("아셀은 숨을 죽인다.", "Asher holds his breath.")
-          ])
-        ]
-      },
+      verse("MT_9_2B1", "first-words-1"),
+      // Route title moment. The word means "child"; paraphrased, never quoted.
+      thought("나를 뭐라고 부르셨지? 꼭 아이를 부르듯이.", "What did he just call me? The way you'd call a child."),
       fx("hush"),
-      { type: "verse", id: "first-words-2", key: "MT_9_2B2" },
+      verse("MT_9_2B2", "first-words-2"),
       fx("light", { level: "soft" }),
-      // Neutral observation: nothing here suggests forgiveness is unlocking his body (SPEC 7.2; lead decision).
+      // Neutral observation: nothing suggests forgiveness is unlocking his body (SPEC §7.2; lead decision).
       fx("actionReply", { action: "getup", text: t("다리는 그대로다.", "My legs haven't changed.") }),
 
-      // The c3 memory returns right after the first words.
-      line("동생의 우는 얼굴이 스친다. 아직 사과하지 못한 그날.", "His little brother's crying face flashes before him. The day he never apologized for."),
-      when({ choice: "c3", is: "c" }, thought("아침에 물었다. 그 잘못은 누가 용서해 줄 수 있냐고.", "This morning I asked who could ever forgive that.")),
-
-      // c8: no option carries any "right answer" feel.
+      // c3: no option carries any "right answer" feel.
       {
         type: "choice",
-        id: "c8",
+        id: "c3",
         prompt: t("내 죄가 사함을 받았다고 하셨다. 가장 먼저 든 생각은?", "He said my sins are forgiven. What's my first thought?"),
         options: [
           opt("a", "그럼 병이 내 잘못이었다는 뜻인가?", "So does that mean my illness was my fault?", 2, [
-            // Asher's own noticing, not a narrator ruling (SPEC 7.2: narration neither confirms nor settles the cause).
-            thought("그 말 어디에도 ‘그래서’는 없었다.", "There was no “because” anywhere in what he said.")
+            // Asher's own noticing, not a narrator ruling (SPEC §7.2). Variant recalls the c1 psalm.
+            when(
+              { choice: "c1", is: "a" },
+              thought("아침 기도와 같은 두려움이다. 그런데 그 말 어디에도 ‘그래서’는 없었다.", "The same fear as my morning prayer. But there was no “because” anywhere in what he said.")
+            ),
+            when({ not: { choice: "c1", is: "a" } }, thought("그 말 어디에도 ‘그래서’는 없었다.", "There was no “because” anywhere in what he said."))
           ]),
           opt("b", "정말 나에게 하시는 말씀인가.", "Is he really saying this to me?", 2, [
             thought("다른 누구도 아니라, 침상에 누운 사람에게. 그게 나다.", "Not to anyone else. To the man lying on the bed. That's me.")
@@ -5475,7 +4362,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       verse("MT_9_6A"),
       verse("MT_9_6N"),
       fx("light", { level: "bright" }),
-      { type: "verse", id: "rise", key: "MT_9_6B" },
+      verse("MT_9_6B", "rise"),
 
       // The gray "Get up" lights for the first time. Then eye level, for the first time.
       { type: "press", id: "press-getup", action: "getup" },
@@ -5483,98 +4370,40 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       fx("pov", { pov: "standing" }),
       scene("crowd", "standing"),
       fx("light", { level: "soft" }),
-      thought("이번에는 다리가 대답한다.", "This time, my legs answer."),
-      when(
-        { choice: "c4", is: "d" },
-        line("겉옷이 어깨에서 흘러내린다. 아셀이 허리를 굽혀 직접 집어 든다.", "The cloak slides off his shoulders. Asher bends down and picks it up himself.")
-      ),
-      line("네 해 만에, 사람들과 같은 높이에서 본다.", "For the first time in four years, he is looking at people eye to eye."),
-
-      // c9: first thought at eye level.
-      {
-        type: "choice",
-        id: "c9",
-        prompt: t("그 순간, 가장 먼저 든 생각은?", "In that moment, what's my first thought?"),
-        options: [
-          opt("a", "이분은 누구시길래.", "Who is he, to do this?", 1, [
-            thought("죄를 사하는 권능이 있다고 하셨다. 그리고 내 다리가 그분의 말을 들었다.", "He said he has authority to forgive sins. And my legs listened to him.")
-          ]),
-          opt("b", "일어나기 전에 먼저 하신 말이 있었다.", "Before I ever stood, he said something else first.", 2, [
-            thought("다리보다 먼저 들은 말. 그 말이 아직 더 크게 울린다.", "The words I heard before my legs moved. They're still the loudest thing.")
-          ]),
-          opt("c", "이게 나를 싣고 다니던 침상이다.", "This is the bed that's been carrying me around.", 3, [
-            line("작다. 그리고 많이 낡았다.", "It's small. And so worn.")
-          ]),
-          opt("d", "친구들이 나를 올려다보고 있다.", "My friends are looking up at me.", 3, [
-            thought("네 해 동안은 내가 올려다보던 얼굴들이다.", "For four years, I was the one looking up at these faces.")
-          ])
-        ]
-      },
       { type: "press", id: "press-bed", label: t("침상을 들어", "Pick up your bed") },
-      line("침상은 생각보다 가볍다.", "The bed is lighter than he expected."),
       { type: "press", id: "press-home", label: t("집으로", "Go home") },
       verse("MT_9_7"),
-      line("등 뒤에서 무리의 소리가 커진다.", "Behind him, the crowd's voices swell."),
       verse("MT_9_8"),
-      fx("light", { level: "off" }),
 
-      // ---------- Home at dusk (eye level) ----------
-      scene("road_home", "standing", "오후 · 집으로 가는 길", "Afternoon · The road home"),
-      line(
-        "아침에 실려 내려온 골목을, 이번엔 걸어서 올라간다. 요나가 빈손으로 옆에서 걷는다.",
-        "He walks back up the lane he was carried down this morning. Yonah keeps pace beside him, empty-handed."
-      ),
-      say("asher", "다음엔 바닷가까지 달리기 시합이다. 안 봐준다.", "Next time, we race to the beach. I'm not going easy on you."),
-      scene("doorway_evening", "standing", "해 질 녘 · 아셀의 집 앞", "Dusk · Asher's doorway"),
-      // The c2 sound comes back, heard standing this time.
-      when({ flag: "sound", is: "water" }, line("안에서 물 붓는 소리가 난다. 아침의 그 소리다.", "Inside, someone is pouring water. The same sound as this morning.")),
-      when(
-        { flag: "sound", is: "prayer" },
-        line("옆집에서 할아버지의 저녁 기도가 들려온다. 아침의 그 목소리다.", "From next door comes the old man's evening prayer. The same voice as this morning.")
-      ),
-      when({ flag: "sound", is: "brother" }, line("문 앞에서 동생이 숫자를 센다. 또 틀렸다.", "By the door, his little brother is counting. Wrong again.")),
-      when(
-        { flag: "sound", is: "whisper" },
-        line("우물가에서 또 수군거린다. 오늘 저녁엔, 걸어서 돌아온 아셀 이야기다.", "The whispers at the well are back. This evening, they're about Asher walking home.")
-      ),
-      line("문이 열린다. 어머니가 그대로 멈춰 선다.", "The door opens. His mother stops right where she is."),
-
-      // c10: first words to Mom (counts double).
+      // c4 (counts double): his first words standing.
       {
         type: "choice",
-        id: "c10",
-        prompt: t("어머니께 하는 첫마디는?", "What do I say to Mom first?"),
+        id: "c4",
+        prompt: t("네 해 만에, 사람들과 같은 높이에 서 있다. 내 첫마디는?", "For the first time in four years, I'm standing eye to eye with people. What do I say first?"),
         options: [
-          opt("a", "어머니, 그분이 누구신지 알아야겠어요.", "Mom, I need to find out who he is.", 1, [
-            say("mother", "그래, 같이 알아보자. 일단 들어와.", "All right. We'll find out together. Come inside first.")
-          ]),
-          opt("b", "어머니, 그분이 제 죄가 사함을 받았대요.", "Mom, he said my sins are forgiven.", 2, [
-            line("어머니의 눈이 아셀의 다리로 내려갔다가, 천천히 얼굴로 돌아온다.", "Her eyes drop to his legs, then slowly come back up to his face.")
-          ]),
-          opt("c", "어머니, 저 걸어요!", "Mom, I'm walking!", 3, [
-            say("mother", "알아. 보고 있어.", "I know. I'm looking right at you.")
-          ]),
-          opt("d", "옆에 앉아 주세요. 처음부터 말하고 싶어요.", "Sit with me. I want to tell you from the beginning.", 2, [
-            line("어머니가 문턱에 앉는다. 아셀도 그 옆에 앉는다. 이번엔 자기 힘으로.", "His mother sits down on the threshold. Asher sits beside her, on his own this time.")
-          ])
+          opt("a", "그분이 나한테 먼저 말을 거셨어. 일어나기도 전에.", "He spoke to me first. Before I even stood up.", 2),
+          opt("b", "요나, 그분이 누구신지 알아야겠어.", "Yonah, I need to find out who he is.", 1),
+          opt("c", "요나, 집까지 달리기 시합이다. 안 봐준다.", "Yonah, race you home. I'm not going easy on you.", 3),
+          opt("d", "이 침상, 생각보다 가볍네.", "This bed's lighter than I thought.", 3)
         ]
       }
     ],
 
-    // Titles come from data/meta.js (BHS.meta.endings.asher).
+    // He has gone home (MT_9_7): the light leaves before any ending's title card (SPEC §4.5).
+    endingPreface: [fx("light", { level: "off" })],
+
+    // Titles come from data/meta.js (BHS.meta.endings.asher). One beat each, then the last line.
     endings: {
       // Lens 1: who is he?
       "1": {
         beats: [
-          scene("asher_home", "normal", "밤 · 아셀의 집", "Night · Asher's house", "night"),
-          thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who got me walking said what only God can say."),
           when(
-            { choice: "c6", is: "d" },
-            thought("그분 앞에서 하려던 질문이, 이제 평생 물을 질문이 됐다.", "The question I meant to ask him has become one I'll keep asking all my life.")
+            { choice: "c2", is: "b" },
+            thought("아침엔 그분이 어떤 분이냐고 물었다. 나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "This morning I asked who he was. The one who got me walking said what only God can say.")
           ),
-          line(
-            "그날 밤, 아셀은 천장의 금을 세지 않는다. 처음으로, 자기 병이 아니라 그분을 생각하며 잠든다.",
-            "That night, Asher doesn't count the cracks in the ceiling. For the first time, he falls asleep thinking not about his illness, but about him."
+          when(
+            { not: { choice: "c2", is: "b" } },
+            thought("나를 걷게 하신 분이, 하나님만 하실 수 있는 말을 하셨다.", "The one who got me walking said what only God can say.")
           )
         ],
         last: t("다리를 고칠 분을 만나러 갔다. 죄를 사하는 분을 만나고 왔다.", "I went to find someone who could heal my legs. I came home having met the one who forgives sins.")
@@ -5583,39 +4412,35 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       // Lens 2: why these words first?
       "2": {
         beats: [
-          scene("asher_home", "normal", "저녁 · 아셀의 집", "Evening · Asher's house", "evening"),
-          line("아셀은 ‘걸었다’로 이야기를 시작하지 않는다.", "Asher doesn't start the story with “I walked.”"),
-          line("누워 있던 자기에게, 그분이 먼저 말을 거신 순간부터 시작한다.", "He starts from the moment Jesus spoke to him first, while he was still lying on his bed."),
-          // The c3 memory returns; variant when he resolved this morning to speak first.
-          when(
-            { not: { choice: "c3", is: "d" } },
-            thought("그날 동생에게 한 말이 떠오른다. 내일은 동생에게 먼저 말을 걸어야겠다.", "I think of what I said to my brother that day. Tomorrow, I'll talk to him first.")
-          ),
-          when(
-            { choice: "c3", is: "d" },
-            thought("아침의 다짐은 내일까지 미룰 필요가 없다. 동생이 문 앞에 있다.", "No need to put off this morning's promise until tomorrow. My brother is right there by the door.")
+          thought(
+            "오늘 일을 이야기할 때, ‘걸었다’로 시작하지 않을 거다. 누워 있던 나에게 그분이 먼저 말을 거신 순간부터다.",
+            "When I tell people about today, I won't start with “I walked.” I'll start with the moment he spoke to me first, while I was still lying there."
           )
         ],
         last: t("왜 병들었는지는 모른다. 오늘 그분이 나에게 하신 말씀은 안다.", "I don't know why I got sick. I do know what he said to me today.")
       },
 
-      // Lens 3: where to? Home, people, a life starting again.
+      // Lens 3: where to? Home, people, a life starting again. Back up the same lane, at eye level, to the door.
+      // Exactly one of the four variants plays (c4 first, then the c1 and c2 callbacks).
       "3": {
         beats: [
-          line("아침에 누워서 듣던 그 소리를, 지금은 서서 듣는다.", "The sound he heard lying down this morning, he now hears standing up."),
-          line("아셀은 자기를 싣고 다니던 침상을 들고 문을 넘는다.", "Asher carries the bed that used to carry him, and steps through the door."),
-          // The c2 sound returns as tomorrow's first plan.
-          when({ flag: "sound", is: "water" }, thought("내일 아침엔, 내가 물을 길어 와야지.", "Tomorrow morning, I'll be the one bringing the water.")),
+          scene("lane", "standing", "오후 · 골목", "Afternoon · The lane"),
           when(
-            { flag: "sound", is: "prayer" },
-            thought("내일 아침엔, 문 앞에 서서 할아버지 기도를 따라 해야지.", "Tomorrow morning, I'll stand in the doorway and pray along with the old man.")
+            { choice: "c4", is: "c" },
+            line("요나가 웃음을 터뜨린다. 아침에 실려 내려온 골목을, 이번엔 둘이 나란히 걸어 올라간다.", "Yonah bursts out laughing. Side by side, they walk back up the lane Asher was carried down this morning.")
           ),
           when(
-            { flag: "sound", is: "brother" },
-            thought("내일 아침엔, 동생이랑 문 앞에서 같이 놀아야지. 숫자도 고쳐 주고.", "Tomorrow morning, I'll play with my brother by the door. And fix his counting.")
+            { all: [{ not: { choice: "c4", is: "c" } }, { choice: "c1", is: "b" }] },
+            line("아침 기도 내내 눈이 가던 그 문을 향해, 아셀이 골목을 걸어 올라간다.", "Asher walks up the lane toward the door his eyes kept drifting to during his morning prayer.")
           ),
-          when({ flag: "sound", is: "whisper" }, thought("내일 아침엔, 우물까지 내 발로 걸어가 봐야지.", "Tomorrow morning, I'll walk to the well on my own.")),
-          when({ choice: "c4", is: "d" }, line("갈색 겉옷은 문 옆에 걸어 둔다. 내일 입고 나갈 것이다.", "He hangs the brown cloak by the door. He'll wear it out tomorrow."))
+          when(
+            { all: [{ not: { choice: "c4", is: "c" } }, { not: { choice: "c1", is: "b" } }, { choice: "c2", is: "d" }] },
+            line("갈색 겉옷을 어깨에 걸치고, 아침에 실려 내려온 골목을 걸어 올라간다.", "The brown cloak over his shoulders, he walks back up the lane he was carried down this morning.")
+          ),
+          when(
+            { all: [{ not: { choice: "c4", is: "c" } }, { not: { choice: "c1", is: "b" } }, { not: { choice: "c2", is: "d" } }] },
+            line("아침에 실려 내려온 골목을, 이번엔 걸어서 올라간다.", "He walks back up the lane he was carried down this morning.")
+          )
         ],
         last: t("너를 들고 다니던 침상을, 이제 네가 들고 문을 연다.", "Now you carry the bed that used to carry you, and you open the door.")
       }
@@ -5623,10 +4448,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
     // Shared record line after any ending.
     endingCoda: [
-      sign(
-        "일어나기 시도 {{var:getup_count}}번 · 걸린 문장 1개",
-        "Attempts to get up: {{var:getup_count}} · Sentences it took: 1"
-      )
+      sign("일어나기 시도 {{var:getup_count}}번 · 걸린 문장 1개", "Attempts to get up: {{var:getup_count}} · Sentences it took: 1")
     ]
   };
 })();
@@ -5638,16 +4460,21 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
  * No DOM access anywhere in this file. Loadable in Node with `globalThis.window = globalThis`.
  *
  * Public API (BHS.engine):
- *   computeLens(routeOrId, choices)      -> { lens, scores: {1,2,3}, c10Lens, mismatch }   (SPEC 5.1)
+ *   computeLens(routeOrId, choices)      -> { lens, scores: {1,2,3}, lastLens, c10Lens, mismatch, cut }   (SPEC 5.1)
+ *                                           c10Lens is an alias of lastLens (older callers); a picked cut
+ *                                           option gives { lens: null, lastLens: null, mismatch: false, cut: true }
+ *   lastChoiceId(routeOrId)              -> id of the double-weight choice (the highest cN in the route), or null
  *   evalCond(cond, state)                -> boolean                                         (SPEC 4.5)
  *   resolveText(t, lang, state)          -> string, tokens resolved, *emphasis* markers kept
  *   plainText(t, lang, state)            -> string, tokens resolved, emphasis markers removed
  *   resolveSegments(t, lang, state)      -> [{ text, em, kind?, key? }] for renderers
  *   quoteVerse(text)                     -> “text” with inner double quotes turned into ‘ ’
  *   verseText(key, lang) / verseRef(key, lang) / verseSpeaker(key)
+ *   fingerprint(routeOrId)               -> short structural hash of a route ("prologue" = common.prologue)
+ *   canRestore(savedState)               -> true when a snapshot fits the current data (state version + fingerprint)
  *   createGame(routeId, opts)            -> Game   (routeId may be "prologue")
  *   createSequence(beats, opts)          -> Game   (plays an arbitrary beat list, for tests)
- *   restoreGame(savedState)              -> Game
+ *   restoreGame(savedState)              -> Game   (throws when canRestore(savedState) is false)
  *
  * Game (driven by the UI):
  *   game.step                 current blocking step (see STEP KINDS below)
@@ -5661,10 +4488,14 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
  *   game.fastForward(opts)    debug helper: auto-play until a predicate holds
  *
  * STEP KINDS: line {speaker, text} | verse {key, speaker} | choice {id, prompt, options:[{id,text}]}
- *   | press {action?, label?, hint?} | endingTitle {lens, lensLabel, title} | last {text}
+ *   | press {action?, label?, hint?} | endingTitle {lens, cut, lensLabel, title} | last {text}
  *   | routeSelect {} | end {}
- * A route ends: ... ending beats -> last -> endingCoda -> end (the UI then opens the gallery).
- * Choice steps never expose lens tags, so the UI cannot leak them (SPEC 7.2-7.3).
+ * A route ends: [mismatch line] -> endingPreface -> ending card -> ending beats -> last -> endingCoda -> end.
+ * A cut option (option.cut === true) plays its reaction, skips the rest of the route's beats, then runs
+ * ending card (meta.cut.label + meta.endings[route].cut) -> endings.cut.beats -> last -> endingCoda -> end,
+ * with no mismatch line and no endingPreface; at the cut the pinned thought is cleared, the light goes off
+ * and persistent actions hide. Ending ids: "<route>-1|2|3" and "<route>-cut".
+ * Choice steps never expose lens tags or cut flags, so the UI cannot leak them (SPEC 7.2-7.3).
  */
 (function () {
   "use strict";
@@ -5679,7 +4510,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Speakers that may appear as portraits (never Jesus; the protagonist is excluded per route).
   var PORTRAIT_IDS = { menahem: true, hanan: true, yonah: true, asher: true, mother: true, brother: true, neighbor: true, passerby: true, partners: true, scribes: true };
   var MAX_CAST = 2;
-  var STATE_VERSION = 1;
+  // 2 = short routes (version 3): last-choice weighting, cut endings, route fingerprints.
+  // Snapshots of version 1 (10-choice routes) are never restored.
+  var STATE_VERSION = 2;
 
   var warnings = [];
 
@@ -5699,6 +4532,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   function normLens(v) {
     var n = typeof v === "string" ? parseInt(v, 10) : v;
     return n === 1 || n === 2 || n === 3 ? n : null;
+  }
+
+  function isCutOption(opt) {
+    return !!opt && opt.cut === true;
   }
 
   // ---------------------------------------------------------------------------
@@ -5726,6 +4563,28 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       }
     }
     return out;
+  }
+
+  function choiceNumber(id) {
+    var m = /^c(\d+)$/.exec(String(id));
+    return m ? parseInt(m[1], 10) : -1;
+  }
+
+  // The double-weight choice: the highest cN in the route (c4 in the short routes). Falls back to the
+  // last choice in beat order when no id has the cN form.
+  function lastChoiceId(routeOrId) {
+    var list = choiceBeats(getRoute(routeOrId));
+    var best = null;
+    var bestN = -1;
+    for (var i = 0; i < list.length; i++) {
+      var n = choiceNumber(list[i].id);
+      if (n > bestN) {
+        bestN = n;
+        best = list[i].id;
+      }
+    }
+    if (best === null && list.length) best = list[list.length - 1].id;
+    return best;
   }
 
   function findChoice(route, id) {
@@ -5769,10 +4628,15 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   // Lens scoring (SPEC 5.1)
   // ---------------------------------------------------------------------------
 
+  // Each pick adds its weight (1; 2 for the last choice) to its lens. Ending lens = highest score; a tie
+  // goes to the last choice's lens when it is among the tied lenses, otherwise to the smallest tied lens.
+  // Picks for choice ids the route does not have (for example c5-c10 from an old save) are ignored.
   function computeLens(routeOrId, choices) {
     var route = getRoute(routeOrId);
+    var lastId = lastChoiceId(route);
     var scores = { 1: 0, 2: 0, 3: 0 };
-    var c10Lens = null;
+    var lastLens = null;
+    var cut = false;
     choices = choices || {};
     var list = choiceBeats(route);
     for (var i = 0; i < list.length; i++) {
@@ -5781,21 +4645,25 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       if (pick == null) continue;
       var opt = findOption(cb, pick);
       if (!opt) continue;
+      if (isCutOption(opt)) cut = true;
       var lens = normLens(opt.lens);
-      if (cb.id === "c10") c10Lens = lens;
+      if (cb.id === lastId) lastLens = lens;
       if (lens === null) continue;
-      scores[lens] += cb.id === "c10" ? 2 : 1;
+      scores[lens] += cb.id === lastId ? 2 : 1;
     }
+    if (cut) return { lens: null, scores: scores, lastLens: null, c10Lens: null, mismatch: false, cut: true };
     var max = Math.max(scores[1], scores[2], scores[3]);
     var tied = LENSES.filter(function (l) {
       return scores[l] === max;
     });
-    var lensOut = c10Lens !== null && tied.indexOf(c10Lens) >= 0 ? c10Lens : tied[0];
+    var lensOut = lastLens !== null && tied.indexOf(lastLens) >= 0 ? lastLens : tied[0];
     return {
       lens: lensOut,
       scores: scores,
-      c10Lens: c10Lens,
-      mismatch: c10Lens !== null && lensOut !== c10Lens
+      lastLens: lastLens,
+      c10Lens: lastLens,
+      mismatch: lastLens !== null && lensOut !== lastLens,
+      cut: false
     };
   }
 
@@ -5822,12 +4690,19 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return v !== undefined && v !== null && v !== false;
   }
 
-  function c10LensOf(state) {
-    if (state && state.c10Lens !== undefined && state.c10Lens !== null) return state.c10Lens;
-    if (state && state.routeId && state.choices && state.choices.c10) {
-      var cb = findChoice(getRoute(state.routeId), "c10");
-      var opt = findOption(cb, state.choices.c10);
-      return opt ? normLens(opt.lens) : null;
+  // Lens of the option picked at the last (double-weight) choice: from the state when known,
+  // otherwise looked up in the route. Accepts `c10Lens` from older callers.
+  function lastLensOf(state) {
+    if (!state) return null;
+    if (state.lastLens !== undefined && state.lastLens !== null) return state.lastLens;
+    if (state.c10Lens !== undefined && state.c10Lens !== null) return state.c10Lens;
+    if (state.routeId && state.choices) {
+      var route = getRoute(state.routeId);
+      var id = lastChoiceId(route);
+      if (id && state.choices[id] != null) {
+        var opt = findOption(findChoice(route, id), state.choices[id]);
+        return opt ? normLens(opt.lens) : null;
+      }
     }
     return null;
   }
@@ -5853,7 +4728,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     if (own(cond, "not")) return !evalCond(cond.not, state);
     if (own(cond, "choice")) return matchValue((state.choices || {})[cond.choice], cond);
     if (own(cond, "flag")) return matchValue((state.flags || {})[cond.flag], cond);
-    if (own(cond, "c10lens")) return c10LensOf(state) === normLens(cond.c10lens);
+    if (own(cond, "lastLens")) return lastLensOf(state) === normLens(cond.lastLens);
+    // Alias kept from the 10-choice routes, where the last choice was c10.
+    if (own(cond, "c10lens")) return lastLensOf(state) === normLens(cond.c10lens);
     if (own(cond, "var")) {
       // Extension (not in SPEC 4.5): numeric test on a runtime variable.
       var n = Number((state.vars || {})[cond["var"]] || 0);
@@ -5976,6 +4853,78 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   }
 
   // ---------------------------------------------------------------------------
+  // Route fingerprints (save compatibility)
+  // ---------------------------------------------------------------------------
+
+  // A snapshot stores list names and beat indexes, so it only fits the route data it was made from.
+  // The fingerprint hashes the route's skeleton: the beat types of every list in order, choice ids,
+  // option ids and cut flags, reaction lengths, ending keys, and action ids. Text edits keep it;
+  // added, removed or reordered beats change it.
+  function skeletonOf(list) {
+    if (!Array.isArray(list)) return "-";
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (!b || typeof b !== "object") {
+        out.push("?");
+        continue;
+      }
+      if (b.type === "choice") {
+        var opts = (Array.isArray(b.options) ? b.options : []).map(function (o) {
+          return o ? String(o.id) + (isCutOption(o) ? "!" : "") + "[" + skeletonOf(o.reaction) + "]" : "?";
+        });
+        out.push("choice:" + b.id + "(" + opts.join(",") + ")");
+      } else out.push(String(b.type));
+    }
+    return out.join(".");
+  }
+
+  function hashString(s) {
+    // FNV-1a, 32 bit.
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(36);
+  }
+
+  function fingerprint(routeOrId) {
+    if (routeOrId === "prologue") return "p" + hashString(skeletonOf((BHS.common && BHS.common.prologue) || []));
+    var route = getRoute(routeOrId);
+    if (!route) return null;
+    var parts = ["beats:" + skeletonOf(route.beats), "preface:" + skeletonOf(route.endingPreface)];
+    var ends = route.endings && typeof route.endings === "object" ? Object.keys(route.endings).sort() : [];
+    ends.forEach(function (k) {
+      var e = route.endings[k];
+      parts.push("ending " + k + ":" + skeletonOf(e && e.beats) + (e && e.last ? "+last" : ""));
+    });
+    parts.push("coda:" + skeletonOf(route.endingCoda));
+    parts.push(
+      "actions:" +
+        routeActions(route)
+          .map(function (a) {
+            return a && a.id;
+          })
+          .join(",")
+    );
+    return "r" + hashString(parts.join("|"));
+  }
+
+  // True when a snapshot can be resumed against the data loaded now. Anything else (version 1 saves
+  // from the 10-choice routes, saves from before a route edit, damaged objects) is refused.
+  function canRestore(saved) {
+    if (!saved || typeof saved !== "object" || saved.v !== STATE_VERSION) return false;
+    if (typeof saved.routeId !== "string" || !saved.routeId) return false;
+    if (saved.routeId !== "prologue" && !getRoute(saved.routeId)) return false;
+    if (!Array.isArray(saved.segs) || !Array.isArray(saved.stack) || typeof saved.seg !== "number") return false;
+    if (!saved.stage || typeof saved.stage !== "object" || !saved.step || typeof saved.step.kind !== "string") return false;
+    if (!saved.choices || typeof saved.choices !== "object") return false;
+    var fp = fingerprint(saved.routeId);
+    return !!fp && saved.fp === fp;
+  }
+
+  // ---------------------------------------------------------------------------
   // Game state machine
   // ---------------------------------------------------------------------------
 
@@ -5991,6 +4940,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return {
       v: STATE_VERSION,
       routeId: routeId,
+      fp: custom ? "custom" : fingerprint(routeId === "prologue" ? "prologue" : route),
       segs: segs,
       seg: 0,
       stack: [{ list: segs[0], i: 0 }],
@@ -5998,7 +4948,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       flags: {},
       vars: {},
       picks: [],
-      c10Lens: null,
+      lastLens: null,
+      cutAt: null,
       stage: {
         bg: null,
         caption: null,
@@ -6033,12 +4984,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     if (!this.route && routeId !== "prologue" && !this.custom) throw new Error("Unknown route: " + routeId);
     this.debug = !!opts.debug;
     if (opts.state) {
+      if (!canRestore(opts.state) || opts.state.routeId !== routeId) throw new Error("Incompatible saved state");
       this.state = clone(opts.state);
-      if (!this.state || this.state.v !== STATE_VERSION || this.state.routeId !== routeId) {
-        throw new Error("Incompatible saved state");
-      }
-      // A save from version 1.0 may sit on the removed final screen; move on to the end step.
-      if (this.state.step && this.state.step.kind === "final") this._run();
     } else {
       this.state = initialState(routeId, this.route, !!this.custom);
       this._run();
@@ -6058,7 +5005,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       choices: st.choices,
       flags: st.flags,
       vars: st.vars,
-      c10Lens: st.c10Lens,
+      lastLens: st.lastLens,
+      c10Lens: st.lastLens,
       debug: this.debug
     };
   };
@@ -6119,6 +5067,12 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     }
   };
 
+  // Inserts the ending sequence right after the current segment.
+  Game.prototype._queue = function (tail) {
+    var st = this.state;
+    Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
+  };
+
   Game.prototype._synthetic = function (seg) {
     var st = this.state;
     var route = this.route;
@@ -6129,13 +5083,17 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         return true;
       case "@ending": {
         var res = computeLens(route, st.choices);
+        // A cut pick always ends through the cut path (choose() normally queues it already).
+        if (res.cut) return this._synthetic("@cut");
         st.ending = {
           routeId: st.routeId,
+          id: st.routeId + "-" + res.lens,
           lens: res.lens,
+          cut: false,
           scores: res.scores,
-          c10Lens: res.c10Lens,
-          mismatch: res.mismatch,
-          id: st.routeId + "-" + res.lens
+          lastLens: res.lastLens,
+          c10Lens: res.lastLens,
+          mismatch: res.mismatch
         };
         var tail = [];
         var hasEnding = !!(route && route.endings && route.endings[String(res.lens)]);
@@ -6143,7 +5101,32 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         tail.push("endingPreface", "@title");
         if (hasEnding) tail.push("ending:" + res.lens, "@last");
         tail.push("endingCoda", "@end");
-        Array.prototype.splice.apply(st.segs, [st.seg + 1, 0].concat(tail));
+        this._queue(tail);
+        return false;
+      }
+      case "@cut": {
+        // The route was cut short: no lens scoring, no mismatch line, no endingPreface. The beats that
+        // would have closed the scene were skipped, so the protagonist leaves it here: the pinned
+        // thought goes, the light goes off, persistent actions hide. endings.cut beats may set them again.
+        st.stage.pinned = null;
+        st.stage.light = "off";
+        st.stage.actionsVisible = false;
+        var scored = computeLens(route, st.choices);
+        st.ending = {
+          routeId: st.routeId,
+          id: st.routeId + "-cut",
+          lens: null,
+          cut: true,
+          scores: scored.scores,
+          lastLens: null,
+          c10Lens: null,
+          mismatch: false,
+          cutAt: st.cutAt || null
+        };
+        var cutTail = ["@title"];
+        if (route && route.endings && route.endings.cut) cutTail.push("ending:cut", "@last");
+        cutTail.push("endingCoda", "@end");
+        this._queue(cutTail);
         return false;
       }
       case "@mismatch":
@@ -6152,15 +5135,30 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         this._setStep({ kind: "line", speaker: "narrator", text: BHS.common.mismatchLine, mismatch: true });
         return true;
       case "@title": {
-        var lens = st.ending.lens;
+        var ending = st.ending || {};
         this._castClear();
-        var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
         var titles = (meta.endings && meta.endings[st.routeId]) || {};
         st.at = { list: "@title", index: 0 };
+        if (ending.cut) {
+          var cutMeta = meta.cut || {};
+          this._setStep({
+            kind: "endingTitle",
+            routeId: st.routeId,
+            lens: null,
+            cut: true,
+            lensLabel: cutMeta.label || { ko: "", en: "" },
+            lensDesc: cutMeta.desc || null,
+            title: titles.cut || { ko: "", en: "" }
+          });
+          return true;
+        }
+        var lens = ending.lens;
+        var lensMeta = (meta.lenses && meta.lenses[lens]) || {};
         this._setStep({
           kind: "endingTitle",
           routeId: st.routeId,
           lens: lens,
+          cut: false,
           lensLabel: lensMeta.label || { ko: String(lens), en: String(lens) },
           lensDesc: lensMeta.desc || null,
           title: titles[lens] || { ko: "", en: "" }
@@ -6168,16 +5166,14 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         return true;
       }
       case "@last": {
-        var e = route.endings[String(st.ending.lens)];
+        var key = st.ending && st.ending.cut ? "cut" : String(st.ending && st.ending.lens);
+        var e = route && route.endings && route.endings[key];
         if (!e || !e.last) return false;
         st.at = { list: "@last", index: 0 };
         this._castClear();
         this._setStep({ kind: "last", text: e.last });
         return true;
       }
-      case "@final":
-        // Saves from version 1.0 still list "@final" (the removed final screen) before "@end": skip it.
-        return false;
       case "@end":
         this._setStep({ kind: "end" });
         st.done = true;
@@ -6390,6 +5386,18 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return true;
   };
 
+  // A cut option ends the route early: every list still open (the route's main beats) is exhausted,
+  // and the coming "@ending" segment becomes "@cut". The option's reaction is pushed afterwards, so it
+  // still plays. All of this lives in the state, so saving and resuming work across a cut.
+  Game.prototype._cutFrom = function (choiceId, optId) {
+    var st = this.state;
+    st.cutAt = { choice: choiceId, option: optId };
+    for (var i = 0; i < st.stack.length; i++) st.stack[i].i = this._list(st.stack[i].list).length;
+    var at = st.segs.indexOf("@ending", st.seg);
+    if (at >= 0) st.segs[at] = "@cut";
+    else st.segs.splice(st.seg + 1, 0, "@cut");
+  };
+
   Game.prototype.choose = function (optId) {
     var st = this.state;
     var step = st.step;
@@ -6399,12 +5407,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     if (!opt) return false;
     st.choices[step.id] = optId;
     st.picks.push(step.id);
-    if (step.id === "c10") st.c10Lens = normLens(opt.lens);
+    if (step.id === lastChoiceId(this.route)) st.lastLens = normLens(opt.lens);
     if (opt.set && typeof opt.set === "object") {
       Object.keys(opt.set).forEach(function (k) {
         st.flags[k] = opt.set[k];
       });
     }
+    if (isCutOption(opt)) this._cutFrom(step.id, optId);
     if (Array.isArray(opt.reaction) && opt.reaction.length) {
       st.stack.push({ list: "react:" + step.id + ":" + optId, i: 0 });
     }
@@ -6539,13 +5548,15 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   }
 
   var api = {
-    version: "1.0.0",
+    version: "3.0.0",
+    STATE_VERSION: STATE_VERSION,
     debug: false,
     warnings: warnings,
     LENSES: LENSES,
     PORTRAIT_IDS: PORTRAIT_IDS,
     getRoute: getRoute,
     choiceBeats: choiceBeats,
+    lastChoiceId: lastChoiceId,
     findChoice: findChoice,
     findOption: findOption,
     computeLens: computeLens,
@@ -6559,6 +5570,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     verseText: verseText,
     verseRef: verseRef,
     verseSpeaker: verseSpeaker,
+    fingerprint: fingerprint,
+    canRestore: canRestore,
     createGame: createGame,
     createSequence: createSequence,
     restoreGame: restoreGame,
@@ -9671,7 +8684,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var card = $("card");
     clear(card);
     card.hidden = true;
+    card.className = "card";
     card.removeAttribute("data-testid");
+    card.removeAttribute("data-cut");
     doc.body.classList.remove("is-last");
   }
 
@@ -9842,12 +8857,16 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
   }
 
   var LENS_NUM = { 1: "①", 2: "②", 3: "③" };
+  // The mark of a route that stopped midway (the cut column and the cut ending card).
+  var CUT_MARK = "…";
 
+  // Ending title card. A cut ending shows meta.cut.label over meta.endings[route].cut.
   function renderCard(step) {
     var card = $("card");
     clear(card);
     var ls = langs();
-    card.appendChild(h("span", { class: "card__num", "aria-hidden": "true" }, LENS_NUM[step.lens] || ""));
+    card.className = "card" + (step.cut ? " card--cut" : "");
+    card.appendChild(h("span", { class: "card__num", "aria-hidden": "true" }, step.cut ? CUT_MARK : LENS_NUM[step.lens] || ""));
     card.appendChild(h("p", { class: "card__lens" }, flat(step.lensLabel)));
     var title = h("h2", { class: "card__title" });
     if (ls.length === 1) title.appendChild(doc.createTextNode(pick(step.title, ls[0])));
@@ -9858,6 +8877,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     card.appendChild(title);
     card.appendChild(h("p", { class: "card__hint" }, flat(u("endingCardHint"))));
     card.setAttribute("data-testid", "ending-title");
+    card.setAttribute("data-cut", step.cut ? "true" : "false");
     card.setAttribute("aria-live", "polite");
     card.hidden = false;
   }
@@ -9972,47 +8992,82 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     page("routes-page", [h("h2", { class: "routes-prompt" }, bi(prompt)), o.notice ? h("p", { class: "notice", role: "status" }, bi(o.notice)) : null, h("div", { class: "routes-list" }, cards)]);
   }
 
+  // Endings gallery: rows = characters, columns = lenses 1-3 plus the "cut" column (SPEC 4.5).
+  // A cut cell unlocks with "<route>-cut". A route without a cut ending (Asher) shows its cutNote
+  // there once any of its endings has been seen: a note, not an ending (data-state="note").
+  var GALLERY_COLS = [1, 2, 3, "cut"];
+
+  function galleryCell(meta, rid, col, seen, current) {
+    var titles = (meta.endings && meta.endings[rid]) || {};
+    var id = rid + "-" + col;
+    var state = "locked";
+    var kids = null;
+    if (col === "cut" && !titles.cut) {
+      var seenAny = [1, 2, 3].some(function (l) {
+        return seen.indexOf(rid + "-" + l) >= 0;
+      });
+      if (titles.cutNote && seenAny) {
+        state = "note";
+        kids = bi(titles.cutNote);
+      } else if (!titles.cutNote) {
+        state = "none";
+        kids = ["—"];
+      }
+    } else if (seen.indexOf(id) >= 0 && titles[col]) {
+      state = "seen";
+      kids = bi(titles[col]);
+    }
+    var cell = h("div", {
+      class: "cell" + (col === "cut" ? " cell--cut" : "") + (state === "note" ? " cell--note" : ""),
+      role: "cell",
+      "data-testid": "gallery-cell-" + id,
+      "data-col": String(col),
+      "data-state": state,
+      "data-seen": state === "seen" ? "true" : "false",
+      "data-current": state === "seen" && current === id ? "true" : null
+    });
+    if (kids) append(cell, kids);
+    else append(cell, bi(u("galleryLocked")));
+    if (state === "seen" && current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
+    return cell;
+  }
+
   function renderGallery(o) {
     var meta = BHS.meta || {};
     var order = meta.routeOrder || ["scribe", "friend", "asher"];
-    var seen = o.seen || [];
+    var seen = (o.seen || []).filter(function (x) {
+      return typeof x === "string";
+    });
     var grid = h("div", { class: "grid", role: "table", "aria-label": flat(u("galleryTitle")) });
     grid.appendChild(h("div", { class: "grid__corner", role: "presentation" }));
-    [1, 2, 3].forEach(function (lens) {
-      var lm = (meta.lenses && meta.lenses[lens]) || { label: { ko: String(lens), en: String(lens) } };
-      grid.appendChild(h("div", { class: "grid__lens", role: "columnheader" }, [LENS_NUM[lens] + " ", bi(lm.label)]));
+    GALLERY_COLS.forEach(function (col) {
+      if (col === "cut") {
+        var cm = meta.cut || { label: u("galleryCut"), desc: null };
+        grid.appendChild(
+          h("div", { class: "grid__lens grid__lens--cut", role: "columnheader", "data-testid": "gallery-col-cut" }, [
+            h("span", { class: "grid__label" }, [h("span", { class: "grid__mark", "aria-hidden": "true" }, CUT_MARK + " "), bi(cm.label)]),
+            cm.desc ? h("span", { class: "grid__desc" }, bi(cm.desc)) : null
+          ])
+        );
+        return;
+      }
+      var lm = (meta.lenses && meta.lenses[col]) || { label: { ko: String(col), en: String(col) } };
+      grid.appendChild(h("div", { class: "grid__lens", role: "columnheader", "data-testid": "gallery-col-" + col }, h("span", { class: "grid__label" }, [LENS_NUM[col] + " ", bi(lm.label)])));
     });
     order.forEach(function (rid) {
       var r = (meta.routes && meta.routes[rid]) || {};
       var c = (BHS.characters && BHS.characters[r.protagonist]) || {};
       var nm = c.name || r.name || { ko: rid, en: rid };
-      grid.appendChild(h("div", { class: "grid__row", role: "rowheader", style: c.color ? "--plate:" + c.color : null }, [h("span", { class: "grid__swatch", "aria-hidden": "true" }), bi(nm)]));
-      [1, 2, 3].forEach(function (lens) {
-        var id = rid + "-" + lens;
-        var isSeen = seen.indexOf(id) >= 0;
-        var title = meta.endings && meta.endings[rid] && meta.endings[rid][lens];
-        var cell = h("div", {
-          class: "cell",
-          role: "cell",
-          "data-testid": "gallery-cell-" + rid + "-" + lens,
-          "data-seen": isSeen ? "true" : "false",
-          "data-current": o.current === id ? "true" : null
-        });
-        if (isSeen && title) {
-          append(cell, bi(title));
-          if (o.current === id) cell.appendChild(h("span", { class: "cell__yours" }, flat(u("galleryYours"))));
-        } else {
-          append(cell, bi(u("galleryLocked")));
-        }
-        grid.appendChild(cell);
+      grid.appendChild(h("div", { class: "grid__row", role: "rowheader", style: c.color ? "--plate:" + c.color : null }, [h("span", { class: "grid__swatch", "aria-hidden": "true" }), h("span", { class: "grid__name" }, bi(nm))]));
+      GALLERY_COLS.forEach(function (col) {
+        grid.appendChild(galleryCell(meta, rid, col, seen, o.current || null));
       });
     });
     var titleT = u("galleryTitle");
     var heading = h("h2", { class: "gallery-title" }, langs().length > 1 ? [titleT.ko, h("span", { class: "en", lang: "en" }, titleT.en)] : [pick(titleT, langs()[0])]);
     page("gallery-page", [
-      heading,
-      h("p", { class: "gallery-intro" }, bi(u("galleryIntro"))),
-      grid,
+      h("div", { class: "gallery-head" }, [heading, h("p", { class: "gallery-intro" }, bi(u("galleryIntro")))]),
+      h("div", { class: "grid-wrap" }, grid),
       h("div", { class: "gallery-actions" }, [btn("btn--primary", u("galleryReplay"), "gallery-replay", o.onReplay), btn("btn--ghost", u("galleryHome"), "gallery-home", o.onHome)])
     ]);
   }
@@ -10254,7 +9309,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     save: "bhs.v1.save",
     gallery: "bhs.v1.gallery"
   };
-  var SAVE_VERSION = 1;
+  // 2 = short routes (version 3). Every save carries the route fingerprint of BHS.engine; a save
+  // that no longer fits the loaded data (for example one from the 10-choice routes) is dropped silently.
+  var SAVE_VERSION = 2;
   var PLAY_SCREENS = { prologue: true, play: true, endingCard: true, ending: true };
 
   // ------------------------------------------------------------------ storage (never throws)
@@ -10359,12 +9416,14 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
 
   function persist() {
     if (!app.game) return;
+    var state = app.game.serialize();
     store.set(KEYS.save, {
       v: SAVE_VERSION,
       at: Date.now(),
       screen: app.screen,
-      routeId: app.game.state.routeId,
-      state: app.game.serialize()
+      routeId: state.routeId,
+      fp: state.fp,
+      state: state
     });
   }
 
@@ -10372,12 +9431,24 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     store.set(KEYS.save, { v: SAVE_VERSION, at: Date.now(), screen: "routeSelect", routeId: null, state: null });
   }
 
+  // A save is offered only when it fits the data loaded now (save format, state version, route
+  // fingerprint). Anything else is removed without a notice, so "Continue" never resumes a stale place.
   function loadSave() {
     var s = store.get(KEYS.save);
-    if (!s || s.v !== SAVE_VERSION) return null;
-    if (s.screen === "routeSelect") return s;
-    if (!s.state || !s.routeId) return null;
-    if (s.routeId !== "prologue" && !routeExists(s.routeId)) return null;
+    if (!s) return null;
+    var ok = false;
+    try {
+      if (s.v === SAVE_VERSION && s.screen === "routeSelect") ok = true;
+      else if (s.v === SAVE_VERSION && s.state && typeof s.routeId === "string" && s.state.routeId === s.routeId) {
+        ok = (s.routeId === "prologue" || routeExists(s.routeId)) && E.canRestore(s.state);
+      }
+    } catch (err) {
+      ok = false;
+    }
+    if (!ok) {
+      clearSave();
+      return null;
+    }
     return s;
   }
 
@@ -10385,6 +9456,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     store.del(KEYS.save);
   }
 
+  // Seen endings ("scribe-1" ... "friend-cut"). Ids from older releases stay valid; anything unknown
+  // is simply never matched by a gallery cell.
   function loadGallery() {
     var g = store.get(KEYS.gallery);
     return Array.isArray(g) ? g.filter(function (x) { return typeof x === "string"; }) : app.memGallery || [];
@@ -10883,6 +9956,8 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         projectedLens: lensNow ? lensNow.lens : null,
         flags: st ? st.flags : {},
         vars: st ? st.vars : {},
+        lastLens: st ? st.lastLens : null,
+        cut: st && st.ending ? !!st.ending.cut : st && st.cutAt ? true : null,
         lens: st && st.ending ? st.ending.lens : null,
         ending: st && st.ending ? st.ending.id : app.lastEnding,
         mismatch: st && st.ending ? st.ending.mismatch : null,
@@ -10919,6 +9994,13 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     return (BHS.meta && BHS.meta.routeOrder && BHS.meta.routeOrder[0]) || "scribe";
   }
 
+  function isCutPick(rid, cid, optId) {
+    var opt = E.findOption(E.findChoice(E.getRoute(rid), cid), optId);
+    return !!(opt && opt.cut === true);
+  }
+
+  // Replays the route up to choice `cid`, keeping earlier picks; a cut option on the way is replaced
+  // by the first option that does not end the route.
   function jumpTo(cid, routeId) {
     var rid = routeId || currentRouteId();
     if (!routeExists(rid)) return;
@@ -10929,7 +10011,9 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
         return s.kind === "choice" && s.id === cid;
       },
       pick: function (s) {
-        return prev[s.id] || s.options[0].id;
+        if (prev[s.id] && !isCutPick(rid, s.id, prev[s.id])) return prev[s.id];
+        for (var i = 0; i < s.options.length; i++) if (!isCutPick(rid, s.id, s.options[i].id)) return s.options[i].id;
+        return s.options[0].id;
       }
     });
     app.game = g;
@@ -10998,7 +10082,7 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
     var info = [
       "screen " + s.screen + "  route " + (s.routeId || "-") + "  " + (s.list || "-") + "#" + (s.beatIndex == null ? "-" : s.beatIndex) + "  step " + (s.step || "-") + (s.stepId ? " " + s.stepId : ""),
       "choices " + JSON.stringify(s.choices),
-      "scores " + JSON.stringify(s.scores) + "  projected " + (s.projectedLens || "-") + "  lens " + (s.lens || "-"),
+      "scores " + JSON.stringify(s.scores) + "  projected " + (s.projectedLens || "-") + "  lens " + (s.lens || "-") + (s.cut ? "  (cut)" : ""),
       "flags " + JSON.stringify(s.flags) + "  vars " + JSON.stringify(s.vars),
       "light " + s.light + "  pov " + s.pov,
       E.warnings.length ? "warnings: " + E.warnings.slice(-3).join(" | ") : ""
@@ -11009,7 +10093,10 @@ html, body { height: 100%; margin: 0; background: #1f1d1a; }
       box.appendChild(h("button", { type: "button", disabled: routeExists(rid) ? null : true, on: { click: function () { startRoute(rid); } } }, rid));
     });
     var sel = h("select", { "aria-label": dbg("debugJump"), "data-testid": "debug-select" });
-    for (var i = 1; i <= 10; i++) sel.appendChild(h("option", { value: "c" + i }, "c" + i));
+    var jumpRoute = currentRouteId();
+    E.choiceBeats(routeExists(jumpRoute) ? E.getRoute(jumpRoute) : null).forEach(function (cb) {
+      sel.appendChild(h("option", { value: cb.id }, cb.id));
+    });
     box.appendChild(sel);
     box.appendChild(h("button", { type: "button", "data-testid": "debug-jump", on: { click: function () { jumpTo(sel.value); } } }, dbg("debugJump")));
     box.appendChild(h("button", { type: "button", "data-testid": "debug-autopick", on: { click: autoPick } }, dbg("debugAutoPick")));
