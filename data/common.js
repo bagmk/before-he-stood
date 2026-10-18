@@ -5,23 +5,21 @@
   BHS.common = {
     prologue: [
       { type: "scene", bg: "black" },
-      { type: "line", speaker: "sign", text: { ko: "― 두루마리 펴는 소리 ―", en: "— a scroll unrolling —" } },
-      { type: "line", speaker: "sign", text: { ko: "― 돌길 위 발소리 ―", en: "— footsteps on a stone lane —" } },
-      { type: "line", speaker: "sign", text: { ko: "― 바닥에 끌리는 침상 ―", en: "— a bed scraping across the floor —" } },
+      {
+        type: "line",
+        speaker: "sign",
+        text: {
+          ko: "― 두루마리 펴는 소리. 돌길 위 발소리. 바닥에 끌리는 침상. ―",
+          en: "— A scroll unrolling. Footsteps on a stone lane. A bed scraping the floor. —"
+        }
+      },
       { type: "scene", bg: "shore_dawn", caption: { ko: "갈릴리 바다 · 가버나움", en: "Sea of Galilee · Capernaum" } },
       { type: "line", text: { ko: "가버나움. 예수라는 사람이 배를 타고 돌아온다.", en: "Capernaum. A man named Jesus is coming back by boat." } },
       {
         type: "line",
         text: {
-          ko: "바다 위 폭풍이 그의 말 한마디에 잠잠해졌다는 소문이 그보다 먼저 도착했다.",
-          en: "A rumor got here before he did: a storm on the sea went still at a single word from him."
-        }
-      },
-      {
-        type: "line",
-        text: {
-          ko: "건너편 마을에서 귀신들이 쫓겨났다는 소문도 함께.",
-          en: "Another rumor came with it: across the lake, demons were driven out."
+          ko: "폭풍이 그의 말 한마디에 잠잠해졌다는 소문이 그보다 먼저 도착했다.",
+          en: "A rumor got here before he did: a storm went still at a single word from him."
         }
       },
       {
@@ -37,10 +35,10 @@
       prompt: { ko: "누구의 눈으로 이 하루를 보겠습니까?", en: "Through whose eyes will you see this day?" }
     },
 
-    // Shown before the ending when the ending lens differs from the lens of the c10 pick.
+    // Shown before the ending when the ending lens differs from the lens of the last (double-weight) pick.
     mismatchLine: {
-      ko: "마지막 말은 다른 데로 가려 했다. 그런데 하루 종일 네 눈이 머문 곳은 따로 있었다.",
-      en: "Your last words leaned one way. But all day, your eyes kept resting somewhere else."
+      ko: "마지막 말은 다른 데로 가려 했다. 그런데 네 눈이 계속 머문 곳은 따로 있었다.",
+      en: "Your last words leaned one way. But your eyes kept resting somewhere else."
     }
   };
 })();

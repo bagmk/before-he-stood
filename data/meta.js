@@ -84,22 +84,32 @@
       }
     },
 
+    // The fourth gallery column: routes that stop midway (SPEC v3 §3).
+    cut: {
+      label: { ko: "중간에 끝남", en: "Cut short" },
+      desc: { ko: "끝까지 가지 않은 길", en: "a path that stopped midway" }
+    },
+
     // Canonical ending titles. Route files must not redefine these.
     endings: {
       scribe: {
         1: { ko: "누가 말했는가", en: "Who Spoke" },
         2: { ko: "다시 읽는 시편", en: "The Psalm, Read Again" },
-        3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" }
+        3: { ko: "침상을 든 뒷모습", en: "A Man Carrying His Bed" },
+        cut: { ko: "끝까지 듣지 않은 사람", en: "The One Who Left Early" }
       },
       friend: {
         1: { ko: "우리가 구했던 것보다", en: "More Than We Asked For" },
         2: { ko: "첫마디도 기억한다", en: "I Remember the First Words" },
-        3: { ko: "집까지 같이", en: "All the Way Home" }
+        3: { ko: "집까지 같이", en: "All the Way Home" },
+        cut: { ko: "멀리서 들은 사람", en: "Heard from Afar" }
       },
       asher: {
         1: { ko: "그분은 누구신가", en: "Who Is He?" },
         2: { ko: "나에게 하신 말씀", en: "Words Spoken to Me" },
-        3: { ko: "집으로", en: "Home" }
+        3: { ko: "집으로", en: "Home" },
+        // Asher has no cut ending by design: he cannot walk away. Shown in the gallery once his route is finished.
+        cutNote: { ko: "없음 · 아셀은 걸어서 떠날 수 없었다", en: "None · Asher couldn't walk away" }
       }
     }
   };
